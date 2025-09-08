@@ -5,7 +5,7 @@ import Box from './Box'
 const Test = () => {
   return (
     <div className="p-8 space-y-6">
-      <h1 className="text-3xl font-bold mb-8">Frontend 컴포넌트 테스트</h1>
+      <h1 className="text-3xl font-bold mb-8">컴포넌트 테스트</h1>
       
       {/* Button 테스트 */}
       <Box>
