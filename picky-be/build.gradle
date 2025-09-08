@@ -30,9 +30,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
-    implementation 'org.springframework.ai:spring-ai-advisors-vector-store'
-    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-    implementation 'org.springframework.ai:spring-ai-starter-vector-store-qdrant'
     implementation 'org.springframework.session:spring-session-data-mongodb'
     implementation 'org.springframework.session:spring-session-data-redis'
     implementation 'org.projectlombok:lombok'
@@ -44,11 +41,6 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
-    }
-}
 
 tasks.named('test') {
     useJUnitPlatform()
