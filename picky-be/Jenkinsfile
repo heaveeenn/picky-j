@@ -31,8 +31,9 @@ pipeline {
                  dir('picky-be') {
                       withCredentials([file(credentialsId: 'env_secretfile_credential', variable: 'ENV_FILE')]) {
                         sh '''
-                          docker compose --env-file "$ENV_FILE" down || true
-                          docker compose --env-file "$ENV_FILE" up -d --build
+                          cp $ENV_FILE .env
+                          docker compose down || true
+                          docker compose up -d --build
                         '''
                       }
                  }
