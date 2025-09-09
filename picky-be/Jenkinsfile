@@ -1,10 +1,6 @@
 pipeline {
     agent any   // Jenkins 어느 노드에서든 실행
 
-    environment {
-           SPRING_PROFILES_ACTIVE = 'dev'
-     }
-
     stages {
         stage('Checkout') {
             steps {
@@ -26,13 +22,19 @@ pipeline {
         }
 
         stage('Deploy') {
+            when {
+                branch 'master'
+            }
             steps {
                 echo 'Deploy with Docker Compose'
                  dir('picky-be') {
                       withCredentials([file(credentialsId: 'env_secretfile_credential', variable: 'ENV_FILE')]) {
                         sh '''
-                          docker compose --env-file "$ENV_FILE" down || true
-                          docker compose --env-file "$ENV_FILE" up -d --build
+                             set -eu
+                             cp "$ENV_FILE" .env
+                             chmod 600 .env
+                             docker compose down
+                             docker compose up -d --build
                         '''
                       }
                  }
