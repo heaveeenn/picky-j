@@ -1,0 +1,42 @@
+pipeline {
+    agent any   // Jenkins 어느 노드에서든 실행
+
+    environment {
+           SPRING_PROFILES_ACTIVE = 'dev'
+     }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Cloning Repository'
+                // GitLab master 브랜치 소스 코드 가져오기
+                git branch: 'master',
+                    url: 'https://lab.ssafy.com/s13-bigdata-recom-sub1/S13P21C102.git',
+                    credentialsId: 'credential_002seojin'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('picky-be') {
+                    echo 'Building Spring Boot JAR'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploy with Docker Compose'
+                 dir('picky-be') {
+                      withCredentials([file(credentialsId: 'env_secretfile_credential', variable: 'ENV_FILE')]) {
+                        sh '''
+                          docker compose --env-file "$ENV_FILE" down || true
+                          docker compose --env-file "$ENV_FILE" up -d --build
+                        '''
+                      }
+                 }
+            }
+        }
+    }
+}
