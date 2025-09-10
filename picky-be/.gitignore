@@ -2,7 +2,6 @@ HELP.md
 .yaml
 .gradle
 .env
-.env.local
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
