@@ -10,17 +10,44 @@ const categoryWiseSites = {
     { name: 'GitHub', visits: 2340, category: '개발', change: '+12%' },
     { name: 'Stack Overflow', visits: 1890, category: '개발', change: '+8%' },
     { name: 'Medium', visits: 1560, category: '뉴스', change: '+15%' },
+    { name: 'YouTube', visits: 1100, category: '교육', change: '+22%' },
+    { name: 'LinkedIn', visits: 980, category: '비즈니스', change: '-3%' },
   ],
   '개발': [
     { name: 'GitHub', visits: 2340, category: '개발', change: '+12%' },
     { name: 'Stack Overflow', visits: 1890, category: '개발', change: '+8%' },
     { name: 'Dev.to', visits: 1650, category: '개발', change: '+18%' },
+    { name: 'LeetCode', visits: 1420, category: '개발', change: '+25%' },
+    { name: 'CodePen', visits: 1180, category: '개발', change: '+14%' }
   ],
   '디자인': [
     { name: 'Figma', visits: 1230, category: '디자인', change: '+5%' },
     { name: 'Dribbble', visits: 1150, category: '디자인', change: '+7%' },
     { name: 'Behance', visits: 980, category: '디자인', change: '+12%' },
+    { name: 'Adobe Creative Cloud', visits: 890, category: '디자인', change: '+9%' },
+    { name: 'Sketch', visits: 720, category: '디자인', change: '+3%' }
   ],
+  '뉴스': [
+    { name: 'Medium', visits: 1560, category: '뉴스', change: '+15%' },
+    { name: 'TechCrunch', visits: 1340, category: '뉴스', change: '+11%' },
+    { name: 'Hacker News', visits: 1200, category: '뉴스', change: '+20%' },
+    { name: 'The Verge', visits: 980, category: '뉴스', change: '+8%' },
+    { name: 'Wired', visits: 850, category: '뉴스', change: '+6%' }
+  ],
+  '교육': [
+    { name: 'YouTube', visits: 1100, category: '교육', change: '+22%' },
+    { name: 'Coursera', visits: 980, category: '교육', change: '+16%' },
+    { name: 'Udemy', visits: 920, category: '교육', change: '+19%' },
+    { name: 'Khan Academy', visits: 780, category: '교육', change: '+12%' },
+    { name: 'edX', visits: 650, category: '교육', change: '+14%' }
+  ],
+  '비즈니스': [
+    { name: 'LinkedIn', visits: 980, category: '비즈니스', change: '-3%' },
+    { name: 'Notion', visits: 890, category: '비즈니스', change: '+18%' },
+    { name: 'Slack', visits: 820, category: '비즈니스', change: '+12%' },
+    { name: 'Trello', visits: 750, category: '비즈니스', change: '+8%' },
+    { name: 'Asana', visits: 680, category: '비즈니스', change: '+15%' }
+  ]
 };
 
 const categoryDistribution = [
@@ -53,6 +80,14 @@ const communityInsights = [
     description: '매일 다양한 사이트 방문',
     icon: Globe,
   }
+];
+
+const trendingTopics = [
+  { rank: 1, topic: 'AI 및 머신러닝', growth: '+45%', category: '기술' },
+  { rank: 2, topic: 'React 19 업데이트', growth: '+38%', category: '개발' },
+  { rank: 3, topic: 'UI/UX 트렌드 2024', growth: '+32%', category: '디자인' },
+  { rank: 4, topic: 'TypeScript 베스트 프랙티스', growth: '+28%', category: '개발' },
+  { rank: 5, topic: '웹 접근성 가이드라인', growth: '+25%', category: '웹표준' }
 ];
 
 const CommunityTrends = () => {
@@ -88,7 +123,7 @@ const CommunityTrends = () => {
       </div>
 
       <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-purple-600" />카테고리별 인기 사이트 TOP 3</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-purple-600" />카테고리별 인기 사이트 TOP 5</h3>
         <div className="flex space-x-2 border-b mb-4">
           {Object.keys(categoryWiseSites).map(category => (
             <Button 
@@ -125,7 +160,7 @@ const CommunityTrends = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={categoryDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}>
+              <Pie data={categoryDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                 {categoryDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
               </Pie>
             </PieChart>
@@ -133,12 +168,48 @@ const CommunityTrends = () => {
           <div className="space-y-2">
             {categoryDistribution.map((category, index) => (
               <div key={index} className="flex items-center">
-                <Badge style={{ backgroundColor: category.color, color: 'white' }}>
+                <span style={{ backgroundColor: category.color, color: 'white' }} className="rounded-full px-2 py-1 text-xs text-white">
                   {category.name}
-                </Badge>
+                </span>
               </div>
             ))}
           </div>
+        </div>
+      </Box>
+
+      <Box>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <TrendingUp className="w-5 h-5 mr-2 text-purple-600" />
+          이번 주 트렌딩 토픽
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {trendingTopics.map((topic, index) => (
+            <div key={index} className="text-center p-5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mx-auto mb-4">
+                {topic.rank}
+              </div>
+              <h4 className="text-gray-800 mb-3 text-sm leading-tight">
+                {topic.topic}
+              </h4>
+              <Badge variant="default" className="mb-3"> {/* Using default badge for now */}
+                {topic.category}
+              </Badge>
+              <p className="text-sm text-purple-600">{topic.growth}</p>
+            </div>
+          ))}
+        </div>
+      </Box>
+
+      <Box>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">추천 커뮤니티</h3>
+        <p className="text-gray-600 mb-6">
+          비슷한 관심사를 가진 사용자들이 자주 방문하는 커뮤니티를 확인해보세요
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Badge variant="default" className="px-3 py-1">Reddit - WebDev</Badge>
+          <Badge variant="default" className="px-3 py-1">Discord - Design Community</Badge>
+          <Badge variant="default" className="px-3 py-1">Slack - Frontend Developers</Badge>
+          <Badge variant="default" className="px-3 py-1">Notion - UX Researchers</Badge>
         </div>
       </Box>
     </div>

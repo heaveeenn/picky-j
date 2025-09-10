@@ -81,7 +81,7 @@ const NewsFeed = () => {
       </Box>
 
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">개인화된 뉴스 피드</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">추천 뉴스 피드</h2>
         <div className="space-y-4">
           {newsData.map((news) => (
             <Box key={news.id} className="p-0 hover:shadow-md transition-shadow">

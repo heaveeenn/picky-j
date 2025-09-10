@@ -2,7 +2,7 @@ import Box from '../components/Box';
 import Badge from '../components/Badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-import { Globe, Clock, TrendingUp } from 'lucide-react';
+import { Globe, Clock, TrendingUp, Users } from 'lucide-react';
 
 const mockData = {
   todayStats: [
@@ -113,6 +113,41 @@ const ActivityReport = () => {
           </div>
         </Box>
       </div>
+    <Box>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <Users className="w-5 h-5 mr-2 text-purple-600" />
+          평균 대비 내 활동
+        </h3>
+        <div className="space-y-6">
+          <div>
+            <div className="flex justify-between text-sm mb-3">
+              <span className="text-gray-600">일일 브라우징 시간</span>
+              <span className="text-gray-600">평균보다 <span className="text-purple-600">15% 많음</span></span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-sm mb-3">
+              <span className="text-gray-600">일일 방문 사이트</span>
+              <span className="text-gray-600">평균보다 <span className="text-purple-600">12% 많음</span></span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-sm mb-3">
+              <span className="text-gray-600">스크랩 활동</span>
+              <span className="text-gray-600">평균보다 <span className="text-purple-600">23% 많음</span></span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '73%' }}></div>
+            </div>
+          </div>
+        </div>
+      </Box>
     </div>
   );
 }

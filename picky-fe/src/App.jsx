@@ -6,8 +6,8 @@ import MyPage from './pages/MyPage';
 import ActivityReport from './pages/ActivityReport';
 import NewsFeed from './pages/NewsFeed';
 import CommunityTrends from './pages/CommunityTrends';
-
 import QuizTab from './pages/QuizTab';
+import { IntroPage } from './pages/IntroPage'; // Import IntroPage
 
 
 const tabs = {
@@ -20,6 +20,11 @@ const tabs = {
 const App = () => {
   const [activeTab, setActiveTab] = useState('report');
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'mypage'
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
+
+  if (!isLoggedIn) {
+    return <IntroPage onLogin={() => setIsLoggedIn(true)} />;
+  }
 
   if (currentView === 'mypage') {
     return <MyPage onClose={() => setCurrentView('dashboard')} />;

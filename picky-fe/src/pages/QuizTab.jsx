@@ -77,14 +77,7 @@ const QuizTab = () => {
     setQuizData(prev => prev.map(quiz => quiz.id === id ? { ...quiz, isScraped: !quiz.isScraped } : quiz));
   };
 
-  const getDifficultyVariant = (difficulty) => {
-    switch (difficulty) {
-      case '초급': return 'success';
-      case '중급': return 'warning';
-      case '고급': return 'danger';
-      default: return 'default';
-    }
-  };
+  
 
   return (
     <div className="space-y-6">
@@ -138,7 +131,7 @@ const QuizTab = () => {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">오늘의 퀴즈</h3>
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
-            <Badge variant={getDifficultyVariant(currentQuiz.difficulty)}>{currentQuiz.difficulty}</Badge>
+            <Badge>{currentQuiz.category}</Badge>
             <Button variant="ghost" size="sm" onClick={() => toggleScrap(currentQuiz.id)} className={currentQuiz.isScraped ? 'text-yellow-500' : 'text-gray-400'}>
               <Bookmark className={`w-4 h-4 ${currentQuiz.isScraped ? 'fill-current' : ''}`} />
             </Button>

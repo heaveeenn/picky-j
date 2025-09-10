@@ -41,6 +41,8 @@ const MyPage = ({ onClose }) => {
   const [newExcludedSite, setNewExcludedSite] = useState("");
   const [newsSearchQuery, setNewsSearchQuery] = useState('');
   const [quizSearchQuery, setQuizSearchQuery] = useState('');
+  const [selectedNewsCategory, setSelectedNewsCategory] = useState('all'); // New state for news category filter
+  const [selectedQuizCategory, setSelectedQuizCategory] = useState('all'); // New state for quiz category filter
 
   const handleCategoryChange = (categoryId) => {
     setCategories(prev =>
@@ -61,17 +63,21 @@ const MyPage = ({ onClose }) => {
     setExcludedSites(prev => prev.filter(site => site !== siteToRemove));
   };
 
-  const filteredNews = mockScrapedNews.filter(news =>
-    news.title.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
-    news.category.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
-    news.source.toLowerCase().includes(newsSearchQuery.toLowerCase())
-  );
+  const filteredNews = mockScrapedNews.filter(news => {
+    const matchesSearch = news.title.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
+                          news.category.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
+                          news.source.toLowerCase().includes(newsSearchQuery.toLowerCase());
+    const matchesCategory = selectedNewsCategory === 'all' || news.category.toLowerCase() === selectedNewsCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
 
-  const filteredQuizzes = mockScrapedQuizzes.filter(quiz =>
-    quiz.question.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
-    quiz.category.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
-    quiz.difficulty.toLowerCase().includes(quizSearchQuery.toLowerCase())
-  );
+  const filteredQuizzes = mockScrapedQuizzes.filter(quiz => {
+    const matchesSearch = quiz.question.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
+                          quiz.category.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
+                          quiz.difficulty.toLowerCase().includes(quizSearchQuery.toLowerCase());
+    const matchesCategory = selectedQuizCategory === 'all' || quiz.category.toLowerCase() === selectedQuizCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -155,13 +161,25 @@ const MyPage = ({ onClose }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
              <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bookmark className="w-5 h-5 mr-2 text-purple-600" />스크랩한 뉴스</h3>
-              <input
-                type="text"
-                placeholder="뉴스 검색..."
-                value={newsSearchQuery}
-                onChange={(e) => setNewsSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"
-              />
+              <div className="flex space-x-2 mb-4"> {/* Added a div to contain search and select */}
+                <input
+                  type="text"
+                  placeholder="뉴스 검색..."
+                  value={newsSearchQuery}
+                  onChange={(e) => setNewsSearchQuery(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md" // flex-1 to take available space
+                />
+                <select
+                  value={selectedNewsCategory}
+                  onChange={(e) => setSelectedNewsCategory(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="all">모든 카테고리</option>
+                  {initialCategories.map(cat => (
+                    <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-3">
                 {filteredNews.length > 0 ? (
                   filteredNews.map(news => (
@@ -177,13 +195,25 @@ const MyPage = ({ onClose }) => {
             </Box>
             <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Brain className="w-5 h-5 mr-2 text-blue-600" />스크랩한 퀴즈</h3>
-              <input
-                type="text"
-                placeholder="퀴즈 검색..."
-                value={quizSearchQuery}
-                onChange={(e) => setQuizSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"
-              />
+              <div className="flex space-x-2 mb-4"> {/* Added a div to contain search and select */}
+                <input
+                  type="text"
+                  placeholder="퀴즈 검색..."
+                  value={quizSearchQuery}
+                  onChange={(e) => setQuizSearchQuery(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md" // flex-1 to take available space
+                />
+                <select
+                  value={selectedQuizCategory}
+                  onChange={(e) => setSelectedQuizCategory(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="all">모든 카테고리</option>
+                  {initialCategories.map(cat => (
+                    <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-3">
                 {filteredQuizzes.length > 0 ? (
                   filteredQuizzes.map(quiz => (
