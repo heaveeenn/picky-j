@@ -3,31 +3,27 @@ package com.c102.picky.global.security.jwt;
 import com.c102.picky.global.exception.ErrorCode;
 import com.c102.picky.global.exception.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
-public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
-    private final ObjectMapper om = new ObjectMapper();
     private final ObjectMapper objectMapper;
 
-    /** 401 인증 실패(토큰 없음/만료/위조) */
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
-
+    public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) {
         try {
-            ErrorCode code = (ErrorCode) request.getAttribute("errorCode");
-            if (code == null) code = ErrorCode.INVALID_TOKEN;
+            ErrorCode code = ErrorCode.INVALID_TOKEN;
+
+            // 403은 ACCESS_DENIED
+            code = ErrorCode.ACCESS_DENIED;
 
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setStatus(code.getStatus().value());
@@ -35,6 +31,5 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             var body = ErrorResponse.of(code, request.getRequestURI(), null);
             objectMapper.writeValue(response.getWriter(), body);
         } catch (Exception ignore) {}
-
     }
 }

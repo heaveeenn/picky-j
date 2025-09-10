@@ -13,7 +13,13 @@ public enum ErrorCode {
     INVALID_TOKEN("INVALID_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다."),
     TOKEN_EXPIRED("TOKEN_EXPIRED", HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."),
     VALIDATION_FAILED("VALIDATION_FAILED", HttpStatus.BAD_REQUEST, "입력값 검증에 실패했습니다."),
-    INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
+    INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
+    ACCESS_DENIED("ACCESS_DENIED", HttpStatus.FORBIDDEN, "권한이 없습니다."),
+    
+    // Google OAuth2 관련 에러
+    INVALID_GOOGLE_TOKEN("INVALID_GOOGLE_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 구글 토큰입니다."),
+    GOOGLE_TOKEN_VERIFICATION_FAILED("GOOGLE_TOKEN_VERIFICATION_FAILED", HttpStatus.UNAUTHORIZED, "구글 토큰 검증에 실패했습니다."),
+    INVALID_REFRESH_TOKEN("INVALID_REFRESH_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다.");
 
     //
     // 필요한 에러 코드 계속 추가

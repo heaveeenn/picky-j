@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Picky Authentication API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        pre { margin: 0; white-space: pre-wrap; }
+    </style>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Picky Authentication API Test</h1>
+
+    <!-- Google 로그인 테스트 -->
+    <div class="test-section">
+        <h3>1. Google 로그인 테스트</h3>
+        <p>실제 Google 로그인을 위해서는 Google One Tap을 사용하거나 아래에 직접 ID Token을 입력하세요.</p>
+
+        <!-- Google One Tap 버튼 -->
+        <div data-callback="handleCredentialResponse"
+             data-client_id="89436861621-nkkljkj1to3m7j2dl3v4kde6pja9s5p7.apps.googleusercontent.com"
+             id="g_id_onload">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
+
+        <br><br>
+        <label>또는 직접 Google ID Token 입력:</label>
+        <input id="googleToken" placeholder="Google ID Token을 입력하세요" type="text">
+        <button onclick="testGoogleLogin()">Google 로그인 테스트</button>
+        <div class="response" id="loginResponse"></div>
+    </div>
+
+    <!-- 리프레시 토큰 테스트 -->
+    <div class="test-section">
+        <h3>2. 리프레시 토큰 테스트</h3>
+        <input id="refreshToken" placeholder="Refresh Token을 입력하세요" type="text">
+        <button onclick="testRefreshToken()">토큰 갱신 테스트</button>
+        <div class="response" id="refreshResponse"></div>
+    </div>
+
+    <!-- 로그아웃 테스트 -->
+    <div class="test-section">
+        <h3>3. 로그아웃 테스트</h3>
+        <button onclick="testLogout()">로그아웃 테스트</button>
+        <div class="response" id="logoutResponse"></div>
+    </div>
+
+    <!-- 저장된 토큰 정보 -->
+    <div class="test-section">
+        <h3>4. 저장된 토큰 정보</h3>
+        <button onclick="showStoredTokens()">저장된 토큰 보기</button>
+        <button onclick="clearTokens()">토큰 클리어</button>
+        <div class="response" id="tokenInfo"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080';
+
+    // Google One Tap 콜백 함수
+    function handleCredentialResponse(response) {
+        console.log("Encoded JWT ID token: " + response.credential);
+        document.getElementById('googleToken').value = response.credential;
+        testGoogleLogin();
+    }
+
+    // Google 로그인 테스트
+    async function testGoogleLogin() {
+        const token = document.getElementById('googleToken').value;
+        const responseDiv = document.getElementById('loginResponse');
+
+        if (!token) {
+            showResponse(responseDiv, { error: 'Google ID Token을 입력해주세요.' }, false);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/google/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ idToken: token })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 토큰 저장
+                localStorage.setItem('accessToken', data.data.accessToken);
+                localStorage.setItem('refreshToken', data.data.refreshToken);
+                document.getElementById('refreshToken').value = data.data.refreshToken;
+            }
+
+            showResponse(responseDiv, data, response.ok);
+        } catch (error) {
+            showResponse(responseDiv, { error: error.message }, false);
+        }
+    }
+
+    // 리프레시 토큰 테스트
+    async function testRefreshToken() {
+        const token = document.getElementById('refreshToken').value || localStorage.getItem('refreshToken');
+        const responseDiv = document.getElementById('refreshResponse');
+
+        if (!token) {
+            showResponse(responseDiv, { error: 'Refresh Token을 입력해주세요.' }, false);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refreshToken: token })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 새 토큰 저장
+                localStorage.setItem('accessToken', data.data.accessToken);
+                localStorage.setItem('refreshToken', data.data.refreshToken);
+            }
+
+            showResponse(responseDiv, data, response.ok);
+        } catch (error) {
+            showResponse(responseDiv, { error: error.message }, false);
+        }
+    }
+
+    // 로그아웃 테스트
+    async function testLogout() {
+        const responseDiv = document.getElementById('logoutResponse');
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // 저장된 토큰 제거
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                document.getElementById('refreshToken').value = '';
+            }
+
+            showResponse(responseDiv, data, response.ok);
+        } catch (error) {
+            showResponse(responseDiv, { error: error.message }, false);
+        }
+    }
+
+    // 저장된 토큰 정보 보기
+    function showStoredTokens() {
+        const responseDiv = document.getElementById('tokenInfo');
+        const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        const tokenInfo = {
+            accessToken: accessToken ? accessToken.substring(0, 50) + '...' : 'None',
+            refreshToken: refreshToken ? refreshToken.substring(0, 50) + '...' : 'None',
+            fullAccessToken: accessToken,
+            fullRefreshToken: refreshToken
+        };
+
+        showResponse(responseDiv, tokenInfo, true);
+    }
+
+    // 토큰 클리어
+    function clearTokens() {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        document.getElementById('refreshToken').value = '';
+        document.getElementById('googleToken').value = '';
+        document.getElementById('tokenInfo').innerHTML = '';
+        alert('토큰이 클리어되었습니다.');
+    }
+
+    // 응답 표시 헬퍼 함수
+    function showResponse(element, data, isSuccess) {
+        element.className = `response ${isSuccess ? 'success' : 'error'}`;
+        element.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+
+    // 페이지 로드 시 저장된 토큰 확인
+    window.onload = function() {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+            document.getElementById('refreshToken').value = refreshToken;
+        }
+    };
+</script>
+</body>
+</html>

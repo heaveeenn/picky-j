@@ -63,6 +63,14 @@ public class CookieUtil {
         response.addHeader("Set-Cookie", builder.build().toString());
     }
 
+    public static jakarta.servlet.http.Cookie createSecureCookie(String name, String value, int maxAge) {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(name, value);
+        cookie.setPath("/");
+        cookie.setHttpOnly(true);
+        cookie.setMaxAge(maxAge);
+        return cookie;
+    }
+
     private static String emptyToNull(String s) {
         return (s == null || s.isBlank()) ? null : s;
     }
