@@ -16,7 +16,7 @@ const dataSender = new DataSender();
 const userSession = new UserSession();
 
 // content.js와 popup에서 온 메시지 처리
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log("📨 메시지 받음:", message);
 
   // 브라우징 데이터 처리 (content.js에서)
@@ -25,6 +25,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!userSession.isUserAuthenticated()) {
       console.log("⚠️ 사용자 미인증 - 데이터 수집 중단");
       sendResponse({ success: false, reason: "Not authenticated" });
+      return;
+    }
+
+    // 토글 상태 확인 (Chrome Storage에서)
+    const trackingStatus = await chrome.storage.sync.get(["trackingEnabled"]);
+    const isTrackingEnabled = trackingStatus.trackingEnabled !== false;
+    
+    if (!isTrackingEnabled) {
+      console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
+      sendResponse({ success: false, reason: "Tracking disabled" });
       return;
     }
 

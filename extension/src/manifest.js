@@ -14,7 +14,7 @@ export default defineManifest({
     128: "public/logo.svg",
   },
 
-  permissions: ["activeTab", "storage", "identity", "identity.email"],
+  permissions: ["activeTab", "storage", "identity", "identity.email", "history"],
 
   host_permissions: ["http://localhost:8000/*", "http://localhost:8080/*"],
 

@@ -5,7 +5,12 @@
  * - 체류시간 (timeSpent)
  * - 스크롤깊이 (scrollDepth) 
  * - 활성상태 (isActive)
+ * - Readability.js 기반 콘텐츠 정제
+ * - 한국시간 기반 타임스탬프
+ * - 페이지 메타데이터
  */
+
+import { Readability } from '@mozilla/readability';
 
 export class DataCollector {
   constructor() {
@@ -68,22 +73,197 @@ export class DataCollector {
   }
 
   /**
+   * 한국시간(KST) 타임스탬프 생성
+   */
+  getKSTTimestamp() {
+    const now = new Date();
+    const kstOffset = 9 * 60; // 한국은 UTC+9
+    const kstTime = new Date(now.getTime() + (kstOffset + now.getTimezoneOffset()) * 60 * 1000);
+    return {
+      iso: kstTime.toISOString(),
+      formatted: kstTime.toLocaleString('ko-KR'),
+      hour: kstTime.getHours(),
+      dayOfWeek: kstTime.getDay(), // 0=일요일, 1=월요일...
+      timeCategory: this.getTimeCategory(kstTime.getHours())
+    };
+  }
+
+  /**
+   * 시간대 카테고리 분류
+   */
+  getTimeCategory(hour) {
+    if (hour >= 6 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 18) return 'afternoon';
+    if (hour >= 18 && hour < 22) return 'evening';
+    return 'night';
+  }
+
+  /**
+   * Readability.js 콘텐츠 추출
+   */
+  extractCleanContent() {
+    try {
+      // DOM 복제하여 원본 보존
+      const documentClone = document.cloneNode(true);
+      
+      // Readability 객체 생성 및 파싱
+      const reader = new Readability(documentClone, {
+        debug: false,
+        maxElemsToParse: 0,
+        nbTopCandidates: 5,
+        charThreshold: 500
+      });
+      
+      const article = reader.parse();
+      
+      if (article) {
+        return {
+          success: true,
+          cleanTitle: article.title || document.title,
+          cleanContent: article.textContent || '',
+          excerpt: article.excerpt || this.getMetaDescription(),
+          readingTime: this.calculateReadingTime(article.textContent || ''),
+          wordCount: this.countWords(article.textContent || ''),
+          byline: article.byline || '', // 저자
+          lang: article.lang || document.documentElement.lang || 'ko'
+        };
+      } else {
+        console.log('⚠️ Readability 파싱 실패 - 기본 추출 방식 사용');
+        return this.extractBasicContent();
+      }
+      
+    } catch (error) {
+      console.error('❌ Readability 추출 실패:', error);
+      return this.extractBasicContent();
+    }
+  }
+
+  /**
+   * 기본 콘텐츠 추출 (Readability 실패시 fallback)
+   */
+  extractBasicContent() {
+    const title = document.title || '';
+    const pElements = document.querySelectorAll('p');
+    
+    const paragraphs = Array.from(pElements)
+      .slice(0, 5)
+      .map(p => p.textContent.trim())
+      .filter(text => text.length > 20)
+      .join(' ')
+      .substring(0, 1000);
+
+    return {
+      success: false,
+      cleanTitle: title,
+      cleanContent: paragraphs,
+      excerpt: this.getMetaDescription(),
+      readingTime: this.calculateReadingTime(paragraphs),
+      wordCount: this.countWords(paragraphs),
+      byline: '',
+      lang: document.documentElement.lang || 'ko'
+    };
+  }
+
+  /**
+   * 메타 설명 추출
+   */
+  getMetaDescription() {
+    const metaDesc = document.querySelector('meta[name="description"]');
+    return metaDesc ? metaDesc.getAttribute('content') : '';
+  }
+
+  /**
+   * 읽기 시간 계산 (분)
+   */
+  calculateReadingTime(text) {
+    if (!text) return 0;
+    const wordsPerMinute = 200; // 평균 읽기 속도
+    const words = this.countWords(text);
+    return Math.ceil(words / wordsPerMinute);
+  }
+
+  /**
+   * 단어 수 계산 (한국어+영어 혼합)
+   */
+  countWords(text) {
+    if (!text) return 0;
+    const koreanWords = (text.match(/[가-힣]+/g) || []).join('').length;
+    const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+    return koreanWords + englishWords;
+  }
+
+  /**
+   * 페이지 메타데이터 수집 (간소화)
+   */
+  getPageMetadata() {
+    return {
+      // Open Graph 데이터 (있을 때만)
+      ogTitle: this.getMetaProperty('og:title'),
+      ogDescription: this.getMetaProperty('og:description'),
+      
+      // 기본 메타데이터
+      description: this.getMetaDescription()
+    };
+  }
+
+  /**
+   * 메타 태그 속성값 가져오기
+   */
+  getMetaProperty(property) {
+    const meta = document.querySelector(`meta[property="${property}"], meta[name="${property}"]`);
+    return meta ? meta.getAttribute('content') : '';
+  }
+
+
+  /**
    * 수집된 데이터 반환
    */
   collectData() {
+    const kstTime = this.getKSTTimestamp();
+    const contentData = this.extractCleanContent();
+    const metaData = this.getPageMetadata();
+
     const data = {
+      // 기본 페이지 정보
       url: window.location.href,
       domain: window.location.hostname,
       title: document.title,
-      timestamp: new Date().toISOString(),
       
-      // 핵심 수집 데이터
-      timeSpent: this.getTimeSpent(),        // 체류시간 (초)
-      maxScrollDepth: this.maxScrollDepth,   // 최대 스크롤 깊이 (%)
-      isActive: this.isActive                // 현재 활성 상태
+      // 시간 정보 (한국시간)
+      timestamp: kstTime.iso,
+      timestampFormatted: kstTime.formatted,
+      timeCategory: kstTime.timeCategory,
+      dayOfWeek: kstTime.dayOfWeek,
+      
+      // 사용자 행동 데이터
+      timeSpent: this.getTimeSpent(),
+      maxScrollDepth: this.maxScrollDepth,
+      
+      // 콘텐츠 데이터 (Readability.js 기반)
+      content: {
+        cleanTitle: contentData.cleanTitle,
+        cleanContent: contentData.cleanContent.substring(0, 2000), // 길이 제한
+        excerpt: contentData.excerpt,
+        readingTime: contentData.readingTime,
+        wordCount: contentData.wordCount,
+        author: contentData.byline,
+        language: contentData.lang,
+        extractionMethod: contentData.success ? 'readability' : 'basic'
+      },
+      
+      // 페이지 메타데이터
+      metadata: metaData
     };
 
-    console.log("📊 수집된 데이터:", data);
+    console.log("📊 수집된 데이터:", {
+      url: data.url,
+      title: data.title.substring(0, 50) + '...',
+      timeSpent: data.timeSpent,
+      scrollDepth: data.maxScrollDepth,
+      category: data.metadata.category,
+      wordCount: data.content.wordCount
+    });
+    
     return data;
   }
 

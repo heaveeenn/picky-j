@@ -42,16 +42,14 @@ function sendMessageToBackground(message) {
       return;
     }
 
-    // 2. 메시지 전송
-    chrome.runtime.sendMessage(message, (_) => {
-      // 메시지 수신 포트가 없는 등 실제 전송 오류는 경고로 표시
-      if (chrome.runtime.lastError) {
-        console.warn(
-          "⚠️ 메시지 전송 중 오류:",
-          chrome.runtime.lastError.message
-        );
-      }
-    });
+    // 2. 메시지 전송 (Fire-and-forget 패턴)
+    try {
+      chrome.runtime.sendMessage(message);
+    } catch (sendError) {
+      // 연결이 끊어진 경우 등의 전송 오류 처리
+      console.warn("⚠️ 메시지 전송 실패:", sendError.message);
+      return;
+    }
     console.log("✅ Message sent to background successfully");
   } catch (error) {
     // 예기치 못한 예외는 에러로 표시

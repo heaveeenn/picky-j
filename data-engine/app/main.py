@@ -6,10 +6,11 @@ Picky Data Engine - 새로운 간단한 버전
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import hashlib
 
 app = FastAPI(
     title="Picky Data Engine", 
@@ -29,16 +30,49 @@ app.add_middleware(
 mongo_client = None
 database = None
 
+# 중첩된 데이터 모델들
+class ContentData(BaseModel):
+    """콘텐츠 데이터 (Readability.js 기반)"""
+    cleanTitle: str
+    cleanContent: str        # 최대 2000자
+    excerpt: str
+    readingTime: int         # 분
+    wordCount: int
+    author: str
+    language: str
+    extractionMethod: str    # 'readability' or 'basic'
+
+class MetaData(BaseModel):
+    """페이지 메타데이터 (간소화)"""
+    ogTitle: str = ""        # Open Graph 제목 (있을 때만)
+    ogDescription: str = ""  # Open Graph 설명 (있을 때만)  
+    description: str = ""    # meta description
+
 class BrowsingData(BaseModel):
-    """브라우징 데이터 모델 - Google OAuth 사용자 포함"""
+    """브라우징 데이터 모델"""
+    # 기본 페이지 정보
     url: str
     domain: str
     title: str
+    
+    # 시간 정보 (한국시간)
     timestamp: str
-    timeSpent: int           # 체류시간(초)
-    maxScrollDepth: int      # 최대 스크롤 깊이(%)
-    isActive: bool           # 활성 상태
-    userId: str              # Google 사용자 ID (이메일)
+    timestampFormatted: str
+    timeCategory: str        # 'morning', 'afternoon', 'evening', 'night'
+    dayOfWeek: int          # 0=일요일, 1=월요일...
+    
+    # 사용자 행동 데이터
+    timeSpent: int          # 체류시간(초)
+    maxScrollDepth: int     # 최대 스크롤 깊이(%)
+    
+    # 콘텐츠 데이터
+    content: ContentData
+    
+    # 페이지 메타데이터
+    metadata: MetaData
+    
+    # 사용자 식별
+    userId: str             # Google 사용자 ID (이메일)
 
 @app.on_event("startup")
 async def startup():
@@ -75,34 +109,47 @@ def health():
     """서버 상태 확인"""
     return {"status": "healthy"}
 
+def get_collection_name(user_id):
+    """사용자 ID를 기반으로 샤드된 컬렉션명 반환"""
+    # SHA-256으로 일관된 해시 생성 (서버 재시작 시에도 동일한 결과)
+    hash_object = hashlib.sha256(user_id.encode())
+    hash_int = int(hash_object.hexdigest(), 16)
+    shard_id = hash_int % 5
+    return f"browsing_data_{shard_id}"
+
 @app.post("/browsing-data")
 async def save_browsing_data(data: BrowsingData) -> Dict[str, Any]:
     """브라우징 데이터 저장"""
     try:
-        # 저장할 데이터 구성
-        save_data = {
-            "url": data.url,
-            "domain": data.domain, 
-            "title": data.title,
-            "timestamp": data.timestamp,
-            "timeSpent": data.timeSpent,
-            "maxScrollDepth": data.maxScrollDepth,
-            "isActive": data.isActive,
-            "userId": data.userId,              # Google 사용자 ID
-            
-            # 서버에서 추가
-            "savedAt": datetime.utcnow().isoformat()
-        }
+        # 사용자 기반 샤드된 컬렉션에 저장
+        collection_name = get_collection_name(data.userId)
+        collection = database[collection_name]
         
-        # MongoDB에 저장
-        collection = database.browsing_data
+        # 동일 URL의 마지막 방문 기록 조회 (성능 최적화를 위한 projection 사용)
+        last_visit = await collection.find_one(
+            {"userId": data.userId, "url": data.url},
+            {"visitCount": 1},  # visitCount 필드만 조회
+            sort=[("savedAt", -1)]
+        )
+        
+        # 방문 횟수 계산
+        visit_count = last_visit["visitCount"] + 1 if last_visit else 1
+        
+        # Extension에서 받은 데이터 + 서버 메타데이터 추가
+        save_data = data.dict()
+        save_data["visitCount"] = visit_count
+        save_data["savedAt"] = datetime.utcnow().isoformat()
+        save_data["dataVersion"] = "2.0"
+        
         result = await collection.insert_one(save_data)
         
-        print(f"📊 데이터 저장: {data.domain} ({data.timeSpent}초) - 사용자: {data.userId}")
+        print(f"📊 데이터 저장: {data.domain} ({data.timeSpent}초, {data.content.wordCount}단어) - 사용자: {data.userId} - 컬렉션: {collection_name} - 방문횟수: {visit_count}")
         
         return {
             "success": True,
             "id": str(result.inserted_id),
+            "collection": collection_name,
+            "visitCount": visit_count,
             "message": "데이터 저장 완료"
         }
         

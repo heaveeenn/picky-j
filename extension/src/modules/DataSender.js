@@ -17,11 +17,11 @@ export class DataSender {
    * 데이터를 큐에 추가 (사용자 ID 포함)
    */
   addToQueue(data, userId = null) {
-    // 사용자 ID 추가
+    // 사용자 ID 및 재시도 정보 추가
     const dataWithUser = {
       ...data,
       userId: userId,
-      timestamp: new Date().toISOString()
+      retryCount: 0  // 재시도 횟수 초기화 (전송시 제거됨)
     };
     
     this.dataQueue.push(dataWithUser);
@@ -35,12 +35,15 @@ export class DataSender {
     try {
       console.log("📤 서버로 데이터 전송 중...");
       
+      // 전송용 데이터 (retryCount 제거)
+      const { retryCount, ...sendData } = data;
+      
       const response = await fetch(`${this.serverUrl}/browsing-data`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(sendData)
       });
 
       if (response.ok) {
@@ -68,21 +71,35 @@ export class DataSender {
 
     console.log(`📤 ${this.dataQueue.length}개 데이터 전송 시작`);
     
-    // 큐 복사 후 초기화
-    const dataToSend = [...this.dataQueue];
-    this.dataQueue = [];
+    // 큐에서 모든 데이터를 원자적으로 제거하면서 가져오기
+    const dataToProcess = this.dataQueue.splice(0);
+
+    const MAX_RETRIES = 3;
+    const failedData = []; // 실패한 데이터만 저장
 
     // 각 데이터 개별 전송
-    for (const data of dataToSend) {
+    for (const data of dataToProcess) {
       const success = await this.sendData(data);
+      
       if (!success) {
-        // 실패한 데이터는 다시 큐에 추가
-        this.dataQueue.push(data);
+        // 재시도 횟수 체크
+        data.retryCount = (data.retryCount || 0) + 1;
+        
+        if (data.retryCount <= MAX_RETRIES) {
+          failedData.push(data); // 실패한 데이터는 따로 저장
+          console.log(`🔄 재시도 ${data.retryCount}/${MAX_RETRIES}: ${data.url || 'unknown'}`);
+        } else {
+          console.log(`❌ 최대 재시도 초과, 데이터 버림: ${data.url || 'unknown'}`);
+        }
       }
+      // 성공한 데이터는 그냥 버림 (아무것도 안함)
     }
 
+    // 실패한 데이터만 큐에 다시 추가 (앞에 추가해서 우선 처리)
+    this.dataQueue.unshift(...failedData);
+
     if (this.dataQueue.length > 0) {
-      console.log(`⚠️ ${this.dataQueue.length}개 데이터 전송 실패 - 큐에 보관`);
+      console.log(`⚠️ ${failedData.length}개 데이터 전송 실패 - 큐에 보관`);
     } else {
       console.log("✅ 모든 데이터 전송 완료");
     }
