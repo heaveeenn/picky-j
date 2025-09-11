@@ -1,6 +1,7 @@
 services:
   backend:
     build: .
+    restart: always
     container_name: picky-be
     ports:
       - "8080:8080"
@@ -15,6 +16,9 @@ services:
       SPRING_REDIS_HOST: ${SPRING_REDIS_HOST}
       SPRING_REDIS_PORT: ${SPRING_REDIS_PORT}
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DATABASE}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
     networks:
       - picky-network
 
@@ -37,6 +41,7 @@ services:
   redis:
     image: redis:7
     container_name: picky-redis
+    restart: always
     ports:
       - "6379:6379"
     networks:
