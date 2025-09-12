@@ -41,9 +41,9 @@ async def test_browsing_data_vectorization(user_id):
     
     print(f"[진행중] 사용자 {user_id}의 브라우징 데이터 조회 중...")
     
-    # 특정 사용자의 샤드에서만 조회
+    # 특정 사용자의 브라우징 데이터 샤드에서만 조회
     from app.main import get_collection_name
-    collection_name = get_collection_name(user_id)
+    collection_name = get_collection_name(user_id, 'browsing')  # 'browsing' 타입 명시
     collection = db[collection_name]
     
     print(f"[정보] 사용자 {user_id}의 샤드 {collection_name}에서 조회")
@@ -56,31 +56,29 @@ async def test_browsing_data_vectorization(user_id):
     
     print(f"[성공] {len(recent_data)}개 데이터 조회 완료")
     
-    # 텍스트 콘텐츠 추출 및 결합
+    # 텍스트 콘텐츠 추출 및 결합 (순수 의미론적 내용만)
     texts_for_embedding = []
     
     for data in recent_data:
-        # 제목 + 콘텐츠 + 메타데이터를 결합하여 임베딩용 텍스트 생성
+        # 정제된 제목과 내용만 자연스럽게 결합
         combined_text = ""
         
-        # 기본 정보
-        combined_text += f"제목: {data.get('title', '')}\n"
-        combined_text += f"URL: {data.get('url', '')}\n"
-        combined_text += f"도메인: {data.get('domain', '')}\n"
-        
-        # 콘텐츠 정보 (실제 저장되는 구조)
         if 'content' in data:
             content = data['content']
-            combined_text += f"정제된 제목: {content.get('cleanTitle', '')}\n"
-            combined_text += f"내용: {content.get('cleanContent', '')[:800]}\n"  # 800자로 제한
-            combined_text += f"요약: {content.get('excerpt', '')}\n"
+            clean_title = content.get('cleanTitle', '').strip()
+            clean_content = content.get('cleanContent', '')[:1500].strip()  # 더 많은 본문 포함
+            
+            
+            if clean_title and clean_content:
+                combined_text = f"{clean_title} {clean_content}"
+            elif clean_title:
+                combined_text = clean_title
+            elif clean_content:
+                combined_text = clean_content
         
-        # 메타데이터 (실제 저장되는 구조)
-        if 'metadata' in data:
-            metadata = data['metadata']
-            combined_text += f"설명: {metadata.get('description', '')}\n"
-        
-        texts_for_embedding.append(combined_text.strip())
+        # 빈 텍스트가 아닌 경우에만 추가
+        if combined_text.strip():
+            texts_for_embedding.append(combined_text.strip())
         
         print(f"\n[데이터] 데이터 {len(texts_for_embedding)}:")
         print(f"   URL: {data.get('url', 'N/A')}")
@@ -90,8 +88,10 @@ async def test_browsing_data_vectorization(user_id):
         print(f"   스크롤 깊이: {data.get('maxScrollDepth', 'N/A')}%")
         print(f"   사용자 ID: {data.get('userId', 'N/A')}")
         print(f"   방문 횟수: {data.get('visitCount', 'N/A')}")
+        print(f"   데이터 타입: {data.get('dataType', 'N/A')}")
         print(f"   시간 카테고리: {data.get('timeCategory', 'N/A')}")
         print(f"   임베딩 텍스트 길이: {len(combined_text)} 문자")
+        print(f"   임베딩 텍스트 미리보기: {combined_text[:100]}...")
     
     # 임베딩 생성
     print("\n[진행중] 브라우징 데이터 임베딩 생성 중...")
@@ -160,22 +160,19 @@ async def save_vectors_to_qdrant(data_list, vectors):
             "day_of_week": data.get("dayOfWeek"),
             "user_id": data.get("userId"),
             
-            # 콘텐츠 정보
+            # 콘텐츠 정보 (업데이트된 스키마)
             "word_count": data.get("content", {}).get("wordCount"),
             "clean_title": data.get("content", {}).get("cleanTitle"),
             "excerpt": data.get("content", {}).get("excerpt"),
-            "reading_time": data.get("content", {}).get("readingTime"),
             "author": data.get("content", {}).get("author"),
             "language": data.get("content", {}).get("language"),
             "extraction_method": data.get("content", {}).get("extractionMethod"),
             
-            # 메타데이터
-            "description": data.get("metadata", {}).get("description"),
-            
-            # 행동 데이터 (실제 필드명)
-            "time_spent": data.get("timeSpent"),
+            # 행동 데이터 (체류시간 사용)
+            "time_spent": data.get("timeSpent"),  # 체류시간
             "max_scroll_depth": data.get("maxScrollDepth"),
             "visit_count": data.get("visitCount"),
+            "data_type": data.get("dataType"),  # 'browsing' 구분
             
             # 시간 정보
             "timestamp": data.get("timestamp"),

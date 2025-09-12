@@ -17,11 +17,18 @@ if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
   // 이 페이지 전용 데이터 수집기 생성
   dataCollector = new DataCollector();
 
-  // 초기화 성공
-  console.log("✅ DataCollector 초기화 완료");
-
-  // 이벤트 리스너와 인터벌 등록
-  initializeEventListeners();
+  // DataCollector 초기화 완료까지 대기 후 이벤트 등록
+  const waitForInitialization = () => {
+    if (dataCollector && dataCollector.isInitialized) {
+      console.log("✅ DataCollector 완전 초기화 완료");
+      initializeEventListeners();
+    } else {
+      setTimeout(waitForInitialization, 100); // 100ms 후 재시도
+    }
+  };
+  
+  waitForInitialization();
+  
 } else {
   console.warn("⚠️ Extension context 없음 - Content script 초기화 중단");
 }
@@ -76,15 +83,4 @@ function initializeEventListeners() {
     }
   });
 
-  // 10초마다 현재 상태 확인 (개발/디버깅용)
-  setInterval(() => {
-    if (dataCollector) {
-      const data = dataCollector.collectData();
-      console.log("🔄 10초마다 현재 상태:", {
-        timeSpent: data.timeSpent,
-        scrollDepth: data.maxScrollDepth,
-        isActive: data.isActive,
-      });
-    }
-  }, 10000);
 }

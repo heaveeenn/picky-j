@@ -38,7 +38,7 @@ export class DataSender {
       // 전송용 데이터 (retryCount 제거)
       const { retryCount, ...sendData } = data;
       
-      const response = await fetch(`${this.serverUrl}/browsing-data`, {
+      const response = await fetch(`${this.serverUrl}/user-logs/browsing-data`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

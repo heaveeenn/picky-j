@@ -19,11 +19,62 @@ export class DataCollector {
     this.scrollDepth = 0;
     this.maxScrollDepth = 0;
     this.isActive = true;
+    this.isTrackingEnabled = true;
+    this.userId = 'dummy-user@picky.com'; // 기본값
+    this.isInitialized = false; // 초기화 완료 여부
+    
     
     console.log("📊 DataCollector 시작:", window.location.href);
     
-    // 이벤트 리스너 등록
-    this.setupEventListeners();
+    // userId 캐시 및 토글 상태 확인 후 이벤트 리스너 등록
+    this.initializeWithToggleCheck();
+  }
+
+  /**
+   * 토글 상태 확인 후 초기화
+   */
+  async initializeWithToggleCheck() {
+    await this.checkTrackingStatus();
+    
+    // userId 미리 캐시
+    this.userId = await this.getUserId();
+    
+    // 스토리지 변경 감지 - 실시간 토글 반영
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (changes.trackingEnabled && namespace === 'sync') {
+          this.isTrackingEnabled = changes.trackingEnabled.newValue !== false;
+          console.log('🔄 토글 상태 변경:', this.isTrackingEnabled);
+        }
+      });
+    }
+    
+    // 토글이 ON인 경우에만 이벤트 리스너 등록
+    if (this.isTrackingEnabled) {
+      this.setupEventListeners();
+    } else {
+      console.log('❌ 데이터 수집 비활성화 - 이벤트 리스너 스킵');
+    }
+    
+    // 초기화 완료
+    this.isInitialized = true;
+    console.log('✅ DataCollector 초기화 완료 - userId:', this.userId);
+  }
+
+  /**
+   * 토글 상태 확인
+   */
+  async checkTrackingStatus() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const result = await chrome.storage.sync.get(['trackingEnabled']);
+        this.isTrackingEnabled = result.trackingEnabled !== false;
+        console.log('📊 토글 상태:', this.isTrackingEnabled);
+      }
+    } catch (error) {
+      console.error('토글 상태 확인 실패:', error);
+      this.isTrackingEnabled = true; // fallback
+    }
   }
 
   /**
@@ -54,6 +105,8 @@ export class DataCollector {
    * 스크롤 깊이 계산 및 업데이트
    */
   updateScrollDepth() {
+    if (!this.isTrackingEnabled) return;
+    
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     const windowHeight = window.innerHeight;
     const documentHeight = document.documentElement.scrollHeight;
@@ -66,11 +119,12 @@ export class DataCollector {
   }
 
   /**
-   * 현재까지의 체류시간 계산 (초)
+   * 현재까지의 체류시간 계산 (초) - 기존 방식
    */
   getTimeSpent() {
     return Math.round((Date.now() - this.startTime) / 1000);
   }
+
 
   /**
    * 한국시간(KST) 타임스탬프 생성
@@ -216,12 +270,37 @@ export class DataCollector {
 
 
   /**
+   * Background에서 userId 가져오기
+   */
+  async getUserId() {
+    try {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: "GET_USER_ID" }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn("⚠️ userId 가져오기 실패, 더미 사용:", chrome.runtime.lastError);
+            resolve('dummy-user@picky.com'); // fallback
+          } else {
+            resolve(response?.userId || 'dummy-user@picky.com');
+          }
+        });
+      });
+    } catch (error) {
+      console.warn("⚠️ userId 요청 실패, 더미 사용:", error);
+      return 'dummy-user@picky.com';
+    }
+  }
+
+  /**
    * 수집된 데이터 반환
    */
   collectData() {
+    if (!this.isTrackingEnabled) {
+      console.log('❌ 데이터 수집 비활성화 - 수집 중단');
+      return null;
+    }
+    
     const kstTime = this.getKSTTimestamp();
     const contentData = this.extractCleanContent();
-    const metaData = this.getPageMetadata();
 
     const data = {
       // 기본 페이지 정보
@@ -235,8 +314,8 @@ export class DataCollector {
       timeCategory: kstTime.timeCategory,
       dayOfWeek: kstTime.dayOfWeek,
       
-      // 사용자 행동 데이터
-      timeSpent: this.getTimeSpent(),
+      // 사용자 행동 데이터  
+      timeSpent: this.getTimeSpent(), // 체류 시간
       maxScrollDepth: this.maxScrollDepth,
       
       // 콘텐츠 데이터 (Readability.js 기반)
@@ -244,15 +323,14 @@ export class DataCollector {
         cleanTitle: contentData.cleanTitle,
         cleanContent: contentData.cleanContent.substring(0, 2000), // 길이 제한
         excerpt: contentData.excerpt,
-        readingTime: contentData.readingTime,
         wordCount: contentData.wordCount,
         author: contentData.byline,
         language: contentData.lang,
         extractionMethod: contentData.success ? 'readability' : 'basic'
       },
       
-      // 페이지 메타데이터
-      metadata: metaData
+      // 사용자 식별
+      userId: this.userId
     };
 
     console.log("📊 수집된 데이터:", {
@@ -260,8 +338,8 @@ export class DataCollector {
       title: data.title.substring(0, 50) + '...',
       timeSpent: data.timeSpent,
       scrollDepth: data.maxScrollDepth,
-      category: data.metadata.category,
-      wordCount: data.content.wordCount
+      wordCount: data.content.wordCount,
+      userId: data.userId
     });
     
     return data;

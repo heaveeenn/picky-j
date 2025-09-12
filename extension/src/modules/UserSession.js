@@ -11,6 +11,8 @@ export class UserSession {
     this.userId = null;
     this.isAuthenticated = false;
     this.userInfo = null;
+    
+    console.log("👤 UserSession 인스턴스 생성");
   }
 
   /**

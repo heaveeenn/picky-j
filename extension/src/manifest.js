@@ -14,9 +14,9 @@ export default defineManifest({
     128: "public/logo.svg",
   },
 
-  permissions: ["activeTab", "storage", "identity", "identity.email", "history"],
+  permissions: ["tabs", "storage", "identity", "identity.email", "history", "offscreen"],
 
-  host_permissions: ["http://localhost:8000/*", "http://localhost:8080/*"],
+  host_permissions: ["<all_urls>"],
 
   background: {
     service_worker: "src/background.js",
@@ -30,7 +30,14 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["<all_urls>"],
-      js: ["src/content.js"],
+      js: ["src/content.jsx"],
+    },
+  ],
+
+  web_accessible_resources: [
+    {
+      resources: ["offscreen.html", "Readability.js"],
+      matches: ["<all_urls>"],
     },
   ],
 });
