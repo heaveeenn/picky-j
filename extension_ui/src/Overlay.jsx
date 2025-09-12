@@ -1,34 +1,73 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Lightbulb, Newspaper, BrainCircuit, Bookmark, ExternalLink } from 'lucide-react';
+import { CheckCircle, XCircle, ExternalLink, Bookmark, Lightbulb, X } from 'lucide-react';
 
 // -----------------------------------------------------------------------------
 // 목업 데이터
 // -----------------------------------------------------------------------------
-const mockNews = {
-  type: 'news',
-  category: '기술',
-  title: 'AI 기술의 최신 동향과 미래 전망',
-  summary:
-    '생성형 AI의 등장으로 다양한 산업 분야에 혁신이 발생하고 있습니다. 앞으로 AI는 우리 삶을 어떻게 바꿀까요?',
-  source: 'TechNews',
-};
+const mockNotificationsData = [
+  {
+    id: 1,
+    type: 'news',
+    title: "AI 혁신이 가져올 미래 변화",
+    summary: "생성형 AI 기술이 산업 전반에 미치는 영향과 앞으로의 전망을 분석합니다. 특히 창작, 교육, 의료 분야에서의 활용 사례가 주목받고 있습니다.",
+    category: "기술",
+    source: "TechDaily",
+    isScraped: false
+  },
+  {
+    id: 2,
+    type: 'quiz',
+    question: "CSS Flexbox에서 justify-content: space-between은 아이템들 사이에 동일한 간격을 만든다.",
+    answer: true,
+    explanation: "맞습니다. justify-content: space-between은 첫 번째와 마지막 아이템을 컨테이너 끝에 배치하고, 나머지 아이템들 사이에 동일한 간격을 만듭니다.",
+    category: "웹개발",
+    difficulty: "중급",
+    isScraped: false
+  },
+  {
+    id: 3,
+    type: 'fact',
+    fact: "펭귄은 무릎이 있습니다",
+    description: "펭귄의 다리는 몸 안쪽에 숨겨져 있어서 보이지 않지만, 실제로는 인간과 마찬가지로 허벅지, 무릎, 정강이를 모두 가지고 있습니다. 짧은 다리처럼 보이는 것은 발목부터 발가락까지만 보이기 때문입니다.",
+    source: "동물학 백과사전"
+  },
+  {
+    id: 4,
+    type: 'fact',
+    fact: "문어는 심장이 세 개입니다",
+    description: "문어는 두 개의 아가미 심장과 하나의 전신 심장을 가지고 있습니다. 아가미 심장은 아가미로 피를 보내고, 전신 심장은 몸 전체로 피를 순환시킵니다.",
+    source: "해양생물학 연구소"
+  },
+  {
+    id: 5,
+    type: 'fact',
+    fact: "꿀벌은 춤으로 의사소통합니다",
+    description: "꿀벌은 '왜글 댄스'라는 특별한 춤을 통해 동료들에게 꽃의 위치와 거리를 알려줍니다. 춤의 각도는 태양을 기준으로 한 방향을, 춤의 지속시간은 거리를 나타냅니다.",
+    source: "곤충학 연구"
+  },
+  {
+    id: 6,
+    type: 'fact',
+    fact: "바나나는 베리류입니다",
+    description: "식물학적으로 바나나는 베리(장과)에 속합니다. 반면 딸기는 베리가 아니라 '가짜 열매'입니다. 베리의 정의는 하나의 꽃에서 나온 과육으로 둘러싸인 씨를 가진 과일이기 때문입니다.",
+    source: "식물학 연구소"
+  },
+  {
+    id: 7,
+    type: 'fact',
+    fact: "새우의 심장은 머리에 있습니다",
+    description: "새우의 심장은 머리 부분에 위치해 있습니다. 또한 새우는 혈액이 파란색인데, 이는 헤모글로빈 대신 구리를 포함한 헤모시아닌이라는 단백질 때문입니다.",
+    source: "해양생물학 연구"
+  },
+  {
+    id: 8,
+    type: 'fact',
+    fact: "코알라는 하루에 22시간을 잡니다",
+    description: "코알라는 포유동물 중에서 가장 많이 자는 동물입니다. 유칼립투스 잎만 먹는데 이 잎은 독성이 있고 영양가가 낮아서 소화하는데 많은 에너지가 필요하기 때문입니다.",
+    source: "동물행동학 연구소"
+  }
+];
 
-const mockQuiz = {
-  type: 'quiz',
-  category: '웹개발',
-  question: "React의 'useState' Hook은 클래스형 컴포넌트에서 사용할 수 있다.",
-  answer: 'X',
-  explanation: 'useState는 함수형 컴포넌트에서 상태를 관리하기 위한 Hook이다.',
-};
-
-const mockFact = {
-  type: 'fact',
-  category: '재미있는 사실',
-  content:
-    '문어의 심장은 세 개이다. 두 개는 아가미로 혈액을 보내고, 하나는 몸 전체로 혈액을 보낸다.',
-};
-
-const contentData = [mockNews, mockQuiz, mockFact];
 
 // -----------------------------------------------------------------------------
 // 유틸: Chrome API가 안전하게 사용 가능한지 확인
@@ -47,10 +86,12 @@ function hasChromeStorage() {
 function Overlay() {
   // 표시 관련 상태
   const [isVisible, setIsVisible] = useState(false); // 캐릭터 표시
-  const [isOpen, setIsOpen] = useState(false); // 말풍선 열림
-  const [currentContent, setCurrentContent] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [isPopupOpen, setIsPopupOpen] = useState(false); // 말풍선 열림
   const [hasNotification, setHasNotification] = useState(false);
+  const [currentContent, setCurrentContent] = useState(null);
+  const [notifications, setNotifications] = useState(mockNotificationsData);
+  const [quizAnswer, setQuizAnswer] = useState(null);
+  const [showQuizResult, setShowQuizResult] = useState(false);
 
   // 보조 상태
   const [isExtensionOn, setIsExtensionOn] = useState(true); // 전체 확장 켜짐 여부
@@ -58,27 +99,25 @@ function Overlay() {
 
   // 알림 타이머 설정
   const setupTimer = (intervalInMinutes) => {
-    // 기존 타이머 제거
     if (timerRef.current) {
       clearInterval(timerRef.current);
-      timerRef.current = null;
     }
     const minutes = Number(intervalInMinutes) || 30;
-    const intervalMs = Math.max(1, minutes) * 60 * 1000;
+    // const intervalMs = Math.max(1, minutes) * 60 * 1000;
+    const intervalMs = 5000; // 개발 테스트용 5초
+
     timerRef.current = setInterval(() => {
       setHasNotification(true);
-      // eslint-disable-next-line no-console
       console.log(`[Picky] notification tick: ${minutes}m`);
     }, intervalMs);
   };
 
-  // 최초 설정 로딩
+  // 최초 설정 로딩 및 리스너 설정
   useEffect(() => {
     if (!hasChromeStorage()) {
-      // 개발 환경 또는 비호환 환경에서는 기본값으로 동작
       setIsExtensionOn(true);
       setIsVisible(true);
-      setupTimer(30);
+      setupTimer(0.5); // 개발용 30초
       return () => {
         if (timerRef.current) clearInterval(timerRef.current);
       };
@@ -97,7 +136,6 @@ function Overlay() {
       }
     );
 
-    // storage 변경 리스너
     const storageListener = (changes, area) => {
       if (area !== 'sync') return;
 
@@ -107,7 +145,7 @@ function Overlay() {
         setIsExtensionOn(on);
         if (!on) {
           setIsVisible(false);
-          setIsOpen(false);
+          setIsPopupOpen(false);
           setHasNotification(false);
           if (timerRef.current) clearInterval(timerRef.current);
         }
@@ -135,42 +173,61 @@ function Overlay() {
     };
     chrome.storage.onChanged.addListener(storageListener);
 
-    // content.jsx에서 브로드캐스트하는 라우트 변화 이벤트
-    const onRouteChanged = () => {
-      // 필요 시 라우팅 변화에 맞춘 상태 초기화나 컨텐츠 갱신을 수행한다.
-      // 현재는 팝업만 닫고 알림 뱃지는 유지한다.
-      setIsOpen(false);
-    };
-    // 현재 노드 기준 이벤트 수신
+    const onRouteChanged = () => setIsPopupOpen(false);
     const container = document.getElementById('picky-overlay-app') || document;
     container.addEventListener('picky:route-changed', onRouteChanged);
 
-    // 정리
     return () => {
       chrome.storage.onChanged.removeListener(storageListener);
       container.removeEventListener('picky:route-changed', onRouteChanged);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isVisible, isExtensionOn]);
+  }, []);
 
-  // 클릭 핸들러
   const handleCharacterClick = () => {
-    setIsOpen(true);
+    const randomIndex = Math.floor(Math.random() * notifications.length);
+    setCurrentContent(notifications[randomIndex]);
+    setIsPopupOpen(true);
     setHasNotification(false);
-    setShowAnswer(false);
-
-    const idx = Math.floor(Math.random() * contentData.length);
-    setCurrentContent(contentData[idx]);
+    setQuizAnswer(null);
+    setShowQuizResult(false);
   };
 
-  const handleClosePopup = () => setIsOpen(false);
-  const handleShowAnswer = () => setShowAnswer(true);
+  const handleScrap = (id) => {
+    const newNotifications = notifications.map(notif =>
+      notif.id === id ? { ...notif, isScraped: !notif.isScraped } : notif
+    );
+    setNotifications(newNotifications);
+    if (currentContent && currentContent.id === id) {
+      setCurrentContent(prev => ({ ...prev, isScraped: !prev.isScraped }));
+    }
+  };
 
-  // 전역 표시 조건: 확장 켜짐 && 캐릭터 표시
+  const handleQuizAnswer = (answer) => {
+    setQuizAnswer(answer);
+    setShowQuizResult(true);
+  };
+
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case '기술': return 'bg-purple-100 text-purple-700';
+      case '웹개발': return 'bg-blue-100 text-blue-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case '초급': return 'bg-green-100 text-green-700';
+      case '중급': return 'bg-yellow-100 text-yellow-700';
+      case '고급': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   const shouldRender = useMemo(() => isExtensionOn && isVisible, [isExtensionOn, isVisible]);
   if (!shouldRender) return null;
 
-  // 렌더링
   return (
     <div
       style={{
@@ -181,78 +238,128 @@ function Overlay() {
         pointerEvents: 'auto',
       }}
     >
-      {/* 팝업 */}
-      {isOpen && currentContent && (
-        <div className="w-80 bg-white rounded-lg shadow-2xl mb-2 animate-fade-in-up">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-t-lg border-b">
-            <div className="flex items-center space-x-2">
-              {currentContent.type === 'news' && <Newspaper className="w-4 h-4 text-blue-500" />}
-              {currentContent.type === 'quiz' && <BrainCircuit className="w-4 h-4 text-green-500" />}
-              {currentContent.type === 'fact' && <Lightbulb className="w-4 h-4 text-yellow-500" />}
-              <span className="text-sm font-semibold text-gray-700">{currentContent.category}</span>
-            </div>
-            <button onClick={handleClosePopup} className="p-1 hover:bg-gray-200 rounded-full" aria-label="닫기">
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
+      {/* 캐릭터 아이콘 */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="relative">
+          <div
+            className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full shadow-lg cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
+            onClick={handleCharacterClick}
+          >
+            <div className="text-white text-2xl">🤖</div>
           </div>
 
-          {/* 본문 */}
-          <div className="p-4">
-            {currentContent.type === 'news' && (
-              <div className="space-y-2">
-                <h3 className="font-bold text-gray-800">{currentContent.title}</h3>
-                <p className="text-sm text-gray-600">{currentContent.summary}</p>
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-xs text-gray-400">출처: {currentContent.source}</span>
-                  <div>
-                    <button className="p-1 hover:bg-gray-100 rounded-full" aria-label="북마크">
-                      <Bookmark className="w-4 h-4 text-gray-500" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded-full" aria-label="원문">
-                      <ExternalLink className="w-4 h-4 text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          {hasNotification && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">!</span>
+            </div>
+          )}
+        </div>
+      </div>
 
-            {currentContent.type === 'quiz' && (
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">{currentContent.question}</p>
-                {!showAnswer ? (
-                  <button onClick={handleShowAnswer} className="text-xs text-blue-600 hover:underline">
-                    정답 확인하기
-                  </button>
-                ) : (
-                  <div className="p-2 bg-blue-50 rounded-md text-sm">
-                    <span className="font-bold text-blue-700">정답: {currentContent.answer}</span>
-                    <p className="text-blue-600">{currentContent.explanation}</p>
+      {/* 말풍선 팝업 */}
+      {isPopupOpen && currentContent && (
+        <div className="fixed bottom-24 right-6 z-50 w-80">
+          <div className="border-0 shadow-xl bg-white rounded-lg">
+            <div className="p-0">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-t-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="text-lg">🤖</div>
+                  <span className="font-medium">Picky가 추천해요!</span>
+                </div>
+                <button
+                  onClick={() => setIsPopupOpen(false)}
+                  className="text-white hover:bg-white/20 p-1 h-auto rounded-full"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 콘텐츠 */}
+              <div className="p-4">
+                {currentContent.type === 'news' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${getCategoryColor(currentContent.category)}`}>
+                        {currentContent.category}
+                      </div>
+                      <span className="text-xs text-gray-500">{currentContent.source}</span>
+                    </div>
+                    <h3 className="font-semibold text-gray-900 line-clamp-2">{currentContent.title}</h3>
+                    <p className="text-sm text-gray-600 line-clamp-3">{currentContent.summary}</p>
+                    <div className="flex space-x-2">
+                      <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 flex-1 bg-purple-600 text-white hover:bg-purple-700">
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        자세히 보기
+                      </button>
+                      <button
+                        onClick={() => handleScrap(currentContent.id)}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 w-9 ${currentContent.isScraped ? 'text-amber-600 border-amber-200' : ''}`}
+                      >
+                        <Bookmark className={`w-3 h-3 ${currentContent.isScraped ? 'fill-current' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {currentContent.type === 'quiz' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${getCategoryColor(currentContent.category)}`}>
+                        {currentContent.category}
+                      </div>
+                      <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${getDifficultyColor(currentContent.difficulty)}`}>
+                        {currentContent.difficulty}
+                      </div>
+                    </div>
+                    <h3 className="font-semibold text-gray-900">{currentContent.question}</h3>
+                    {!showQuizResult ? (
+                      <div className="flex justify-center space-x-4">
+                        <button onClick={() => handleQuizAnswer(true)} className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground w-16 h-16 rounded-full bg-green-100 hover:bg-green-200 text-green-700 text-xl font-bold">O</button>
+                        <button onClick={() => handleQuizAnswer(false)} className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground w-16 h-16 rounded-full bg-red-100 hover:bg-red-200 text-red-700 text-xl font-bold">X</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${quizAnswer === currentContent.answer ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {quizAnswer === currentContent.answer ? (<><CheckCircle className="w-5 h-5" /><span>정답!</span></>) : (<><XCircle className="w-5 h-5" /><span>오답</span></>)}
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <p className="text-sm text-blue-800">{currentContent.explanation}</p>
+                        </div>
+                        <button onClick={() => handleScrap(currentContent.id)} className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 w-full ${currentContent.isScraped ? 'text-amber-600 border-amber-200' : ''}`}>
+                          <Bookmark className={`w-3 h-3 mr-1 ${currentContent.isScraped ? 'fill-current' : ''}`} />
+                          스크랩
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {currentContent.type === 'fact' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-700">오늘의 재미있는 사실</span>
+                    </div>
+                    <div className="bg-yellow-50 p-3 rounded-lg">
+                      <p className="font-semibold text-yellow-900 mb-2">💡 {currentContent.fact}</p>
+                      <p className="text-yellow-800 text-sm">{currentContent.description}</p>
+                    </div>
+                    <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 w-full">
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      출처 보기
+                    </button>
                   </div>
                 )}
               </div>
-            )}
-
-            {currentContent.type === 'fact' && <p className="text-sm text-gray-700">{currentContent.content}</p>}
+            </div>
+          </div>
+          {/* 말풍선 꼬리 */}
+          <div className="absolute bottom-0 right-8 transform translate-y-full">
+            <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white"></div>
           </div>
         </div>
       )}
-
-      {/* 캐릭터 버튼 */}
-      <button
-        onClick={handleCharacterClick}
-        className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform relative"
-        aria-label="Picky 캐릭터 열기"
-      >
-        {hasNotification && !isOpen && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs animate-bounce">
-            !
-          </span>
-        )}
-        <span className="text-3xl" aria-hidden="true">
-          🤖
-        </span>
-      </button>
     </div>
   );
 }

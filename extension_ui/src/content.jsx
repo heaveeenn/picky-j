@@ -53,58 +53,26 @@ function ensureShadowRoot(host) {
 }
 
 /**
- * Shadow Root 안에 스타일을 주입한다.
- * - Vite 빌드된 스타일이 document.head에 이미 삽입되어 있을 수 있으므로,
- *   확장 프로그램 출처의 스타일시트만 뽑아와 Shadow로 복제한다.
- * - 이 방식은 Tailwind 유틸리티가 번들된 경우에도 Shadow 내부에서 정상 동작하게 해준다.
- * - 확실한 방법은 web_accessible_resources에 CSS를 노출하고, <link>를 Shadow에 삽입하는 것이다.
- *   현재 코드는 규칙 복제 방식으로 구현한다.
+ * Shadow Root 안에 스타일을 주입한다. (안정적인 <link> 방식)
+ * - web_accessible_resources에 등록된 CSS 파일을 직접 링크한다.
  */
-function copyExtensionStylesToShadow(shadow) {
-  try {
-    const styleEl = document.createElement('style');
-    styleEl.setAttribute('data-picky-shadow-styles', 'true');
-
-    // 확장 프로그램에서 삽입한 스타일시트만 대상으로 한다.
-    const extOrigin = chrome?.runtime?.id
-      ? `chrome-extension://${chrome.runtime.id}`
-      : location.origin; // 개발 환경 대비
-
-    let cssText = '';
-    for (const sheet of Array.from(document.styleSheets)) {
-      const href = sheet.href || '';
-      // href가 없고 inline style일 수도 있다(ownerNode.tagName === 'STYLE').
-      const isFromExtension =
-        href.startsWith(extOrigin) ||
-        (sheet.ownerNode &&
-          sheet.ownerNode.tagName === 'STYLE' &&
-          sheet.ownerNode.textContent &&
-          sheet.ownerNode.textContent.includes('tailwind'));
-
-      if (!isFromExtension) continue;
-
-      // CSSRuleList 접근은 CORS에 막힐 수 있다. 실패하면 해당 시트는 건너뛴다.
-      try {
-        const rules = sheet.cssRules || [];
-        for (const rule of Array.from(rules)) {
-          cssText += rule.cssText + '\n';
-        }
-      } catch (_) {
-        // 접근 불가한 시트는 무시한다.
-      }
-    }
-
-    // 최소한의 기본 보정. host에 걸어둔 pointer-events 해제.
-    cssText += `
-      :host { all: initial; }
-      .picky-root { pointer-events: auto; }
-    `;
-
-    styleEl.textContent = cssText;
-    shadow.appendChild(styleEl);
-  } catch (_) {
-    // 스타일 주입 실패 시에도 기능은 진행한다.
+function linkStylesToShadow(shadow) {
+  if (typeof chrome?.runtime?.getURL !== 'function') {
+    return; // chrome API 사용 불가 환경
   }
+  const cssUrl = chrome.runtime.getURL('content.css');
+  const linkEl = document.createElement('link');
+  linkEl.rel = 'stylesheet';
+  linkEl.href = cssUrl;
+  shadow.appendChild(linkEl);
+
+  // 최소한의 기본 보정.
+  const styleEl = document.createElement('style');
+  styleEl.textContent = `
+    :host { all: initial; }
+    .picky-root { pointer-events: auto; }
+  `;
+  shadow.appendChild(styleEl);
 }
 
 /**
@@ -141,7 +109,7 @@ function setupSpaObservers(onRouteChanged) {
     if (typeof orig !== 'function') return;
     history[type] = function wrappedState() {
       const ret = orig.apply(this, arguments);
-      try { onRouteChanged(); } catch (_) {}
+      try { onRouteChanged(); } catch { /* empty */ }
       return ret;
     };
   };
@@ -171,7 +139,7 @@ function mountOverlay() {
   if (host.__PICKY_ROOT__) return;
 
   const shadow = USE_SHADOW ? ensureShadowRoot(host) : null;
-  if (shadow) copyExtensionStylesToShadow(shadow);
+  if (shadow) linkStylesToShadow(shadow);
 
   const container = ensureAppContainer(shadow || host);
   if (!container) return;
@@ -189,7 +157,7 @@ function mountOverlay() {
   const teardownSpa = setupSpaObservers(() => {
     try {
       container.dispatchEvent(new CustomEvent('picky:route-changed', { bubbles: true }));
-    } catch (_) {}
+    } catch { /* empty */ }
   });
 
   // 확장 리로드 또는 탭 종료 시 정리
@@ -198,7 +166,7 @@ function mountOverlay() {
       teardownSpa?.();
       root.unmount();
       host.__PICKY_ROOT__ = null;
-    } catch (_) {}
+    } catch { /* empty */ }
   };
   window.addEventListener('beforeunload', cleanup);
 
