@@ -5,8 +5,9 @@
 import os
 from dotenv import load_dotenv
 
-# .env 파일 로드
-load_dotenv()
+# .env 파일 로드 (.env.local 우선, 없으면 .env)
+load_dotenv('.env.local')
+load_dotenv('.env')
 
 class Settings:
     # MongoDB 설정
