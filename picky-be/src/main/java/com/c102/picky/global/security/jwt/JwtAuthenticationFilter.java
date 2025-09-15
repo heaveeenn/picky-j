@@ -27,9 +27,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        
+        // OAuth2 관련 경로는 JWT 필터를 건너뜀
+        String path = request.getRequestURI();
+        if (path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/") || 
+            path.startsWith("/auth/") || path.equals("/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String token = jwt.resolve(request).orElse(null);
         if (token == null) {
+            // 토큰이 없으면 그냥 통과 (인증이 필요한 경로는 SecurityConfig에서 처리)
             filterChain.doFilter(request, response);
             return;
         }
@@ -63,9 +72,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         return uri.startsWith("/auth/")
                 || uri.startsWith("/oauth2/")
+                || uri.startsWith("/login/oauth2/")
                 || uri.startsWith("/public/")
                 || uri.startsWith("/actuator")
                 || uri.startsWith("/docs")
+                || uri.startsWith("/test")
+                || uri.equals("/")
                 || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 }

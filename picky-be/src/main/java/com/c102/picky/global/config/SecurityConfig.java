@@ -2,6 +2,8 @@ package com.c102.picky.global.config;
 
 import com.c102.picky.global.security.jwt.JwtAuthenticationEntryPoint;
 import com.c102.picky.global.security.jwt.JwtAuthenticationFilter;
+import com.c102.picky.global.security.oauth2.OAuth2LoginFailureHandler;
+import com.c102.picky.global.security.oauth2.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +21,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final OAuth2LoginSuccessHandler oauth2SuccessHandler;
+    private final OAuth2LoginFailureHandler oauth2FailureHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationEntryPoint entryPoint, AccessDeniedHandler accessDeniedHandler) throws Exception {
@@ -31,12 +35,16 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/js/**", "/css/**", "/img/**")
                         .permitAll()
                         .requestMatchers(
-                                "/auth/**", "/oauth2/**", "/public/**", "/actuator/**", "/docs/**"
-                                ).permitAll()
+                                "/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oauth2SuccessHandler)
+                        .failureHandler(oauth2FailureHandler)
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
