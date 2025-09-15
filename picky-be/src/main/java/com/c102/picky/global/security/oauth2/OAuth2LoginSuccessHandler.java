@@ -25,9 +25,13 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         log.info("OAuth2 login success for user: {}", authentication.getName());
         
         try {
+            // Authentication에서 사용자 정보 추출
+            String googleSub = authentication.getName(); // OAuth2에서는 sub 값이 name으로 들어옴
+            String role = "USER"; // 기본 역할 설정 (필요에 따라 수정)
+
             // JWT 토큰 생성
-            String accessToken = jwtTokenProvider.createAccessToken(authentication);
-            String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+            String accessToken = jwtTokenProvider.createAccessToken(googleSub, role);
+            String refreshToken = jwtTokenProvider.createRefreshToken(googleSub);
             
             // 팝업 창에 토큰을 전달하는 HTML 응답
             response.setContentType("text/html;charset=UTF-8");
