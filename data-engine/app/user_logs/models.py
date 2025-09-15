@@ -41,6 +41,15 @@ class BrowsingData(BaseModel):
     userId: str             # Google 사용자 ID (이메일)
 
 
+class ExtractedContent(BaseModel):
+    """추출된 콘텐츠 데이터"""
+    title: str
+    content: str
+    excerpt: str = ""
+    length: int = 0
+    wordCount: int = 0
+
+
 class HistoryItem(BaseModel):
     """히스토리 단일 아이템"""
     url: str

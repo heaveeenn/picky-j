@@ -21,7 +21,7 @@ async def save_browsing_data(data: BrowsingData) -> Dict[str, Any]:
     try:
         result = await BrowsingDataService.save_browsing_data(data)
         return result
-
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -32,7 +32,7 @@ async def save_history_data(data: HistoryData) -> Dict[str, Any]:
     try:
         result = await HistoryDataService.save_history_data(data)
         return result
-
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -43,8 +43,6 @@ async def get_user_data(user_id: str, limit: int = 50) -> Dict[str, Any]:
     try:
         result = await HistoryDataService.get_user_data(user_id, limit)
         return result
-
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-

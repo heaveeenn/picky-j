@@ -54,7 +54,7 @@ def root():
         "status": "running",
         "version": settings.VERSION,
         "description": "기능별로 모듈화된 구조",
-        "modules": ["user_logs", "news", "quiz", "vectorization", "summarization"]
+        "modules": ["user_logs", "news", "quiz", "vectorization"]
     }
 
 

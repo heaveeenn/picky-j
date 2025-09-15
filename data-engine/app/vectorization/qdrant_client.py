@@ -140,65 +140,6 @@ class QdrantService:
             "timestamp_formatted": data.get("timestampFormatted"),
         }
     
-    async def save_vectors_with_metadata_and_ids(self, collection_name: str, vectors: list[list[float]], metadatas: list[dict], point_ids: list[str]):
-        """특정 ID로 벡터를 메타데이터와 함께 Qdrant에 저장"""
-        print(f"\n[진행중] 벡터를 Qdrant에 저장 중... (컬렉션: {collection_name}, ID 지정)")
-
-        if not vectors or not metadatas or not point_ids:
-            print("[경고] 저장할 벡터, 메타데이터 또는 ID가 없습니다.")
-            return
-
-        if len(vectors) != len(metadatas) != len(point_ids):
-            raise ValueError("벡터, 메타데이터, ID의 개수가 일치하지 않습니다.")
-
-        # 컬렉션 생성 (이미 있으면 스킵)
-        self.create_collection_if_not_exists(collection_name, len(vectors[0]))
-
-        # 벡터 및 메타데이터 업로드
-        points = []
-        for vector, metadata, point_id in zip(vectors, metadatas, point_ids):
-            # 공통 메타데이터 추가
-            payload = {
-                **metadata,
-                "created_at": datetime.utcnow().isoformat(),
-                "embedding_model": "HiEmbed_base_onnx_v1",  # 모델명 업데이트
-                "collection": collection_name
-            }
-
-            point = models.PointStruct(
-                id=point_id,  # 사용자 지정 ID 사용
-                vector=vector,
-                payload=payload
-            )
-            points.append(point)
-
-        # Qdrant에 업로드
-        self.client.upsert(collection_name=collection_name, points=points)
-
-        print(f"[성공] 총 {len(vectors)}개 벡터를 Qdrant 컬렉션 '{collection_name}'에 저장 완료!")
-
-    async def get_point(self, collection_name: str, point_id: str) -> dict:
-        """특정 ID의 포인트 조회"""
-        try:
-            result = self.client.retrieve(
-                collection_name=collection_name,
-                ids=[point_id],
-                with_vectors=True,
-                with_payload=True
-            )
-
-            if result and len(result) > 0:
-                point = result[0]
-                return {
-                    "id": point.id,
-                    "vector": point.vector,
-                    "payload": point.payload
-                }
-            return None
-        except Exception as e:
-            print(f"[실패] 포인트 조회 실패 (collection: {collection_name}, id: {point_id}): {e}")
-            return None
-
     def search_similar_vectors(self, collection_name: str, query_vector: list[float], limit: int = 5):
         """유사한 벡터 검색"""
         try:
