@@ -29,29 +29,22 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/js/**", "/css/**", "/img/**")
                         .permitAll()
                         .requestMatchers(
-                                "/auth/**", "/oauth2/**", "/public/**", "/actuator/**", "/docs/**"
-                                ).permitAll()
+                                "/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/oauth2/authorization/google")
-                        .defaultSuccessUrl("/", true)
-                        .failureUrl("/login?error=true")
                         .successHandler(oauth2SuccessHandler)
                         .failureHandler(oauth2FailureHandler)
-                        .authorizationEndpoint(authorization -> 
-                                authorization.baseUri("/oauth2/authorization"))
-                        .redirectionEndpoint(redirection -> 
-                                redirection.baseUri("/login/oauth2/code/*"))
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

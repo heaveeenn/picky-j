@@ -31,7 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // OAuth2 관련 경로는 JWT 필터를 건너뜀
         String path = request.getRequestURI();
         if (path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/") || 
-            path.startsWith("/auth/") || path.startsWith("/test") || path.equals("/")) {
+            path.startsWith("/auth/") || path.equals("/")) {
             filterChain.doFilter(request, response);
             return;
         }
