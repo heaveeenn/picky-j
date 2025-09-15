@@ -1,11 +1,15 @@
 package com.c102.picky.global.security.oauth2;
 
+import com.c102.picky.domain.users.dto.UserResponseDto;
+import com.c102.picky.domain.users.service.UserService;
 import com.c102.picky.global.security.jwt.JwtTokenProvider;
+import com.c102.picky.global.util.CookieUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +21,8 @@ import java.io.IOException;
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserService userService;
+    private final CookieUtil cookieUtil;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -26,12 +32,24 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         
         try {
             // Authentication에서 사용자 정보 추출
+            DefaultOAuth2User oAuth2User = (DefaultOAuth2User) authentication.getPrincipal();
             String googleSub = authentication.getName(); // OAuth2에서는 sub 값이 name으로 들어옴
+            String email =  (String)oAuth2User.getAttributes().getOrDefault("email", "");
+            String nickname = (String) oAuth2User.getAttributes().getOrDefault("name", "");
+            String profileImage =  (String) oAuth2User.getAttributes().getOrDefault("picture", "");
             String role = "USER"; // 기본 역할 설정 (필요에 따라 수정)
+
+            // upsert 실행
+            UserResponseDto user = userService.upsertGoogleUser(googleSub, email, nickname, profileImage);
+//            log.info("User Upsert Success!! : {}", user);
 
             // JWT 토큰 생성
             String accessToken = jwtTokenProvider.createAccessToken(googleSub, role);
             String refreshToken = jwtTokenProvider.createRefreshToken(googleSub);
+            
+            // refresh token을 쿠키에 저장
+            cookieUtil.addRefreshTokenCookie(response, refreshToken);
+            log.info("RefreshToken cookie set for user: {}", googleSub);
             
             // 팝업 창에 토큰을 전달하는 HTML 응답
             response.setContentType("text/html;charset=UTF-8");
