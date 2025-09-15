@@ -33,7 +33,8 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Header 
-        onProfileClick={() => setCurrentView('mypage')}
+        onMyPageClick={() => setCurrentView('mypage')}
+        onLogoutClick={() => setIsLoggedIn(false)}
       />
 
       <main className="container mx-auto p-4">
