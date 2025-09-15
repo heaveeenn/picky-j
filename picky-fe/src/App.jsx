@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import Header from './components/Header';
 import Box from './components/Box';
 import Button from './components/Button';
@@ -22,6 +23,32 @@ const App = () => {
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'mypage'
   const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
 
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+      try {
+        await axios.post('http://localhost:8080/api/auth/logout', {}, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+      } catch (error) {
+        console.error('Logout failed', error);
+        // Even if logout API fails, proceed to clear client-side session
+      }
+    }
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setIsLoggedIn(false);
+  };
+
   if (!isLoggedIn) {
     return <IntroPage onLogin={() => setIsLoggedIn(true)} />;
   }
@@ -34,7 +61,7 @@ const App = () => {
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Header 
         onMyPageClick={() => setCurrentView('mypage')}
-        onLogoutClick={() => setIsLoggedIn(false)}
+        onLogoutClick={handleLogout}
       />
 
       <main className="container mx-auto p-4">
