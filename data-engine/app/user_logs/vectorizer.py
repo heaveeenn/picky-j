@@ -3,7 +3,7 @@
 브라우징 데이터를 벡터화하여 사용자 관심사 파악
 """
 
-from ..core.database import get_database, get_collection_name
+from ..core.database import get_database, get_collection_name, get_url_hash
 from ..vectorization.embeddings import embedding_service
 from ..vectorization.qdrant_client import QdrantService
 
@@ -121,21 +121,40 @@ class UserLogsVectorizer:
         return round(base_weight, 3)
     
     async def _save_to_qdrant(self, vectorization_results: list):
-        """Qdrant에 사용자 로그 벡터 저장"""
+        """Qdrant에 사용자 로그 벡터 저장 (URL 해시 기반 Upsert)"""
         try:
             collection_name = "user_logs"
-            
-            # 벡터와 메타데이터 분리
-            vectors = [result["vector"] for result in vectorization_results]
-            metadatas = [result["metadata"] for result in vectorization_results]
-            
-            # Qdrant에 저장
-            await self.qdrant_service.save_vectors_with_metadata(
-                collection_name, vectors, metadatas
+
+            # 벡터, 메타데이터, Point ID 분리
+            vectors = []
+            metadatas = []
+            point_ids = []
+
+            for result in vectorization_results:
+                vector = result["vector"]
+                metadata = result["metadata"]
+
+                # URL 해시 기반 Point ID 생성 (GPT_recommend.md 방식)
+                url = metadata.get("url", "")
+                url_hash = get_url_hash(url)
+                user_id = metadata.get("user_id", "")
+                point_id = f"{user_id}:url:{url_hash}"
+
+                # 메타데이터에 URL 해시 추가
+                metadata["url_hash"] = url_hash
+                metadata["data_source"] = "browsing"  # GPT_recommend.md 스키마
+
+                vectors.append(vector)
+                metadatas.append(metadata)
+                point_ids.append(point_id)
+
+            # Qdrant에 Upsert 저장 (같은 URL이면 업데이트)
+            await self.qdrant_service.save_vectors_with_metadata_and_ids(
+                collection_name, vectors, metadatas, point_ids
             )
-            
-            print(f"[저장완료] Qdrant 컬렉션 '{collection_name}'에 {len(vectors)}개 벡터 저장")
-            
+
+            print(f"[저장완료] Qdrant 컬렉션 '{collection_name}'에 {len(vectors)}개 벡터 Upsert 저장")
+
         except Exception as e:
             print(f"[저장실패] Qdrant 저장 실패: {e}")
             raise

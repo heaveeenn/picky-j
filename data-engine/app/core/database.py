@@ -42,6 +42,11 @@ def get_collection_name(user_id: str, data_type: str = 'browsing') -> str:
     return f"{data_type}_data_{shard_id}"
 
 
+def get_url_hash(url: str) -> str:
+    """URL을 SHA-256 해시로 변환 (Qdrant Point ID용)"""
+    return hashlib.sha256(url.encode()).hexdigest()[:16]  # 16자리로 단축
+
+
 def get_database():
     """데이터베이스 인스턴스 반환"""
     return database
