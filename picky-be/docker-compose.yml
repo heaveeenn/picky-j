@@ -20,6 +20,13 @@ services:
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
       JWT_SECRET: ${JWT_SECRET}
       APP_SEED_CSV_PATH: ${APP_SEED_CSV_PATH:-/app/data/quiz_wiki_all.csv}
+      APP_COOKIE_NAME: ${APP_COOKIE_NAME}
+      APP_COOKIE_DOMAIN: ${APP_COOKIE_DOMAIN}
+      APP_COOKIE_PATH: ${APP_COOKIE_PATH}
+      APP_COOKIE_HTTP_ONLY: ${APP_COOKIE_HTTP_ONLY}
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE}
+      APP_COOKIE_SAME_SITE: ${APP_COOKIE_SAME_SITE}
+      APP_COOKIE_MAX_AGE: ${APP_COOKIE_MAX_AGE}
     networks:
       - picky-network
     volumes:
@@ -76,3 +83,4 @@ volumes:
 
 networks:
   picky-network:
+    external: true

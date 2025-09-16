@@ -9,12 +9,14 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
@@ -22,10 +24,13 @@ import java.util.Optional;
 
 
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String ROLE_KEY = "role";
+
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -92,6 +97,11 @@ public class JwtTokenProvider {
     // 파싱 / 검증 / 추출
     public boolean validateToken(String token) {
         try {
+            // 블랙리스트 체크
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                return false;
+            }
+            
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
@@ -126,5 +136,20 @@ public class JwtTokenProvider {
             return Optional.of(header.substring(BEARER_PREFIX.length()).trim());
         }
         return Optional.empty();
+    }
+
+    /** 토큰을 블랙리스트에 추가 (로그아웃 시 사용) */
+    public void addToBlacklist(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            Date expiration = claims.getExpiration();
+            Duration ttl = Duration.between(Instant.now(), expiration.toInstant());
+            
+            if (!ttl.isNegative() && !ttl.isZero()) {
+                tokenBlacklistService.addToBlacklist(token, ttl);
+            }
+        } catch (JwtException e) {
+            // 이미 만료된 토큰이면 블랙리스트에 추가할 필요 없음
+        }
     }
 }

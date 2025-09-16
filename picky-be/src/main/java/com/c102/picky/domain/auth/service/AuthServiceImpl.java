@@ -9,6 +9,7 @@ import com.c102.picky.domain.users.repository.UserRepository;
 import com.c102.picky.global.exception.ApiException;
 import com.c102.picky.global.exception.ErrorCode;
 import com.c102.picky.global.security.jwt.JwtTokenProvider;
+import com.c102.picky.global.util.CookieUtil;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -32,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final CookieUtil cookieUtil;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
@@ -87,6 +89,31 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(HttpServletRequest request) {
+        // Authorization 헤더에서 access token 추출
+        jwtTokenProvider.resolve(request).ifPresent(accessToken -> {
+            if (jwtTokenProvider.validateToken(accessToken)) {
+                jwtTokenProvider.addToBlacklist(accessToken);
+                log.info("Access token added to blacklist");
+            }
+        });
+
+        // 쿠키에서 refresh token 추출해서 블랙리스트에 추가
+        cookieUtil.getRefreshTokenFromCookie(request).ifPresent(refreshToken -> {
+            log.info("RefreshToken found in cookie: {}", refreshToken.substring(0, 20) + "...");
+            
+            if (jwtTokenProvider.validateToken(refreshToken)) {
+                jwtTokenProvider.addToBlacklist(refreshToken);
+                log.info("Refresh token from cookie added to blacklist successfully");
+            } else {
+                log.warn("RefreshToken validation failed, not adding to blacklist");
+            }
+        });
+        
+        // 쿠키에서 refreshToken을 찾지 못한 경우 로깅
+        if (cookieUtil.getRefreshTokenFromCookie(request).isEmpty()) {
+            log.warn("No refreshToken found in cookie during logout");
+        }
+        
         log.info("User logout processed");
     }
 }
