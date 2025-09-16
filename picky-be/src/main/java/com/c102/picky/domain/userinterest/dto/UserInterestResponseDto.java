@@ -1,4 +1,4 @@
-package com.c102.picky.domain.userInterest.dto;
+package com.c102.picky.domain.userinterest.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

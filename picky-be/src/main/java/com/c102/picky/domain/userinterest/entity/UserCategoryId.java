@@ -1,4 +1,4 @@
-package com.c102.picky.domain.userInterest.entity;
+package com.c102.picky.domain.userinterest.entity;
 
 import jakarta.persistence.Embeddable;
 import lombok.*;

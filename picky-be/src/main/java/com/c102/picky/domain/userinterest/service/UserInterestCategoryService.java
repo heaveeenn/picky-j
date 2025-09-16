@@ -1,7 +1,7 @@
-package com.c102.picky.domain.userInterest.service;
+package com.c102.picky.domain.userinterest.service;
 
-import com.c102.picky.domain.userInterest.dto.UserInterestAddRequestDto;
-import com.c102.picky.domain.userInterest.dto.UserInterestResponseDto;
+import com.c102.picky.domain.userinterest.dto.UserInterestAddRequestDto;
+import com.c102.picky.domain.userinterest.dto.UserInterestResponseDto;
 
 import java.util.List;
 

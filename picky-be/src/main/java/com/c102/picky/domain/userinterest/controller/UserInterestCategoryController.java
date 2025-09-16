@@ -1,8 +1,8 @@
-package com.c102.picky.domain.userInterest.controller;
+package com.c102.picky.domain.userinterest.controller;
 
-import com.c102.picky.domain.userInterest.dto.UserInterestAddRequestDto;
-import com.c102.picky.domain.userInterest.dto.UserInterestResponseDto;
-import com.c102.picky.domain.userInterest.service.UserInterestCategoryService;
+import com.c102.picky.domain.userinterest.dto.UserInterestAddRequestDto;
+import com.c102.picky.domain.userinterest.dto.UserInterestResponseDto;
+import com.c102.picky.domain.userinterest.service.UserInterestCategoryService;
 import com.c102.picky.global.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -16,7 +16,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/users/{userId}/interests")
-public class UserInterestController {
+public class UserInterestCategoryController {
 
     private final UserInterestCategoryService uiService;
 

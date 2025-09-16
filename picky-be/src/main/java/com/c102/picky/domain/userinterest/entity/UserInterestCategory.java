@@ -1,4 +1,4 @@
-package com.c102.picky.domain.userInterest.entity;
+package com.c102.picky.domain.userinterest.entity;
 
 import com.c102.picky.domain.category.entity.Category;
 import jakarta.persistence.*;

@@ -1,11 +1,11 @@
-package com.c102.picky.domain.userInterest.service;
+package com.c102.picky.domain.userinterest.service;
 
 import com.c102.picky.domain.category.entity.Category;
 import com.c102.picky.domain.category.repository.CategoryRepository;
-import com.c102.picky.domain.userInterest.dto.UserInterestAddRequestDto;
-import com.c102.picky.domain.userInterest.dto.UserInterestResponseDto;
-import com.c102.picky.domain.userInterest.entity.UserInterestCategory;
-import com.c102.picky.domain.userInterest.repository.UserInterestCategoryRepository;
+import com.c102.picky.domain.userinterest.dto.UserInterestAddRequestDto;
+import com.c102.picky.domain.userinterest.dto.UserInterestResponseDto;
+import com.c102.picky.domain.userinterest.entity.UserInterestCategory;
+import com.c102.picky.domain.userinterest.repository.UserInterestCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,7 @@ public class UserInterestCategoryServiceImpl implements UserInterestCategoryServ
                 throw new IllegalArgumentException("L1 카테고리만 등록할 수 있습니다. id=" + cid);
             }
 
-            if(!uiRepository.existsAllByUserIdAndIdCategoryId(userId, cid)) {
+            if(!uiRepository.existsByIdUserIdAndIdCategoryId(userId, cid)) {
                 uiRepository.save(UserInterestCategory.of(userId, category));
             }
         }
@@ -47,7 +47,7 @@ public class UserInterestCategoryServiceImpl implements UserInterestCategoryServ
     @Override
     @Transactional(readOnly = true)
     public List<UserInterestResponseDto> findUserInterests(Long userId) {
-        return uiRepository.findByUserId(userId).stream()
+        return uiRepository.findByIdUserId(userId).stream()
                 .map(uic -> UserInterestResponseDto.from(
                         uic.getCategory().getId(),
                         uic.getCategory().getName(),
