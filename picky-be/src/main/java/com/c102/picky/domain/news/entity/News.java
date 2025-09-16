@@ -1,4 +1,5 @@
 package com.c102.picky.domain.news.entity;
+import com.c102.picky.domain.category.entity.Category;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,9 +17,9 @@ public class News {
     private Long id;
 
     // Category 엔티티 ManyToOne
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "category_id", nullable = false)
-//    private Category category;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @Column(nullable = false, length = 500)
     private String title;
