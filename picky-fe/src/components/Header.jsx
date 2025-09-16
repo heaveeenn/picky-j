@@ -1,8 +1,16 @@
 
-import Button from './Button';
-import { BookOpen, Settings, User } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, User } from 'lucide-react';
+import Dropdown from './Dropdown';
 
-const Header = ({ onExtensionClick, onProfileClick }) => {
+const Header = ({ onMyPageClick, onLogoutClick }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const dropdownItems = [
+    { label: '마이페이지', onClick: onMyPageClick },
+    { label: '로그아웃', onClick: onLogoutClick, isDestructive: true },
+  ];
+
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-5">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
@@ -19,8 +27,14 @@ const Header = ({ onExtensionClick, onProfileClick }) => {
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-3">
             <span className="text-gray-500 text-sm">안녕하세요, 사용자님!</span>
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center cursor-pointer" onClick={onProfileClick}>
-              <User className="w-4 h-4 text-gray-500" />
+            <div className="relative">
+              <div 
+                className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center cursor-pointer" 
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <User className="w-4 h-4 text-gray-500" />
+              </div>
+              {isDropdownOpen && <Dropdown items={dropdownItems} onClose={() => setIsDropdownOpen(false)} />}
             </div>
           </div>
         </div>
