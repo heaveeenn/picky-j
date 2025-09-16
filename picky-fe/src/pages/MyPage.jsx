@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import Box from '../components/Box';
-import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain } from 'lucide-react';
+import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain, ArrowLeft } from 'lucide-react';
 import Button from '../components/Button';
 
 const mockScrapedNews = [
@@ -113,7 +113,7 @@ const MyPage = ({ onClose }) => {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">마이페이지</h1>
-          <Button onClick={onClose} variant="outline">대시보드로 돌아가기</Button>
+          <Button onClick={onClose} variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />대시보드로 돌아가기</Button>
         </div>
 
         <div className="flex space-x-2 border-b mb-6">
