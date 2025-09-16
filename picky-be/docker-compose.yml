@@ -10,7 +10,7 @@ services:
       - redis
       - mongo
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE}?allowLoadLocalInfile=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE}?allowLoadLocalInfile=true
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_REDIS_HOST: ${SPRING_REDIS_HOST}
@@ -38,6 +38,7 @@ services:
       - --local-infile=1
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+09:00
     ports:
       - "3306:3306"
     volumes:
