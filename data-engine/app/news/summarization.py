@@ -20,7 +20,7 @@ class NewsSummarizationService:
     """뉴스 요약 서비스"""
 
     def __init__(self,
-                 model_name: str = "EbanLee/kobart-summary-v3"):
+                model_name: str = "EbanLee/kobart-summary-v3"):
         """
         Args:
             model_name: 사용할 요약 모델명
