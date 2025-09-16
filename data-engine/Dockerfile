@@ -20,9 +20,10 @@ RUN pip install --no-cache-dir torch==2.8.0 --extra-index-url https://download.p
 
 # 5. transformers 관련 패키지 설치 (두 번째로 큰 패키지들)
 RUN pip install --no-cache-dir \
-    transformers>=4.41.0,<5.0.0 \
-    sentencepiece>=0.1.99 \
-    safetensors>=0.4.0
+    "transformers>=4.41.0,<5.0.0" \
+    "sentencepiece>=0.1.99" \
+    "safetensors>=0.4.0"
+
 
 # 6. 나머지 패키지 설치
 RUN pip install --no-cache-dir -r requirements.txt
