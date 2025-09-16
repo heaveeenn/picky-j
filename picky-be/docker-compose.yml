@@ -19,11 +19,11 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
       JWT_SECRET: ${JWT_SECRET}
-      APP_SEED_CSV_PATH: /app/data/quiz_wiki_all.csv
+      APP_SEED_CSV_PATH: ${APP_SEED_CSV_PATH:-/app/data/quiz_wiki_all.csv}
     networks:
       - picky-network
     volumes:
-      - ./data:/app/data
+      - ${HOST_DATA_DIR:-./data}:/app/data
 
   db:
     image: mysql:8.0
