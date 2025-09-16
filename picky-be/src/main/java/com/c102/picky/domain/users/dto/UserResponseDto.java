@@ -3,8 +3,10 @@ package com.c102.picky.domain.users.dto;
 import com.c102.picky.domain.users.entity.User;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
+@ToString
 @Builder
 public class UserResponseDto {
     private Long id;
