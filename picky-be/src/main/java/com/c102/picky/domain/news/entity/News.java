@@ -24,9 +24,6 @@ public class News {
     @Column(nullable = false, length = 500)
     private String title;
 
-    @Column(nullable = false, length = 200)
-    private String source; // 출판사
-
     @Column(nullable = false, unique = true, length = 1000)
     private String url;
 
