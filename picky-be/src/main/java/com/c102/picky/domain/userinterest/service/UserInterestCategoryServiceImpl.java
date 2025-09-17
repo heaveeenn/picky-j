@@ -6,6 +6,8 @@ import com.c102.picky.domain.userinterest.dto.UserInterestAddRequestDto;
 import com.c102.picky.domain.userinterest.dto.UserInterestResponseDto;
 import com.c102.picky.domain.userinterest.entity.UserInterestCategory;
 import com.c102.picky.domain.userinterest.repository.UserInterestCategoryRepository;
+import com.c102.picky.global.exception.ApiException;
+import com.c102.picky.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +28,10 @@ public class UserInterestCategoryServiceImpl implements UserInterestCategoryServ
             final Long cid = categoryId;
 
             Category category = categoryRepository.findById(cid)
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리: " + cid));
+                    .orElseThrow(() -> new ApiException(ErrorCode.CATEGORY_NOT_FOUND));
 
             if (category.getLevel() != Category.Level.L1) {
-                throw new IllegalArgumentException("L1 카테고리만 등록할 수 있습니다. id=" + cid);
+                throw new ApiException(ErrorCode.INVALID_CATEGORY_LEVEL);
             }
 
             if(!uiRepository.existsByIdUserIdAndIdCategoryId(userId, cid)) {
@@ -41,6 +43,9 @@ public class UserInterestCategoryServiceImpl implements UserInterestCategoryServ
 
     @Override
     public void removeUserInterest(Long userId, Long categoryId) {
+        if (!uiRepository.existsByIdUserIdAndIdCategoryId(userId, categoryId)) {
+            throw new ApiException(ErrorCode.USER_INTEREST_NOT_FOUND);
+        }
         uiRepository.deleteByIdUserIdAndIdCategoryId(userId, categoryId);
     }
 

@@ -19,7 +19,15 @@ public enum ErrorCode {
     // Google OAuth2 관련 에러
     INVALID_GOOGLE_TOKEN("INVALID_GOOGLE_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 구글 토큰입니다."),
     GOOGLE_TOKEN_VERIFICATION_FAILED("GOOGLE_TOKEN_VERIFICATION_FAILED", HttpStatus.UNAUTHORIZED, "구글 토큰 검증에 실패했습니다."),
-    INVALID_REFRESH_TOKEN("INVALID_REFRESH_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다.");
+    INVALID_REFRESH_TOKEN("INVALID_REFRESH_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."),
+
+    // UserInterest 관련 에러
+    CATEGORY_NOT_FOUND("CATEGORY_NOT_FOUND", HttpStatus.NOT_FOUND, "카테고리를 찾을 수 없습니다."),
+    INVALID_CATEGORY_LEVEL("INVALID_CATEGORY_LEVEL", HttpStatus.BAD_REQUEST, "L1 카테고리만 등록할 수 있습니다."),
+    USER_INTEREST_NOT_FOUND("USER_INTEREST_NOT_FOUND", HttpStatus.NOT_FOUND, "사용자 관심 카테고리를 찾을 수 없습니다."),
+
+    // 권한 관련 에러
+    UNAUTHORIZED("UNAUTHORIZED", HttpStatus.UNAUTHORIZED, "인증되지 않은 사용자입니다.");
 
     //
     // 필요한 에러 코드 계속 추가
