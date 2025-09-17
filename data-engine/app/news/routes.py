@@ -9,7 +9,7 @@ import logging
 import time
 
 from .summarization import get_summarization_service
-from .vectorizer import NewsVectorizer
+# from .vectorizer import NewsVectorizer  # TODO: Qdrant 저장 재활성화 시 주석 해제
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/news", tags=["news"])
@@ -43,8 +43,7 @@ class BatchSummarizationResponse(BaseModel):
     vectorized_count: int = 0
     vectorized_skipped: int = 0
 
-
-news_vectorizer = NewsVectorizer()
+# news_vectorizer = NewsVectorizer()  # TODO: Qdrant 저장 재활성화 시 주석 해제
 
 # 요약 관련 엔드포인트들
 @router.post("/summarize/single", response_model=TextSummaryResponse)
@@ -95,14 +94,15 @@ async def summarize_batch_texts(request: BatchSummarizationRequest):
         # 배치 요약 실행
         results = await service.summarize_news_articles(articles_dict)
 
-        vectorized_count = 0
-        vectorized_skipped = 0
-        try:
-            stats = await news_vectorizer.vectorize_and_save_batch(results)
-            vectorized_count = stats.get("embedded", 0)
-            vectorized_skipped = stats.get("skipped", 0)
-        except Exception as exc:
-            logger.error(f"뉴스 벡터화 실패: {exc}")
+        # Qdrant 저장 임시 중단
+        # vectorized_count = 0
+        # vectorized_skipped = 0
+        # try:
+        #     stats = await news_vectorizer.vectorize_and_save_batch(results)
+        #     vectorized_count = stats.get("embedded", 0)
+        #     vectorized_skipped = stats.get("skipped", 0)
+        # except Exception as exc:
+        #     logger.error(f"뉴스 벡터화 실패: {exc}")
 
         processing_time = time.time() - start_time
         success_count = sum(1 for r in results if r.get("summary"))
@@ -112,8 +112,8 @@ async def summarize_batch_texts(request: BatchSummarizationRequest):
             total_processed=len(results),
             success_count=success_count,
             processing_time=processing_time,
-            vectorized_count=vectorized_count,
-            vectorized_skipped=vectorized_skipped,
+            # vectorized_count=vectorized_count,
+            # vectorized_skipped=vectorized_skipped,
         )
 
     except Exception as e:

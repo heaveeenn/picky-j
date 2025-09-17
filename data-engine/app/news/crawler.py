@@ -1,4 +1,3 @@
-import asyncio
 import os
 import sys
 import urllib.request
@@ -16,7 +15,7 @@ from email.utils import parsedate_to_datetime
 # 프로젝트 루트를 Python path에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from news.summarization import get_summarization_service
-from news.vectorizer import NewsVectorizer
+# from news.vectorizer import NewsVectorizer  # TODO: Qdrant 저장 재활성화 시 주석 해제
 
 # ====== 환경 설정 ======
 load_dotenv()
@@ -337,16 +336,17 @@ def main():
         for cat, count in category_stats.items():
             print(f"  - {cat}: {count}개")
 
-        print("\n🧮 뉴스 벡터화 및 Qdrant 저장을 시작합니다...")
-        try:
-            vectorizer = NewsVectorizer()
-            stats = asyncio.run(vectorizer.vectorize_and_save_batch(all_results))
-            print(
-                f"✅ Qdrant 저장 완료: 총 {stats['embedded']}개 벡터 저장"
-                f" (요청 {stats['processed']}개, 스킵 {stats['skipped']}개)"
-            )
-        except Exception as exc:
-            print(f"❌ 뉴스 벡터화 실패: {exc}")
+        # Qdrant 저장 로직 (현재 비활성화)
+        # try:
+        #     vectorizer = NewsVectorizer()
+        #     stats = asyncio.run(vectorizer.vectorize_and_save_batch(all_results))
+        #     print(
+        #         f"✅ Qdrant 저장 완료: 총 {stats['embedded']}개 벡터 저장"
+        #         f" (요청 {stats['processed']}개, 스킵 {stats['skipped']}개)"
+        #     )
+        # except Exception as exc:
+        #     print(f"❌ 뉴스 벡터화 실패: {exc}")
+
     else:
         print("❌ 저장 실패!")
 
