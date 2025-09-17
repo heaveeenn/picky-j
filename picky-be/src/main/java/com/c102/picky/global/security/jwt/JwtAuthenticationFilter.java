@@ -1,5 +1,7 @@
 package com.c102.picky.global.security.jwt;
 
+import com.c102.picky.domain.users.entity.User;
+import com.c102.picky.domain.users.repository.UserRepository;
 import com.c102.picky.global.exception.ErrorCode;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -24,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwt;
     private final AuthenticationEntryPoint entryPoint;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -49,6 +52,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String role = (String) claims.get("role");
 
             request.setAttribute("sub", sub);
+
+            // sub -> userId 매핑
+            userRepository.findByGoogleSub(sub).ifPresent((User user) -> {
+                request.setAttribute("userId", user.getId());
+            });
 
             if(role!= null){
                 var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(sub, null,

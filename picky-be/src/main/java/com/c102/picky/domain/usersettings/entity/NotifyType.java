@@ -5,24 +5,13 @@ import java.util.Set;
 
 public enum NotifyType {
     NEWS(1 << 2),
-    FACT(1 << 1),
-    QUIZ(1);
+    QUIZ(1 << 1),
+    FACT(1);
 
     private final int bit;
 
     NotifyType(int bit) {
         this.bit = bit;
-    }
-
-    public int bit() {
-        return bit;
-    }
-
-    /**
-     * 마스크에 해당 타입 포함되어 있는가
-     */
-    public boolean in(int mask) {
-        return (mask & bit) != 0;
     }
 
     /**
@@ -43,5 +32,16 @@ public enum NotifyType {
             if((mask & type.bit) != 0) set.add(type);
         }
         return set;
+    }
+
+    public int bit() {
+        return bit;
+    }
+
+    /**
+     * 마스크에 해당 타입 포함되어 있는가
+     */
+    public boolean in(int mask) {
+        return (mask & bit) != 0;
     }
 }
