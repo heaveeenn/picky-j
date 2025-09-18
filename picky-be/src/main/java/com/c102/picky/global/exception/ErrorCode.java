@@ -35,7 +35,11 @@ public enum ErrorCode {
 
     // Content 관련 에러
     NEWS_NOT_FOUND("NEWS_NOT_FOUND", HttpStatus.NOT_FOUND, "뉴스를 찾을 수 없습니다."),
-    QUIZ_NOT_FOUND("QUIZ_NOT_FOUND", HttpStatus.NOT_FOUND, "퀴즈를 찾을 수 없습니다.");
+    QUIZ_NOT_FOUND("QUIZ_NOT_FOUND", HttpStatus.NOT_FOUND, "퀴즈를 찾을 수 없습니다."),
+
+    // Scrap 관련 에러
+    SCRAP_NOT_FOUND("SCRAP_NOT_FOUND", HttpStatus.NOT_FOUND, "스크랩을 찾을 수 없습니다."),
+    ALREADY_SCRAPED("ALREADY_SCRAPED", HttpStatus.CONFLICT, "이미 스크랩된 콘텐츠입니다.");
 
     //
     // 필요한 에러 코드 계속 추가
