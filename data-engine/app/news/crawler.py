@@ -230,10 +230,18 @@ def summarize_text(text):
 # ====== 대분류에 따른 중분류 병렬 처리 =====
 def process_keyword(category, keyword):
     """카테고리별 키워드로 뉴스 수집 및 요약"""
+    from core.mysql_db import SessionLocal
+    session = SessionLocal()
     items = get_news(keyword, start=1, display=5)
     results = []
 
     for item in items:
+        url = item["link"]
+        
+        if session.query(News).filter_by(url=url).first():
+            print(f"⏭️ 스킵 (이미 존재): {url}")
+            continue
+        
         print(f"[{category}-{keyword}] 처리 중: {clean_title(item['title'])}")
 
         # 본문 추출
@@ -290,14 +298,12 @@ def save_to_db(item):
         if not category_id:
             print(f"⚠️ 카테고리 매핑 실패: {item['category']}")
             return
-
         pub_dt = None
         if item.get("published_at"):
             try:
                 pub_dt = datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
             except Exception:
                 pass
-
         news = News(
             category_id=category_id,
             title=item["title"],
@@ -308,6 +314,7 @@ def save_to_db(item):
         session.add(news)
         session.commit()
         print(f"✅ 저장 성공: {news.title[:30]}...")
+
     except IntegrityError:
         session.rollback()
         print(f"⚠️ 중복으로 스킵: {item['link']}")
