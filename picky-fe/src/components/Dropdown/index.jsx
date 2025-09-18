@@ -10,12 +10,13 @@ const Dropdown = ({ items, onClose }) => {
         return (
           <div
             key={index}
-            className={`block px-4 py-2 text-sm cursor-pointer ${itemClasses}`}
+            className={`flex items-center px-4 py-2 text-sm cursor-pointer ${itemClasses}`}
             onClick={() => {
               item.onClick();
               onClose();
             }}
           >
+            {item.icon && <span className="mr-2">{item.icon}</span>}
             {item.label}
           </div>
         );

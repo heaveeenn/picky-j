@@ -1,14 +1,14 @@
 
 import { useState } from 'react';
-import { BookOpen, User, Settings } from 'lucide-react';
+import { BookOpen, User, Settings, LogOut } from 'lucide-react';
 import Dropdown from './Dropdown';
 
 const Header = ({ nickname, profileImage, onMyPageClick, onLogoutClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const dropdownItems = [
-    { label: '마이페이지', onClick: onMyPageClick },
-    { label: '로그아웃', onClick: onLogoutClick, isDestructive: true },
+    { label: '마이페이지', icon: <User className="w-4 h-4 mr-2" />, onClick: onMyPageClick },
+    { label: '로그아웃', icon: <LogOut className="w-4 h-4 mr-2" />, onClick: onLogoutClick, isDestructive: true },
   ];
 
   return (
