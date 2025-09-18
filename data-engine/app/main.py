@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
 from .core.database import connect_database, close_database
+from .core.lifespan import lifespan
 from .user_logs.routes import router as user_logs_router
 from .news.routes import router as news_router
 from .quiz.routes import router as quiz_router
@@ -17,7 +18,8 @@ from .quiz.routes import router as quiz_router
 app = FastAPI(
     title=settings.APP_NAME,
     description="브라우징 데이터 수집, 뉴스 추천, 퀴즈 생성 및 벡터화 서버",
-    version=settings.VERSION
+    version=settings.VERSION,
+    #lifespan=lifespan
 )
 
 # CORS 설정
