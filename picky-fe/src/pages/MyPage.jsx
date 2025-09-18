@@ -4,6 +4,7 @@ import Box from '../components/Box';
 import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain, ArrowLeft } from 'lucide-react';
 import Button from '../components/Button';
 
+// Mock data for scraps is kept for now. These will be integrated later.
 const mockScrapedNews = [
   { id: 1, title: "AI 기술의 최신 동향과 미래 전망", category: "기술", source: "TechNews", date: "2024-03-10" },
   { id: 2, title: "웹 개발 트렌드 2024: React부터 AI까지", category: "개발", source: "DevWorld", date: "2024-03-09" },
@@ -21,57 +22,109 @@ const characterOptions = [
   { id: 'bear', emoji: '🐻', name: '곰돌이' }
 ];
 
-const initialCategories = [
-  { id: 'tech', label: '기술', checked: true },
-  { id: 'news', label: '뉴스', checked: true },
-  { id: 'education', label: '교육', checked: false },
-  { id: 'design', label: '디자인', checked: true },
-  { id: 'business', label: '비즈니스', checked: false },
-  { id: 'entertainment', label: '엔터테인먼트', checked: false }
-];
-
-
-
-const MyPage = ({ onClose }) => {
+const MyPage = ({ onClose, nickname, profileImage }) => {
   const [activeTab, setActiveTab] = useState('profile');
-  const [nickname, setNickname] = useState("사용자");
-  const [profileImage, setProfileImage] = useState(null);
+  // nickname and profileImage are now props, no need for local state
+  
+  // Settings states
   const [selectedCharacter, setSelectedCharacter] = useState('robot');
   const [notificationInterval, setNotificationInterval] = useState(30);
-  const [categories, setCategories] = useState(initialCategories);
-  const [excludedSites, setExcludedSites] = useState(["facebook.com", "instagram.com"]);
+  const [notifyEnabled, setNotifyEnabled] = useState(true);
+  const [popupSettings, setPopupSettings] = useState({ news: true, quiz: true, fact: true });
+  const [categories, setCategories] = useState([]);
+  const [excludedSites, setExcludedSites] = useState([]);
   const [newExcludedSite, setNewExcludedSite] = useState("");
+
+  // Scraps states
   const [newsSearchQuery, setNewsSearchQuery] = useState('');
   const [quizSearchQuery, setQuizSearchQuery] = useState('');
-  const [selectedNewsCategory, setSelectedNewsCategory] = useState('all'); // New state for news category filter
-  const [selectedQuizCategory, setSelectedQuizCategory] = useState('all'); // New state for quiz category filter
-  const [popupSettings, setPopupSettings] = useState({
-    news: true,
-    quiz: true,
-    knowledge: true,
-  });
+  const [selectedNewsCategory, setSelectedNewsCategory] = useState('all');
+  const [selectedQuizCategory, setSelectedQuizCategory] = useState('all');
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchData = async () => {
       const accessToken = localStorage.getItem('accessToken');
-      if (accessToken) {
-        try {
-          const response = await api.get('/api/users/me', {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-          const userData = response.data.data;
-          setNickname(userData.nickname);
-          setProfileImage(userData.profileImage);
-        } catch (error) {
-          console.error('Failed to fetch user data', error);
-        }
+      if (!accessToken) return;
+
+      try {
+        // Removed userRes from Promise.all as nickname and profileImage are now props
+        const [settingsRes, allCategoriesRes, interestsRes] = await Promise.all([
+          api.get('/api/users/me/settings', { headers: { 'Authorization': `Bearer ${accessToken}` } }),
+          api.get('/api/categories', { headers: { 'Authorization': `Bearer ${accessToken}` } }),
+          api.get('/api/users/me/interests', { headers: { 'Authorization': `Bearer ${accessToken}` } })
+        ]);
+
+        // Removed userData processing as nickname and profileImage are now props
+        // const userData = userRes.data.data;
+        // setNickname(userData.nickname);
+        // setProfileImage(userData.profileImage);
+
+        const settingsData = settingsRes.data.data;
+        setSelectedCharacter(settingsData.avatarCode);
+        setNotificationInterval(settingsData.notifyInterval);
+        setNotifyEnabled(settingsData.notifyEnabled);
+        setPopupSettings({
+          news: settingsData.newsEnabled,
+          quiz: settingsData.quizEnabled,
+          fact: settingsData.factEnabled,
+        });
+        setExcludedSites(settingsData.blockedDomains || []);
+
+        const allCategoriesData = allCategoriesRes.data.data;
+        const userInterestData = interestsRes.data.data;
+        const userInterestIds = new Set(userInterestData.map(interest => interest.categoryId));
+
+        const categoryCheckboxes = allCategoriesData.map(cat => ({
+          id: cat.id,
+          label: cat.name || `Category ${cat.id}`, // Fallback to ID if name is null
+          checked: userInterestIds.has(cat.id)
+        }));
+        setCategories(categoryCheckboxes);
+
+      } catch (error) {
+        console.error('Failed to fetch page data', error);
       }
     };
 
-    fetchUserData();
+    fetchData();
   }, []);
+
+  const handleSaveSettings = async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+
+    try {
+      const settingsToUpdate = {
+        avatarCode: selectedCharacter,
+        notifyInterval: notificationInterval,
+        notifyEnabled: notifyEnabled,
+        newsEnabled: popupSettings.news,
+        quizEnabled: popupSettings.quiz,
+        factEnabled: popupSettings.fact,
+        blockedDomains: excludedSites,
+      };
+      await api.put('/api/users/me/settings', settingsToUpdate, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+
+      const selectedCategoryIds = categories
+        .filter(cat => cat.checked)
+        .map(cat => cat.id);
+      
+      await api.post('/api/users/me/interests', { categoryIds: selectedCategoryIds }, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+
+      alert('설정이 성공적으로 저장되었습니다.');
+
+    } catch (error) {
+      console.error('Failed to save settings', error);
+      alert('설정 저장에 실패했습니다.');
+    }
+  };
 
   const handleCategoryChange = (categoryId) => {
     setCategories(prev =>
@@ -116,9 +169,31 @@ const MyPage = ({ onClose }) => {
           <Button onClick={onClose} variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />대시보드로 돌아가기</Button>
         </div>
 
-        <div className="flex space-x-2 border-b mb-6">
-          <Button onClick={() => setActiveTab('profile')} variant={activeTab === 'profile' ? 'primary' : 'ghost'}><User className="w-4 h-4 mr-2" />프로필</Button>
-          <Button onClick={() => setActiveTab('scraps')} variant={activeTab === 'scraps' ? 'primary' : 'ghost'}><Bookmark className="w-4 h-4 mr-2" />스크랩</Button>
+        <div className="mb-4 border-b border-gray-200"> {/* Changed flex space-x-2 border-b mb-6 to match App.jsx's nav container */}
+          <nav className="-mb-px flex space-x-6"> {/* Added nav and flex space-x-6 */}
+            <Button
+              onClick={() => setActiveTab('profile')}
+              variant="ghost" // Always ghost, styling handled by className
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'profile'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <User className="w-4 h-4 mr-2" />프로필
+            </Button>
+            <Button
+              onClick={() => setActiveTab('scraps')}
+              variant="ghost" // Always ghost, styling handled by className
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'scraps'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Bookmark className="w-4 h-4 mr-2" />스크랩
+            </Button>
+          </nav>
         </div>
 
         {activeTab === 'profile' && (
@@ -152,8 +227,12 @@ const MyPage = ({ onClose }) => {
 
             <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bell className="w-5 h-5 mr-2 text-blue-600" />알림 설정</h3>
+              <div className="flex items-center mb-4">
+                  <input type="checkbox" id="notifyEnabled" checked={notifyEnabled} onChange={() => setNotifyEnabled(prev => !prev)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <label htmlFor="notifyEnabled" className="ml-2 block text-sm text-gray-900">알림 활성화</label>
+              </div>
               <label className="block text-sm font-medium text-gray-700 mb-2">알림 간격: {notificationInterval}분</label>
-              <input type="range" min="10" max="120" step="10" value={notificationInterval} onChange={(e) => setNotificationInterval(e.target.value)} className="w-full" />
+              <input type="range" min="10" max="120" step="10" value={notificationInterval} onChange={(e) => setNotificationInterval(e.target.value)} className="w-full" disabled={!notifyEnabled} />
             </Box>
 
             <Box>
@@ -168,7 +247,7 @@ const MyPage = ({ onClose }) => {
                   <label htmlFor="popupQuiz" className="ml-2 block text-sm text-gray-900">퀴즈</label>
                 </div>
                 <div className="flex items-center">
-                  <input type="checkbox" id="popupKnowledge" checked={popupSettings.knowledge} onChange={() => setPopupSettings(prev => ({ ...prev, knowledge: !prev.knowledge }))} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <input type="checkbox" id="popupKnowledge" checked={popupSettings.fact} onChange={() => setPopupSettings(prev => ({ ...prev, fact: !prev.fact }))} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
                   <label htmlFor="popupKnowledge" className="ml-2 block text-sm text-gray-900">지식</label>
                 </div>
               </div>
@@ -179,8 +258,8 @@ const MyPage = ({ onClose }) => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center">
-                    <input type="checkbox" id={cat.id} checked={cat.checked} onChange={() => handleCategoryChange(cat.id)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
-                    <label htmlFor={cat.id} className="ml-2 block text-sm text-gray-900">{cat.label}</label>
+                    <input type="checkbox" id={`cat-${cat.id}`} checked={cat.checked} onChange={() => handleCategoryChange(cat.id)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                    <label htmlFor={`cat-${cat.id}`} className="ml-2 block text-sm text-gray-900">{cat.label}</label>
                   </div>
                 ))}
               </div>
@@ -203,7 +282,7 @@ const MyPage = ({ onClose }) => {
             </Box>
 
             <div className="text-right mt-4">
-              <Button variant="primary">전체 설정 저장</Button>
+              <Button variant="primary" onClick={handleSaveSettings}>전체 설정 저장</Button>
             </div>
           </div>
         )}
@@ -212,13 +291,13 @@ const MyPage = ({ onClose }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
              <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bookmark className="w-5 h-5 mr-2 text-purple-600" />스크랩한 뉴스</h3>
-              <div className="flex space-x-2 mb-4"> {/* Added a div to contain search and select */}
+              <div className="flex space-x-2 mb-4">
                 <input
                   type="text"
                   placeholder="뉴스 검색..."
                   value={newsSearchQuery}
                   onChange={(e) => setNewsSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md" // flex-1 to take available space
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
                 />
                 <select
                   value={selectedNewsCategory}
@@ -226,7 +305,7 @@ const MyPage = ({ onClose }) => {
                   className="px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="all">모든 카테고리</option>
-                  {initialCategories.map(cat => (
+                  {categories.map(cat => (
                     <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
                   ))}
                 </select>
@@ -246,13 +325,13 @@ const MyPage = ({ onClose }) => {
             </Box>
             <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Brain className="w-5 h-5 mr-2 text-blue-600" />스크랩한 퀴즈</h3>
-              <div className="flex space-x-2 mb-4"> {/* Added a div to contain search and select */}
+              <div className="flex space-x-2 mb-4">
                 <input
                   type="text"
                   placeholder="퀴즈 검색..."
                   value={quizSearchQuery}
                   onChange={(e) => setQuizSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md" // flex-1 to take available space
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
                 />
                 <select
                   value={selectedQuizCategory}
@@ -260,7 +339,7 @@ const MyPage = ({ onClose }) => {
                   className="px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="all">모든 카테고리</option>
-                  {initialCategories.map(cat => (
+                  {categories.map(cat => (
                     <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
                   ))}
                 </select>
@@ -270,7 +349,7 @@ const MyPage = ({ onClose }) => {
                   filteredQuizzes.map(quiz => (
                     <div key={quiz.id} className="p-3 border rounded-lg">
                       <p className="text-sm">{quiz.question}</p>
-                      <div className="text-xs text-gray-500">{quiz.category} | {quiz.difficulty}</div>
+                      <p className="text-xs text-gray-500">{quiz.category} | {quiz.difficulty}</p>
                     </div>
                   ))
                 ) : (

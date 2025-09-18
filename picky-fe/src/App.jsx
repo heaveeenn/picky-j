@@ -78,7 +78,7 @@ const App = () => {
   }
 
   if (currentView === 'mypage') {
-    return <MyPage onClose={() => setCurrentView('dashboard')} />;
+    return <MyPage onClose={() => setCurrentView('dashboard')} nickname={nickname} profileImage={profileImage} />;
   }
 
   return (
