@@ -7,6 +7,7 @@ import com.c102.picky.domain.news.repository.NewsRepository;
 import com.c102.picky.domain.quiz.entity.Quiz;
 import com.c102.picky.domain.quiz.repository.QuizRepository;
 import com.c102.picky.global.exception.ApiException;
+import com.c102.picky.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
