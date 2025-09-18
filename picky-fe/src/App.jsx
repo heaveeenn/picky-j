@@ -22,13 +22,34 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('report');
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'mypage'
   const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
+  const [nickname, setNickname] = useState("사용자"); // State for user nickname
+  const [profileImage, setProfileImage] = useState(null); // State for user profile image
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       setIsLoggedIn(true);
+      fetchUserData();
     }
   }, []);
+
+  const fetchUserData = async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+      try {
+        const response = await api.get('/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        const userData = response.data.data;
+        setNickname(userData.nickname);
+        setProfileImage(userData.profileImage);
+      } catch (error) {
+        console.error('Failed to fetch user data in App.jsx', error);
+      }
+    }
+  };
 
   const handleLogout = async () => {
     const accessToken = localStorage.getItem('accessToken');
@@ -48,19 +69,23 @@ const App = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setIsLoggedIn(false);
+    setNickname("사용자"); // Reset nickname on logout
+    setProfileImage(null); // Reset profile image on logout
   };
 
   if (!isLoggedIn) {
-    return <IntroPage onLogin={() => setIsLoggedIn(true)} />;
+    return <IntroPage onLogin={() => { setIsLoggedIn(true); fetchUserData(); }} />;
   }
 
   if (currentView === 'mypage') {
-    return <MyPage onClose={() => setCurrentView('dashboard')} />;
+    return <MyPage onClose={() => setCurrentView('dashboard')} nickname={nickname} profileImage={profileImage} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800">
       <Header 
+        nickname={nickname}
+        profileImage={profileImage}
         onMyPageClick={() => setCurrentView('mypage')}
         onLogoutClick={handleLogout}
       />
