@@ -26,7 +26,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     /**
      * 알림 설정 조회
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public UserSettingsResponseDto findByUserId(Long userId) {
         UserSettings s = userSettingsRepository.findById(userId)
                 .orElseGet(() -> {
@@ -35,6 +35,11 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                     return UserSettings.of(user);
                         }
                 );
+
+        // 기존 데이터 중복 정리 (www. 포함/미포함 도메인 중복 제거)
+        s.cleanupDuplicateDomains();
+        userSettingsRepository.save(s);
+
         return UserSettingsResponseDto.from(s);
     }
 
