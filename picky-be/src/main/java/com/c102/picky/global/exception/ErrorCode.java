@@ -27,7 +27,19 @@ public enum ErrorCode {
     USER_INTEREST_NOT_FOUND("USER_INTEREST_NOT_FOUND", HttpStatus.NOT_FOUND, "사용자 관심 카테고리를 찾을 수 없습니다."),
 
     // 권한 관련 에러
-    UNAUTHORIZED("UNAUTHORIZED", HttpStatus.UNAUTHORIZED, "인증되지 않은 사용자입니다.");
+    UNAUTHORIZED("UNAUTHORIZED", HttpStatus.UNAUTHORIZED, "인증되지 않은 사용자입니다."),
+
+    // Recommendation 관련 에러
+    SLOT_NOT_FOUND("SLOT_NOT_FOUND", HttpStatus.NOT_FOUND, "추천 슬롯을 찾을 수 없습니다."),
+    INVALID_CONTENT_BINDING("INVALID_CONTENT_BINDING", HttpStatus.BAD_REQUEST, "콘텐츠 타입과 ID 바인딩이 올바르지 않습니다."),
+
+    // Content 관련 에러
+    NEWS_NOT_FOUND("NEWS_NOT_FOUND", HttpStatus.NOT_FOUND, "뉴스를 찾을 수 없습니다."),
+    QUIZ_NOT_FOUND("QUIZ_NOT_FOUND", HttpStatus.NOT_FOUND, "퀴즈를 찾을 수 없습니다."),
+
+    // Scrap 관련 에러
+    SCRAP_NOT_FOUND("SCRAP_NOT_FOUND", HttpStatus.NOT_FOUND, "스크랩을 찾을 수 없습니다."),
+    ALREADY_SCRAPED("ALREADY_SCRAPED", HttpStatus.CONFLICT, "이미 스크랩된 콘텐츠입니다.");
 
     //
     // 필요한 에러 코드 계속 추가
