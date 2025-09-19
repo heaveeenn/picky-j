@@ -11,6 +11,7 @@ import com.c102.picky.domain.recommendation.model.RecommendationEventType;
 import com.c102.picky.domain.recommendation.model.SlotStatus;
 import com.c102.picky.domain.recommendation.respository.UserRecommendationEventRepository;
 import com.c102.picky.domain.recommendation.respository.UserRecommendationSlotRepository;
+import com.c102.picky.domain.usersettings.service.UserSettingsService;
 import com.c102.picky.global.exception.ApiException;
 import com.c102.picky.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final UserRecommendationSlotRepository slotRepository;
     private final UserRecommendationEventRepository eventRepository;
     private final ContentQueryService contentQueryService;
+    private final UserSettingsService userSettingsService;
 
     @Override
     @Transactional
@@ -115,9 +117,13 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new ApiException(ErrorCode.INVALID_CONTENT_BINDING);
         }
 
+        // 사용자 설정 기반으로 다음 알림 시간 계산
+        var userSettings = userSettingsService.findByUserId(request.getUserId());
+        LocalDateTime nextSlotTime = calculateNextSlotTime(request.getUserId(), request.getContentType(), userSettings.getNotifyInterval());
+
         // Unique(userId, ContentType, slotAt) 기반 업서트 : 조회 -> 있으면 갱신, 없으면 생성
-        LocalDateTime start = request.getSlotAt();
-        LocalDateTime end = request.getSlotAt();
+        LocalDateTime start = nextSlotTime;
+        LocalDateTime end = nextSlotTime;
 
         var existList = slotRepository.findTopForDeliveryWithLock(
                 request.getUserId(), request.getContentType(), start, end, SlotStatus.SCHEDULED, PageRequest.of(0, 1)
@@ -129,7 +135,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                     .contentType(request.getContentType())
                     .newsId(request.getNewsId())
                     .quizId(request.getQuizId())
-                    .slotAt(request.getSlotAt())
+                    .slotAt(nextSlotTime)
                     .priority(request.getPriority() == null ? 5 : request.getPriority())
                     .reason(request.getReason())
                     .status(SlotStatus.SCHEDULED)
@@ -145,5 +151,24 @@ public class RecommendationServiceImpl implements RecommendationService {
             s.setQuizId(request.getQuizId());
             s.setReason(request.getReason());
         }
+    }
+
+    /**
+     * 사용자 설정을 기반으로 다음 알림 시간을 계산
+     */
+    private LocalDateTime calculateNextSlotTime(Long userId, ContentType contentType, int notifyIntervalMinutes) {
+        // 사용자의 마지막 알림 시간 조회
+        var lastSlot = slotRepository.findTopByUserIdAndContentTypeOrderBySlotAtDesc(userId, contentType);
+
+        LocalDateTime baseTime;
+        if (lastSlot.isPresent()) {
+            // 마지막 알림 시간에서 interval만큼 더함
+            baseTime = lastSlot.get().getSlotAt().plusMinutes(notifyIntervalMinutes);
+        } else {
+            // 첫 번째 알림이면 현재 시간에서 interval만큼 더함
+            baseTime = LocalDateTime.now().plusMinutes(notifyIntervalMinutes);
+        }
+
+        return baseTime;
     }
 }
