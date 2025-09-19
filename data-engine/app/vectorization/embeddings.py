@@ -49,7 +49,7 @@ class EmbeddingService:
             }
 
             response = await client.post(
-                f"{self.api_endpoint}embeddings",
+                f"{self.api_endpoint}api.openai.com/v1/embeddings",
                 headers=headers,
                 json=payload,
                 timeout=30.0

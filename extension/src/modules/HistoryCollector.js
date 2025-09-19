@@ -180,14 +180,39 @@ export class HistoryCollector {
     try {
       const serverUrl = 'http://localhost:8000';
       
+      // 완전히 빈 콘텐츠만 필터링
+      const filteredResults = contentResults.filter(item => {
+        // 1. extractedContent가 없으면 제외
+        if (!item.extractedContent) return false;
+
+        // 2. title과 content 모두 비어있으면 제외 (하나라도 있으면 포함)
+        const title = item.extractedContent.title || '';
+        const content = item.extractedContent.content || '';
+
+        return title.trim() || content.trim();
+      });
+
+      console.log(`🔍 콘텐츠 필터링: ${contentResults.length}개 → ${filteredResults.length}개`);
+
+      // 필터링된 결과가 없으면 전송하지 않음
+      if (filteredResults.length === 0) {
+        console.log("⚠️ 전송할 유효한 콘텐츠가 없습니다.");
+        return {
+          success: true,
+          message: "콘텐츠 추출 완료했으나 유효한 데이터 없음",
+          insertedCount: 0,
+          filteredCount: contentResults.length
+        };
+      }
+
       // 전송할 데이터 준비
       const historyPayload = {
         type: 'HISTORY_DATA',
-        totalItems: contentResults.length,
+        totalItems: filteredResults.length,
         collectedAt: new Date().toISOString(),
         timeRange: timeRange,
         userId: this.userSession?.getUserId() || 'dummy-user@picky.com', // UserSession에서 가져오기
-        items: contentResults.map(item => ({
+        items: filteredResults.map(item => ({
           url: item.url,
           domain: new URL(item.url).hostname,
           title: item.title,
@@ -202,7 +227,6 @@ export class HistoryCollector {
             cleanContent: item.extractedContent.content || '',
             excerpt: item.extractedContent.excerpt || '',
             wordCount: item.extractedContent.wordCount || 0,
-            author: '',
             language: 'ko',
             extractionMethod: item.extractMethod || 'failed'
           } : null,
@@ -210,7 +234,7 @@ export class HistoryCollector {
         }))
       };
       
-      console.log(`📤 히스토리 전송 시도: ${contentResults.length}개 아이템`);
+      console.log(`📤 히스토리 전송 시도: ${filteredResults.length}개 아이템 (필터링 후)`);
       
       // 히스토리 전용 API로 전송
       const response = await fetch(`${serverUrl}/user-logs/history-data`, {

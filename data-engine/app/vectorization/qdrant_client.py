@@ -21,6 +21,13 @@ class QdrantService:
     def create_collection_if_not_exists(self, collection_name: str, vector_size: int):
         """컬렉션이 없으면 생성"""
         try:
+            # 먼저 컬렉션 존재 여부 확인
+            collections = self.client.get_collections()
+            existing_collections = [col.name for col in collections.collections]
+
+            if collection_name in existing_collections:
+                return  # 이미 존재하므로 생성하지 않음
+
             self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=models.VectorParams(
@@ -30,7 +37,7 @@ class QdrantService:
             )
             print(f"[성공] Qdrant 컬렉션 '{collection_name}' 생성")
         except Exception as e:
-            print(f"[정보] 컬렉션이 이미 존재하거나 생성 실패: {e}")
+            print(f"[정보] 컬렉션 생성 실패: {e}")
     
     async def save_vectors(self, collection_name: str, data_list: list, vectors: list[list[float]]):
         """브라우징 데이터용 벡터를 Qdrant에 저장 (하위호환성 유지)"""
@@ -125,7 +132,6 @@ class QdrantService:
             "word_count": data.get("content", {}).get("wordCount"),
             "clean_title": data.get("content", {}).get("cleanTitle"),
             "excerpt": data.get("content", {}).get("excerpt"),
-            "author": data.get("content", {}).get("author"),
             "language": data.get("content", {}).get("language"),
             "extraction_method": data.get("content", {}).get("extractionMethod"),
             
@@ -197,6 +203,38 @@ class QdrantService:
             return None
         except Exception as e:
             print(f"[실패] 포인트 조회 실패 (collection: {collection_name}, id: {point_id}): {e}")
+            return None
+
+    async def get_user_profile(self, collection_name: str, user_id: str) -> dict:
+        """메타데이터 필터로 사용자 프로필 조회"""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+            points, _ = self.client.scroll(
+                collection_name=collection_name,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=user_id)
+                        )
+                    ]
+                ),
+                limit=1,
+                with_vectors=True,
+                with_payload=True
+            )
+
+            if points:
+                point = points[0]
+                return {
+                    "id": point.id,
+                    "vector": point.vector,
+                    "payload": point.payload
+                }
+            return None
+        except Exception as e:
+            print(f"[실패] 사용자 프로필 조회 실패 (collection: {collection_name}, user_id: {user_id}): {e}")
             return None
 
     def search_similar_vectors(self, collection_name: str, query_vector: list[float], limit: int = 5):

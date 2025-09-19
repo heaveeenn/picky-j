@@ -12,7 +12,6 @@ class ContentData(BaseModel):
     cleanContent: str        # 최대 2000자
     excerpt: str
     wordCount: int
-    author: str
     language: str
     extractionMethod: str    # 'readability' or 'basic'
 

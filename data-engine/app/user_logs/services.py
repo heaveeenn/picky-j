@@ -42,6 +42,25 @@ class BrowsingDataService:
             
             print(f"📊 [BROWSING] 데이터 저장: {data.domain} ({data.timeSpent}초 체류, {data.content.wordCount}단어) - 사용자: {data.userId} - 컬렉션: {collection_name} - 방문횟수: {visit_count}")
             
+            # 조건부 증분 업데이트 (프로필 벡터 존재 시에만)
+            try:
+                from ..core.dependencies import get_profile_service
+                profile_service = get_profile_service()
+
+                # 증분 업데이트 시도 (내부에서 프로필 존재 여부 확인)
+                update_result = await profile_service.update_profile_with_new_log(data.userId, save_data)
+
+                if update_result.get("success"):
+                    if update_result.get("skipped"):
+                        print(f"⏭️ [대기] {update_result.get('message', 'Success')}")
+                    else:
+                        print(f"✅ 자동 증분 업데이트 완료: {update_result.get('message', 'Success')}")
+                else:
+                    print(f"⏭️ [대기] 사용자 {data.userId} 히스토리 수집 중이므로 브라우징 데이터만 저장")
+
+            except Exception as e:
+                print(f"⚠️ 프로필 처리 실패: {e}")
+
             return {
                 "success": True,
                 "id": str(result.inserted_id),
@@ -87,7 +106,7 @@ class HistoryDataService:
                     "directVisits": item.directVisits,
                     
                     # 추출된 콘텐츠
-                    "extractedContent": item.content.dict() if item.content else None,
+                    "content": item.content.dict() if item.content else None,
                     
                     # 메타 정보
                     "collectionInfo": {
@@ -112,6 +131,16 @@ class HistoryDataService:
             
             print(f"📚 [HISTORY] 데이터 저장: {inserted_count}개 아이템 - 사용자: {data.userId} - 컬렉션: {collection_name}")
             
+            # 자동 벡터화 및 프로필 생성
+            if inserted_count > 0:
+                try:
+                    from ..core.dependencies import get_profile_service
+                    profile_service = get_profile_service()
+                    profile_result = await profile_service.create_initial_profile_from_history(data.userId)
+                    print(f"✅ 자동 프로필 생성 완료: {profile_result.get('message', 'Success')}")
+                except Exception as e:
+                    print(f"⚠️ 자동 프로필 생성 실패: {e}")
+
             return {
                 "success": True,
                 "collection": collection_name,

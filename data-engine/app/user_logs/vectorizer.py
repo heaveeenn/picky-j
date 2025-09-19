@@ -3,6 +3,7 @@
 브라우징 데이터를 벡터화하여 사용자 관심사 파악
 """
 
+import uuid
 from ..core.database import get_database, get_collection_name, get_url_hash
 from ..vectorization.embeddings import embedding_service
 from ..vectorization.qdrant_client import QdrantService
@@ -138,7 +139,7 @@ class UserLogsVectorizer:
                 url = metadata.get("url", "")
                 url_hash = get_url_hash(url)
                 user_id = metadata.get("user_id", "")
-                point_id = f"{user_id}:url:{url_hash}"
+                point_id = str(uuid.uuid4())  # UUID로 고유 ID 생성
 
                 # 메타데이터에 URL 해시 추가
                 metadata["url_hash"] = url_hash
