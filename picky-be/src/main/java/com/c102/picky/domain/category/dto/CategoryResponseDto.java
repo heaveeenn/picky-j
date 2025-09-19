@@ -28,6 +28,7 @@ public class CategoryResponseDto {
                 .id(c.getId())
                 .parentId(c.getParent() == null ? null : c.getParent().getId())
                 .level(c.getLevel().name())
+                .name(c.getName())
                 .aliases(aliasList)
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
