@@ -4,6 +4,10 @@ import os
 import requests
 from datetime import datetime
 from typing import List, Dict
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -17,17 +21,8 @@ class BackendRecommendationSender:
 
     def __init__(self, backend_url: str = None):
         if backend_url is None:
-            # 환경 변수에서 백엔드 URL 확인, 없으면 기본값들 시도
-            backend_url = os.getenv("BACKEND_URL")
-            if not backend_url:
-                # 가능한 백엔드 호스트들을 순서대로 시도
-                possible_hosts = [
-                    "http://backend:8080",
-                    "http://picky-be-backend:8080",
-                    "http://picky-be:8080",
-                    "http://localhost:8080"
-                ]
-                backend_url = possible_hosts[0]  # 일단 첫 번째 시도
+            # 환경 변수에서 백엔드 URL 확인, 없으면 기본값 사용
+            backend_url = os.getenv("BACKEND_URL", "http://backend:8080")
         self.backend_url = backend_url.rstrip("/")
         self.api_endpoint = f"{self.backend_url}/api/recommendations/slots"
         self.recommendation_service = NewsRecommendationService()
