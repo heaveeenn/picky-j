@@ -28,10 +28,14 @@ RUN pip install --no-cache-dir \
 # 6. 나머지 패키지 설치
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 7. 소스코드 복사 (맨 마지막에 복사하여 코드 변경 시 캐시 활용)
+# 7. 모델 다운로드 스크립트 복사 및 실행 (소스코드 변경과 독립적으로 캐시)
+COPY download_models.py .
+RUN python download_models.py
+
+# 8. 소스코드 복사 (맨 마지막에 복사하여 코드 변경 시 캐시 활용)
 COPY . .
 
 EXPOSE 8000
 
-# 8. 실행 커맨드
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 9. 실행 커맨드 (Python 출력 버퍼링 비활성화)
+CMD ["python", "-u", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

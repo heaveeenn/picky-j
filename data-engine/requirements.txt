@@ -25,3 +25,6 @@ beautifulsoup4==4.12.3
 # 데이터베이스 (MySQL 지원)
 PyMySQL==1.1.1
 sqlalchemy>=2.0.0
+
+# Scheduler
+APScheduler==3.10.4

@@ -3,7 +3,6 @@
 GMS API를 활용한 벡터화
 """
 
-import asyncio
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -49,7 +48,7 @@ class EmbeddingService:
             }
 
             response = await client.post(
-                f"{self.api_endpoint}embeddings",
+                f"{self.api_endpoint}api.openai.com/v1/embeddings",
                 headers=headers,
                 json=payload,
                 timeout=30.0

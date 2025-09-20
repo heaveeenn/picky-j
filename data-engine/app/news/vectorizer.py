@@ -1,4 +1,4 @@
-"""News vectorization utilities for Qdrant ingestion."""
+"""뉴스 벡터화 및 Qdrant 저장 유틸리티"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ try:
 
     embedding_service = _embeddings_module.embedding_service
     _EMBEDDING_INIT_ERROR = None
-except RuntimeError as exc:  # pragma: no cover - configuration dependent
+except RuntimeError as exc:  # 설정에 따른 예외
     embedding_service = None
     _EMBEDDING_INIT_ERROR = exc
 
@@ -55,7 +55,7 @@ class NewsVectorizer:
             vectorization_result = {
                 "vector": vector,
                 "metadata": {
-                    "news_id": news_data.get("news_id"),
+                    "news_id": news_data.get("id"),
                     "title": news_data.get("title"),
                     "category": news_data.get("category"),
                     "published_at": news_data.get("published_at"),
@@ -115,15 +115,15 @@ class NewsVectorizer:
         batch_size: int = 16,
         embedding_version: str = "news-v1",
     ) -> Dict[str, int]:
-        """Encode news articles in batches and persist them to Qdrant.
+        """뉴스 기사들을 배치로 인코딩하여 Qdrant에 저장
 
         Args:
-            news_items: List of news dicts that already contain summaries.
-            batch_size: Number of items to embed per API call.
-            embedding_version: Payload marker for traceability.
+            news_items: 요약이 포함된 뉴스 딕셔너리 리스트
+            batch_size: API 호출당 임베딩할 항목 수
+            embedding_version: 추적용 페이로드 마커
 
         Returns:
-            Dictionary with simple statistics (processed/embedded/skipped).
+            처리 통계가 담긴 딕셔너리 (processed/embedded/skipped)
         """
 
         stats = {"processed": len(news_items), "embedded": 0, "skipped": 0}
@@ -165,22 +165,9 @@ class NewsVectorizer:
         return stats
 
     def _build_metadata(self, news_data: Dict, embedding_version: str) -> Dict:
-        summary = (news_data.get("summary") or "").strip()
-        content = (news_data.get("body") or news_data.get("content") or "").strip()
-        url = self._extract_url(news_data)
-
+        """뉴스 메타데이터 생성 - news_id만 저장하여 용량 최적화"""
         metadata = {
-            "title": news_data.get("title", ""),
-            "url": url,
-            "origin_url": news_data.get("originallink") or news_data.get("origin_url"),
-            "category": news_data.get("category"),
-            "keyword": news_data.get("keyword"),
-            "summary": summary,
-            "summary_length": len(summary),
-            "body_length": len(content),
-            "published_at": news_data.get("published_at"),
-            "crawled_at": news_data.get("created_at"),
-            "source": news_data.get("source") or self._deduce_source(url),
+            "news_id": news_data.get("id"),
             "embedding_version": embedding_version,
         }
 
@@ -188,11 +175,15 @@ class NewsVectorizer:
 
     def _generate_point_id(self, news_data: Dict, metadata: Dict) -> str:
         if "id" in news_data and news_data["id"]:
-            return str(news_data["id"])
+            return news_data["id"]  # 정수 그대로 반환
 
+        # Qdrant는 UUID 또는 정수만 허용하므로 URL 기반 결정적 UUID 생성
         candidate = metadata.get("url") or news_data.get("link") or news_data.get("title") or "news"
+        # MD5 해시를 UUID 형식으로 변환
         digest = hashlib.md5(candidate.encode("utf-8")).hexdigest()
-        return f"news:{digest}"
+        # 32자리 hex를 UUID 형식으로 변환 (8-4-4-4-12)
+        uuid_str = f"{digest[:8]}-{digest[8:12]}-{digest[12:16]}-{digest[16:20]}-{digest[20:32]}"
+        return uuid_str
 
     def _extract_url(self, news_data: Dict) -> str:
         return news_data.get("link") or news_data.get("url") or news_data.get("originallink") or ""
@@ -203,3 +194,4 @@ class NewsVectorizer:
 
         parsed = urlparse(url)
         return parsed.netloc or "unknown"
+

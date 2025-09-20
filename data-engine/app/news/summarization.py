@@ -41,19 +41,15 @@ class NewsSummarizationService:
             # 토크나이저 로드
             tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
-            # 디바이스별 모델 로드
+            # 모델 로드 후 디바이스/정밀도 설정 (torch_dtype 인자 사용 안 함)
+            model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+
             if force_cpu or not torch.cuda.is_available():
-                model = AutoModelForSeq2SeqLM.from_pretrained(
-                    self.model_name,
-                    torch_dtype=torch.float32
-                )
+                model = model.to(dtype=torch.float32)
                 device = -1
                 logger.info("[요약 모델] CPU 모드로 로딩")
             else:
-                model = AutoModelForSeq2SeqLM.from_pretrained(
-                    self.model_name,
-                    torch_dtype=torch.float16
-                )
+                model = model.to(device=torch.device("cuda:0"), dtype=torch.float16)
                 device = 0
                 logger.info("[요약 모델] GPU 모드로 로딩")
 
@@ -83,15 +79,32 @@ class NewsSummarizationService:
                 return text[:max_length]
 
             start_time = time.time()
+            generation_kwargs = {
+                "max_new_tokens": max(max_length, 1),
+                "do_sample": False,
+                "truncation": True,
+            }
+
+            # min_new_tokens는 0보다 커야 의미가 있으므로 조건부로 추가
+            if min_length and min_length > 0:
+                generation_kwargs["min_new_tokens"] = min(min_length, generation_kwargs["max_new_tokens"])
+
             result = self.pipe(
                 text,
-                max_length=max_length,
-                min_length=min_length,
-                do_sample=False,
-                truncation=True
+                **generation_kwargs,
             )
 
             processing_time = time.time() - start_time
+
+            # 결과 검증 후 안전하게 추출
+            if not result or len(result) == 0:
+                logger.error(f"[요약 실패] 모델이 빈 결과를 반환했습니다.")
+                return "요약 실패"
+
+            if "summary_text" not in result[0]:
+                logger.error(f"[요약 실패] 결과에 summary_text가 없습니다: {result}")
+                return "요약 실패"
+
             summary = result[0]["summary_text"]
 
             logger.info(f"[요약 완료] {processing_time:.2f}초 소요")

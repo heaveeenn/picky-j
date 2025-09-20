@@ -1,0 +1,55 @@
+# Git 관련
+.git
+.gitignore
+
+# Python 관련
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE 및 에디터
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 로그 및 임시 파일
+*.log
+.tmp
+.temp
+
+# 테스트 및 커버리지
+.coverage
+.pytest_cache
+.tox
+nosetests.xml
+coverage.xml
+
+# Docker 관련
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# 문서 및 README
+*.md
+docs/
+
+# 개발 관련
+.env.local
+.env.dev
+test_*
+
+# OS 관련
+.DS_Store
+Thumbs.db
+
+# 중요: 모델 다운로드 스크립트는 포함
+!download_models.py
