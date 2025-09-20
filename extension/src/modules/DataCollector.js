@@ -178,7 +178,6 @@ export class DataCollector {
           excerpt: article.excerpt || this.getMetaDescription(),
           readingTime: this.calculateReadingTime(article.textContent || ''),
           wordCount: this.countWords(article.textContent || ''),
-          byline: article.byline || '', // 저자
           lang: article.lang || document.documentElement.lang || 'ko'
         };
       } else {
@@ -213,7 +212,6 @@ export class DataCollector {
       excerpt: this.getMetaDescription(),
       readingTime: this.calculateReadingTime(paragraphs),
       wordCount: this.countWords(paragraphs),
-      byline: '',
       lang: document.documentElement.lang || 'ko'
     };
   }
@@ -298,9 +296,18 @@ export class DataCollector {
       console.log('❌ 데이터 수집 비활성화 - 수집 중단');
       return null;
     }
-    
+
     const kstTime = this.getKSTTimestamp();
     const contentData = this.extractCleanContent();
+
+    // 완전히 빈 콘텐츠만 필터링
+    const title = contentData.cleanTitle || '';
+    const content = contentData.cleanContent || '';
+
+    if (!title.trim() && !content.trim()) {
+      console.log('⚠️ 제목과 내용이 모두 비어있어 수집 중단');
+      return null;
+    }
 
     const data = {
       // 기본 페이지 정보
@@ -324,7 +331,6 @@ export class DataCollector {
         cleanContent: contentData.cleanContent.substring(0, 2000), // 길이 제한
         excerpt: contentData.excerpt,
         wordCount: contentData.wordCount,
-        author: contentData.byline,
         language: contentData.lang,
         extractionMethod: contentData.success ? 'readability' : 'basic'
       },

@@ -3,10 +3,9 @@ import sys
 import urllib.request
 import urllib.parse
 import json
-import datetime
 import requests
+import asyncio
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import re
@@ -18,11 +17,10 @@ from .models import News
 
 # 프로젝트 루트를 Python path에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from news.summarization import get_summarization_service
-# from news.vectorizer import NewsVectorizer  # TODO: Qdrant 저장 재활성화 시 주석 해제
+from .summarization import get_summarization_service
+from .vectorizer import NewsVectorizer  # Qdrant 저장 활성화
 
 # ====== 환경 설정 ======
-load_dotenv()
 client_id = os.environ.get('CLIENT_ID')
 client_secret = os.environ.get('CLIENT_SECRET')
 
@@ -35,7 +33,7 @@ CATEGORY_MAP = {
     "건강": 6,
     "교육": 7,
     "문화": 8,
-    "연예": 9, 
+    "엔터테인먼트": 9, 
     "스포츠": 10,
     "역사": 11,
     "환경": 12,
@@ -47,24 +45,25 @@ CATEGORY_MAP = {
 }
 
 CATEGORIES = {
-    "정치": ["정부", "국회", "대통령", "총리", "장관", "선거", "정당", "외교", "국방", "안보"],
-    # "사회": ["노동", "인권", "복지", "범죄", "경찰", "검찰", "재판", "사건사고", "안전", "재난"],
-    # "경제": ["경제", "금융", "증권", "투자", "기업", "산업", "무역", "부동산", "건설", "물가"],
-    # "기술": ["IT", "인공지능", "소프트웨어", "하드웨어", "반도체", "데이터", "통신", "로봇", "사이버보안", "블록체인"],
-    # "과학": ["과학기술", "물리학", "화학", "생명과학", "지구과학", "천문학", "우주", "연구개발", "학술지", "실험"],
-    # "건강": ["건강", "질병", "의료", "병원", "의약품", "백신", "영양", "운동", "정신건강", "공중보건"],
-    # "교육": ["교육", "학교", "대학", "입시", "수능", "교사", "학생", "학원", "평생교육", "온라인교육"],
-    # "문화": ["문화", "문학", "예술", "공연", "전시", "전통문화", "미술", "영화제", "언어", "축제"],
-    # "연예": ["연예", "영화", "드라마", "음악", "K-pop", "아이돌", "방송", "예능", "게임", "웹툰"],
-    # "스포츠": ["스포츠", "축구", "야구", "농구", "배구", "골프", "올림픽", "월드컵", "e스포츠", "체육"],
-    # "역사": ["역사", "한국사", "세계사", "고대사", "근현대사", "고고학", "역사인물", "전쟁사", "문화재", "역사교육"],
-    # "환경": ["환경", "기후변화", "탄소중립", "재활용", "에너지", "대기오염", "수질오염", "생태계", "자연재해", "환경정책"],
-    # "여행": ["여행", "관광", "국내여행", "해외여행", "호텔", "항공", "교통", "맛집", "축제여행", "여행후기"],
-    # "생활": ["생활", "요리", "패션", "뷰티", "인테리어", "반려동물", "취미", "운동", "원예", "라이프스타일"],
-    # "가정": ["가정", "연애", "결혼", "신혼", "육아", "자녀교육", "가족관계", "부부", "부모", "청소년"],
-    # "종교": ["종교", "기독교", "불교", "천주교", "이슬람", "종교행사", "종교갈등", "신앙", "명상", "영성"],
-    # "철학": ["철학", "윤리", "인문학", "정치철학", "사회철학", "서양철학", "동양철학", "형이상학", "논리학", "존재론"]
+  "정치": ["정부", "대통령", "국회", "총리", "장관", "선거", "정당", "외교", "국방", "안보", "정책", "개헌", "비리"],
+  "사회": ["노동", "인권", "복지", "범죄", "경찰", "검찰", "재판", "사건사고", "안전", "재난", "시위", "갈등", "실업"],
+  "경제": ["경제", "금융", "증권", "투자", "기업", "산업", "무역", "부동산", "건설", "물가", "환율", "고용", "무역협정", "스타트업"],
+  "기술": ["IT", "인공지능", "소프트웨어", "하드웨어", "반도체", "데이터", "통신", "로봇", "사이버보안", "블록체인", "클라우드", "스타트업", "메타버스", "5G"],
+  "과학": ["과학기술", "물리학", "화학", "생명과학", "지구과학", "천문학", "우주", "연구개발", "실험", "유전자", "의학연구", "기후과학", "신소재"],
+  "건강": ["건강", "질병", "의료", "병원", "의약품", "백신", "영양", "운동", "정신건강", "공중보건", "예방", "다이어트"],
+  "교육": ["교육", "학교", "대학", "입시", "수능", "교사", "학생", "학원", "평생교육", "온라인교육", "장학금", "교과서", "교육정책"],
+  "문화": ["문화", "문학", "예술", "공연", "전시", "전통문화", "미술", "영화제", "언어", "축제", "창작", "예술가"],
+  "엔터테인먼트": ["연예", "영화", "드라마", "음악", "K-pop", "아이돌", "방송", "예능", "게임", "웹툰", "OTT", "팬덤", "스타"],
+  "스포츠": ["스포츠", "축구", "야구", "농구", "배구", "골프", "올림픽", "월드컵", "e스포츠", "체육", "테니스", "마라톤", "선수단"],
+  "역사": ["역사", "한국사", "세계사", "고대사", "근현대사", "고고학", "역사인물", "전쟁사", "문화재", "역사교육", "독립운동", "유적"],
+  "환경": ["환경", "기후변화", "탄소중립", "재활용", "에너지", "대기오염", "수질오염", "생태계", "자연재해", "환경정책", "미세먼지", "친환경", "지속가능성"],
+  "여행": ["여행", "관광", "국내여행", "해외여행", "호텔", "항공", "교통", "맛집", "여행후기", "여행정보", "배낭여행", "관광지"],
+  "생활": ["생활", "요리", "패션", "뷰티", "인테리어", "반려동물", "취미", "운동", "원예", "라이프스타일", "소비", "쇼핑", "서비스"],
+  "가정": ["가정", "연애", "결혼", "신혼", "육아", "자녀교육", "가족관계", "부부", "부모", "청소년", "가사", "돌봄"],
+  "종교": ["종교", "기독교", "불교", "천주교", "이슬람", "종교행사", "종교갈등", "신앙", "명상", "영성", "사찰", "교회"],
+  "철학": ["철학", "윤리", "인문학", "정치철학", "사회철학", "동양철학", "서양철학", "가치관", "도덕", "사상", "철학자", "진리"]
 }
+
 
 # ====== 본문 크롤링 후 전처리 =====
 def clean_title(raw_title):
@@ -161,17 +160,73 @@ def get_news(keyword, start=1, display=5):
         return []
 
 # ====== 본문 크롤링 ======
+def is_good_content(text):
+    """텍스트가 실제 뉴스 본문인지 간단 검증"""
+    if len(text) < 100:
+        return False
+
+    # 메뉴 키워드가 너무 많으면 제외
+    menu_keywords = ["전체메뉴", "기사검색", "로그인", "facebook", "검색", "닫기"]
+    menu_count = sum(1 for kw in menu_keywords if kw in text)
+    if menu_count > 3:
+        return False
+
+    # 카테고리 키워드가 너무 많으면 제외 (사이트 네비게이션)
+    category_keywords = ["모바일·가전", "방송·통신", "반도체·디스플레이", "SW·보안", "금융", "증권"]
+    category_count = sum(1 for kw in category_keywords if kw in text)
+    if category_count > 2:
+        return False
+
+    return True
+
+def try_alternative_selectors(soup):
+    """대안 선택자들로 본문 추출 시도"""
+    selectors = [
+        ".article-body",
+        ".content",
+        "#content",
+        ".news-content",
+        ".article-content"
+    ]
+
+    candidates = []
+
+    for selector in selectors:
+        element = soup.select_one(selector)
+        if element:
+            element_text = clean_body(clean_body_soup(element).get_text(separator="\n").strip())
+            if is_good_content(element_text):
+                candidates.append((element_text, len(element_text)))
+
+    # 적합한 후보 중 가장 긴 것 반환
+    if candidates:
+        best_text, _ = max(candidates, key=lambda x: x[1])
+        return best_text
+
+    return ""
+
 def get_body(url):
     try:
         print(f"[{threading.current_thread().name}] 요청 시작 → {url}")
         res = requests.get(url, timeout=5, headers={"User-Agent":"Mozilla/5.0"})
         soup = BeautifulSoup(res.text, "html.parser")
+
+        # 1. 기존 방식 먼저 시도 (빠름)
         article = soup.find("article")
         if article:
-            article = clean_body_soup(article)
-            return clean_body(article.get_text(separator="\n").strip())
-        else:
-            return ""
+            cleaned_article = clean_body_soup(article)
+            text = clean_body(cleaned_article.get_text(separator="\n").strip())
+            if is_good_content(text):
+                return text
+
+        # 2. 기존 방식 실패시 대안 선택자 시도
+        alternative_text = try_alternative_selectors(soup)
+        if alternative_text:
+            return alternative_text
+
+        # 3. 모든 방법 실패
+        return ""
+
     except Exception as e:
         print("본문 추출 실패:", e)
         return ""
@@ -180,6 +235,90 @@ def get_body(url):
 # 전역 모델 서비스 및 Lock
 _summarization_service = None
 _service_lock = threading.Lock()
+
+# ====== 실시간 벡터화 큐 ======
+_vectorization_queue = []
+_vectorization_lock = threading.Lock()
+_vectorizer = None
+
+def get_global_vectorizer():
+    """Thread-safe 싱글톤 벡터화 서비스"""
+    global _vectorizer
+    if _vectorizer is None:
+        with _vectorization_lock:
+            if _vectorizer is None:
+                _vectorizer = NewsVectorizer()
+    return _vectorizer
+
+def process_vectorization_batch_async(batch_to_process, batch_id):
+    """백그라운드에서 벡터화 배치 처리"""
+    try:
+        print(f"🔄 배치 벡터화 시작 (배치 #{batch_id}, {len(batch_to_process)}개)")
+        vectorizer = get_global_vectorizer()
+        stats = asyncio.run(vectorizer.vectorize_and_save_batch(batch_to_process))
+        print(f"✅ 배치 #{batch_id} 벡터화 완료: {stats['embedded']}개 저장")
+    except Exception as e:
+        print(f"❌ 배치 #{batch_id} 벡터화 실패: {e}")
+
+# 배치 카운터 (배치 ID 생성용)
+_batch_counter = 0
+_batch_counter_lock = threading.Lock()
+
+def add_to_vectorization_queue(news_item):
+    """뉴스 아이템을 벡터화 큐에 추가하고, 16개가 되면 백그라운드에서 벡터화 실행"""
+    global _vectorization_queue, _batch_counter
+
+    with _vectorization_lock:
+        _vectorization_queue.append(news_item)
+        current_count = len(_vectorization_queue)
+
+        # 16개가 모이면 백그라운드에서 벡터화 실행
+        if current_count >= 16:
+            batch_to_process = _vectorization_queue[:16]
+            _vectorization_queue = _vectorization_queue[16:]  # 큐에서 제거
+
+            # 배치 ID 생성
+            with _batch_counter_lock:
+                _batch_counter += 1
+                batch_id = _batch_counter
+
+            # 별도 스레드에서 벡터화 실행 (논블로킹)
+            vectorization_thread = threading.Thread(
+                target=process_vectorization_batch_async,
+                args=(batch_to_process, batch_id),
+                daemon=True  # 메인 프로세스 종료 시 함께 종료
+            )
+            vectorization_thread.start()
+            print(f"🚀 배치 #{batch_id} 벡터화 스레드 시작 (16개) - 크롤링 계속...")
+
+def flush_remaining_vectorization_queue():
+    """남은 큐의 모든 아이템을 백그라운드에서 벡터화하고 완료 대기"""
+    global _vectorization_queue, _batch_counter
+
+    with _vectorization_lock:
+        if _vectorization_queue:
+            remaining_count = len(_vectorization_queue)
+            batch_to_process = _vectorization_queue.copy()
+            _vectorization_queue.clear()
+
+            # 배치 ID 생성
+            with _batch_counter_lock:
+                _batch_counter += 1
+                batch_id = _batch_counter
+
+            print(f"🔄 최종 배치 벡터화 시작 (배치 #{batch_id}, {remaining_count}개)")
+
+            # 최종 배치는 동기적으로 실행 (완료 대기 필요)
+            try:
+                vectorizer = get_global_vectorizer()
+                stats = asyncio.run(vectorizer.vectorize_and_save_batch(batch_to_process))
+                print(f"✅ 최종 배치 #{batch_id} 벡터화 완료: {stats['embedded']}개 저장")
+                return stats
+            except Exception as e:
+                print(f"❌ 최종 배치 #{batch_id} 벡터화 실패: {e}")
+                return {"processed": 0, "embedded": 0, "skipped": 0}
+
+    return {"processed": 0, "embedded": 0, "skipped": 0}
 
 def get_global_summarization_service():
     """Thread-safe 싱글톤 요약 서비스"""
@@ -230,42 +369,67 @@ def summarize_text(text):
 # ====== 대분류에 따른 중분류 병렬 처리 =====
 def process_keyword(category, keyword):
     """카테고리별 키워드로 뉴스 수집 및 요약"""
-    items = get_news(keyword, start=1, display=5)
-    results = []
+    from core.mysql_db import SessionLocal
+    session = SessionLocal()
 
-    for item in items:
-        print(f"[{category}-{keyword}] 처리 중: {clean_title(item['title'])}")
+    try:
+        items = get_news(keyword, start=1, display=5)
+        results = []
 
-        # 본문 추출
-        body = get_body(item["link"])
+        for item in items:
+            url = item["link"]
 
-        # 요약 생성
-        summary = ""
-        if body:
+            if session.query(News).filter_by(url=url).first():
+                print(f"⏭️ 스킵 (이미 존재): {url}")
+                continue
+
+            print(f"[{category}-{keyword}] 처리 중: {clean_title(item['title'])}")
+
+            # 본문 추출
+            body = get_body(item["link"])
+
+            # 본문 추출 실패 시 스킵
+            if not body:
+                print(f"  → 스킵: 본문 추출 실패")
+                continue
+
+            # 요약 생성
             print(f"  → 요약 생성 중... (본문 길이: {len(body)}자)")
             summary = summarize_text(body)
+
+            # 요약 실패 시 스킵
+            if not summary or "요약 실패" in summary or "요약 오류" in summary:
+                print(f"  → 스킵: 요약 생성 실패 ({summary[:30]}...)")
+                continue
+
             print(f"  → 요약 완료: {summary[:50]}...")
-        else:
-            print(f"  → 본문 추출 실패")
 
-        published_at = parse_pub_date(item.get("pubDate"))
-        result = {
-            "category": category,
-            "keyword": keyword,
-            "title": clean_title(item["title"]),
-            "link": item["link"],
-            "originallink": item.get("originallink"),
-            "body": body,
-            "summary": summary,
-            "created_at": datetime.now().isoformat(),
-            "published_at": published_at
-        }
+            published_at = parse_pub_date(item.get("pubDate"))
+            result = {
+                "category": category,
+                "keyword": keyword,
+                "title": clean_title(item["title"]),
+                "link": item["link"],
+                "originallink": item.get("originallink"),
+                "body": body,
+                "summary": summary,
+                "created_at": datetime.now().isoformat(),
+                "published_at": published_at
+            }
 
-        save_to_db(result)
+            news_id = save_to_db(result)
 
-        results.append(result)
+            # 실시간 벡터화 큐에 추가 (정상 뉴스만)
+            if news_id:
+                result["id"] = news_id  # DB에서 생성된 ID 추가
+                add_to_vectorization_queue(result)
 
-    return results
+            results.append(result)
+
+        return results
+
+    finally:
+        session.close()
 
 
 def parse_pub_date(raw_pubdate):
@@ -289,15 +453,13 @@ def save_to_db(item):
         category_id = CATEGORY_MAP.get(item["category"])
         if not category_id:
             print(f"⚠️ 카테고리 매핑 실패: {item['category']}")
-            return
-
+            return None
         pub_dt = None
         if item.get("published_at"):
             try:
                 pub_dt = datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
             except Exception:
                 pass
-
         news = News(
             category_id=category_id,
             title=item["title"],
@@ -308,36 +470,16 @@ def save_to_db(item):
         session.add(news)
         session.commit()
         print(f"✅ 저장 성공: {news.title[:30]}...")
+        return news.id  # 생성된 ID 반환
+
     except IntegrityError:
         session.rollback()
         print(f"⚠️ 중복으로 스킵: {item['link']}")
+        return None
     finally:
         session.close()
 
 
-# ====== JSON 저장 ======
-def save_to_json(all_results, filename=None):
-    """수집된 뉴스 데이터를 JSON 파일로 저장"""
-    if filename is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"news_crawled_{timestamp}_2.json"
-
-    json_data = {
-        "created_at": datetime.now().isoformat(),
-        "total_count": len(all_results),
-        "categories": list(set(r['category'] for r in all_results)),
-        "news": all_results
-    }
-
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, ensure_ascii=False, indent=2)
-        print(f"✅ JSON 저장 완료: {filename}")
-        print(f"📊 총 {len(all_results)}개 뉴스 저장됨")
-        return filename
-    except Exception as e:
-        print(f"❌ JSON 저장 실패: {e}")
-        return None
 
 # ====== 메인 실행 ======
 def main():
@@ -345,7 +487,6 @@ def main():
     print(f"📂 처리 카테고리: {len(CATEGORIES)}개")
     print("=" * 60)
 
-    all_results = []  # 전체 결과 저장용
 
     # 모델 사전 로딩 (메인 스레드에서)
     print("\n🔄 요약 모델 사전 로딩 중...")
@@ -367,7 +508,6 @@ def main():
                 try:
                     results = future.result()
                     category_results.extend(results)
-                    all_results.extend(results)
                     print(f"    ✅ [{i}/{len(keywords)}] 완료: {len(results)}개 뉴스")
                 except Exception as e:
                     print(f"    ❌ [{i}/{len(keywords)}] 에러: {e}")
@@ -375,41 +515,14 @@ def main():
         print(f"  📊 [{category}] 완료: {len(category_results)}개 뉴스 수집")
 
     print(f"\n🎉 전체 뉴스 크롤링 및 요약 완료!")
-    print(f"📊 총 수집된 뉴스: {len(all_results)}개")
 
-    # 최종 JSON 저장
-    print(f"\n{'=' * 60}")
-    print("💾 JSON 파일 저장 중...")
-    saved_file = save_to_json(all_results)
+    # 남은 벡터화 큐 처리
+    print(f"\n🔗 남은 벡터화 큐 처리 중...")
+    final_stats = flush_remaining_vectorization_queue()
+    if final_stats["processed"] > 0:
+        print(f"✅ 최종 벡터화 완료: 총 {final_stats['embedded']}개 벡터 저장")
 
-    if saved_file:
-        print(f"\n🎉 크롤링 완료!")
-        print(f"📄 저장 파일: {saved_file}")
-        print(f"📊 총 수집: {len(all_results)}개 뉴스")
-
-        # 카테고리별 통계
-        category_stats = {}
-        for result in all_results:
-            cat = result['category']
-            category_stats[cat] = category_stats.get(cat, 0) + 1
-
-        print("\n📈 카테고리별 수집 현황:")
-        for cat, count in category_stats.items():
-            print(f"  - {cat}: {count}개")
-
-        # Qdrant 저장 로직 (현재 비활성화)
-        # try:
-        #     vectorizer = NewsVectorizer()
-        #     stats = asyncio.run(vectorizer.vectorize_and_save_batch(all_results))
-        #     print(
-        #         f"✅ Qdrant 저장 완료: 총 {stats['embedded']}개 벡터 저장"
-        #         f" (요청 {stats['processed']}개, 스킵 {stats['skipped']}개)"
-        #     )
-        # except Exception as exc:
-        #     print(f"❌ 뉴스 벡터화 실패: {exc}")
-
-    else:
-        print("❌ 저장 실패!")
+    print(f"\n🎉 크롤링 및 벡터화 완료!")
 
 if __name__ == "__main__":
     main()

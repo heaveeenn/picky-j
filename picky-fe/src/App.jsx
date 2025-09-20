@@ -37,11 +37,7 @@ const App = () => {
     const accessToken = localStorage.getItem('accessToken');
     if (accessToken) {
       try {
-        const response = await api.get('/api/users/me', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
+        const response = await api.get('/api/users/me');
         const userData = response.data.data;
         setNickname(userData.nickname);
         setProfileImage(userData.profileImage);
@@ -56,9 +52,6 @@ const App = () => {
     if (accessToken) {
       try {
         await api.post('/api/auth/logout', {}, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
           withCredentials: true
         });
       } catch (error) {

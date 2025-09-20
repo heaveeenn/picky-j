@@ -49,9 +49,9 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
       try {
         // Removed userRes from Promise.all as nickname and profileImage are now props
         const [settingsRes, allCategoriesRes, interestsRes] = await Promise.all([
-          api.get('/api/users/me/settings', { headers: { 'Authorization': `Bearer ${accessToken}` } }),
-          api.get('/api/categories', { headers: { 'Authorization': `Bearer ${accessToken}` } }),
-          api.get('/api/users/me/interests', { headers: { 'Authorization': `Bearer ${accessToken}` } })
+          api.get('/api/users/me/settings'),
+          api.get('/api/categories'),
+          api.get('/api/users/me/interests')
         ]);
 
         // Removed userData processing as nickname and profileImage are now props
@@ -106,17 +106,13 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
         factEnabled: popupSettings.fact,
         blockedDomains: excludedSites,
       };
-      await api.put('/api/users/me/settings', settingsToUpdate, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
+      await api.put('/api/users/me/settings', settingsToUpdate);
 
       const selectedCategoryIds = categories
         .filter(cat => cat.checked)
         .map(cat => cat.id);
       
-      await api.post('/api/users/me/interests', { categoryIds: selectedCategoryIds }, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
+      await api.post('/api/users/me/interests', { categoryIds: selectedCategoryIds });
 
       alert('설정이 성공적으로 저장되었습니다.');
 
