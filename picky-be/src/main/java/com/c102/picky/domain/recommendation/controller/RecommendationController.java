@@ -45,6 +45,11 @@ class RecommendationController {
         LocalDateTime end = windowEnd != null ? windowEnd : now.plusMinutes(5);
 
         var payload = recommendationService.getNextRecommendation(userId, type, start, end);
+
+        if (payload == null) {
+            return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "현재 추천할 콘텐츠를 준비중입니다. 잠시 후 다시 확인해주세요!", null, request.getRequestURI()));
+        }
+
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "추천 조회 성공", payload, request.getRequestURI()));
     }
 
@@ -67,7 +72,7 @@ class RecommendationController {
     /**
      *  (내부/패치) 슬롯 UPSERT
      */
-    @PostMapping("/slots:upsert")
+    @PostMapping("/slots")
     public ResponseEntity<ApiResponse<Void>> upsertSlot(
             HttpServletRequest request,
             @Valid @RequestBody RecommendationUpsertRequestDto dto
