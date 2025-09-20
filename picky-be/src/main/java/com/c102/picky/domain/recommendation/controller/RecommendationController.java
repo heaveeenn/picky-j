@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 
 @RestController
-@RequestMapping("/api/recommnedations")
+@RequestMapping("/api/recommendations")
 @RequiredArgsConstructor
 class RecommendationController {
     private final RecommendationService recommendationService;
