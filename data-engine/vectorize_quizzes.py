@@ -249,7 +249,6 @@ async def main():
         await vectorizer.vectorize_all_quizzes(
             batch_size=1000,
             embed_batch_size=32,
-            max_quizzes=10000
         )
     except Exception as e:
         logger.error(f"❌ 퀴즈 벡터화 실패: {e}")
