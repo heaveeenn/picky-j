@@ -25,7 +25,14 @@ public class UserDomainStats {
     @Column(nullable = false, length = 255)
     private String domain;
     @Builder.Default
-    private Integer visitCount = 0;
+    private Long visitCount = 0L;
     @Builder.Default
-    private Integer timeSpent = 0;
+    private Long timeSpent = 0L;
+
+    public void addVisitCount(long count) {
+        this.visitCount += count;
+    }
+    public void addTimeSpent(long time) {
+        this.timeSpent += time;
+    }
 }

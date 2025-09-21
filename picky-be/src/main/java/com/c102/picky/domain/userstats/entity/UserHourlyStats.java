@@ -26,5 +26,9 @@ public class UserHourlyStats {
     private Integer hour;  // 0~23
 
     @Builder.Default
-    private Integer timeSpent = 0;
+    private Long timeSpent = 0L;
+
+    public void addTimeSpent(long time) {
+        this.timeSpent += time;
+    }
 }

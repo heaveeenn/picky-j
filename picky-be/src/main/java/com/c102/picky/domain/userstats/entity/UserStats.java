@@ -25,9 +25,9 @@ public class UserStats {
     private User user;
 
     @Builder.Default
-    private Integer totalSites = 0;
+    private Long totalSites = 0L;
     @Builder.Default
-    private Integer totalTimeSpent = 0;
+    private Long totalTimeSpent = 0L;
 
     @Column(nullable = false)
     @Builder.Default
@@ -37,5 +37,12 @@ public class UserStats {
     @PreUpdate
     public void updateTimestamp() {
         this.lastUpdated = LocalDateTime.now();
+    }
+
+    public void addTotalSites(long sites) {
+        this.totalSites += sites;
+    }
+    public void addTotalTime(long time) {
+        this.totalTimeSpent += time;
     }
 }
