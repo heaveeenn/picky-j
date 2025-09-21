@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/recommendations")
@@ -80,6 +81,23 @@ class RecommendationController {
         recommendationService.upsertSlot(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "슬롯 업서트 성공", null, request.getRequestURI()));
+    }
+
+    /**
+     * 스케줄된 추천 목록 조회 (SCHEDULED 상태)
+     * @param request
+     * @param type NEWS | QUIZ
+     * @return
+     */
+    @GetMapping("/scheduled")
+    public ResponseEntity<ApiResponse<List<RecommendationPayloadResponseDto>>> getScheduledRecommendations(
+            HttpServletRequest request,
+            @RequestParam ContentType type
+    ) {
+        Long userId = (Long) request.getAttribute("userId");
+        List<RecommendationPayloadResponseDto> recommendations = recommendationService.getScheduledRecommendations(userId, type);
+
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "스케줄된 추천 조회 성공", recommendations, request.getRequestURI()));
     }
 }
 

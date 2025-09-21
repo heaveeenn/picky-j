@@ -37,4 +37,6 @@ public interface UserRecommendationSlotRepository extends JpaRepository<UserReco
     Optional<UserRecommendationSlot> findByIdAndUserId(Long id, Long userId);
 
     Optional<UserRecommendationSlot> findTopByUserIdAndContentTypeOrderBySlotAtDesc(Long userId, ContentType contentType);
+
+    List<UserRecommendationSlot> findByUserIdAndStatusAndContentTypeOrderBySlotAtAsc(Long userId, SlotStatus status, ContentType contentType);
 }
