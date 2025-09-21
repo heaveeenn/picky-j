@@ -10,5 +10,5 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     Optional<Category> findByNameAndLevel(String name, Category.Level level);
     List<Category> findAllByLevel(Category.Level level);
 
-    Optional<Object> findByName(String catName);
+    Optional<Category> findByName(String catName);
 }

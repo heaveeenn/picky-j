@@ -1,6 +1,5 @@
 package com.c102.picky.domain.userstats.service;
 
-import com.c102.picky.domain.category.entity.Category;
 import com.c102.picky.domain.category.repository.CategoryRepository;
 import com.c102.picky.domain.users.entity.User;
 import com.c102.picky.domain.users.repository.UserRepository;
@@ -12,16 +11,20 @@ import com.c102.picky.domain.userstats.repository.UserCategoryStatsRepository;
 import com.c102.picky.domain.userstats.repository.UserDomainStatsRepository;
 import com.c102.picky.domain.userstats.repository.UserHourlyStatsRepository;
 import com.c102.picky.domain.userstats.repository.UserStatsRepository;
+import com.c102.picky.global.util.ShardUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
@@ -35,149 +38,147 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
     private final UserCategoryStatsRepository userCategoryStatsRepository;
     private final UserDomainStatsRepository userDomainStatsRepository;
     private final UserHourlyStatsRepository userHourlyStatsRepository;
-
-    @Value("${app.mongodb.browsing-collection}")
-    private String browsingCollection;
+    private final ShardUtil shardUtil;
 
     @Override
     public void aggregateAndSave(LocalDateTime from, LocalDateTime to) {
-        log.info("browsingCollection name = {}", browsingCollection);
-        List<Document> logs = mongoTemplate.findAll(Document.class, browsingCollection);
-        log.info("몽고에서 읽은 로그 개수 = {}", logs.size());
+        List<User> users = userRepository.findAll();
 
+        for (User user : users) {
+            String userEmail = user.getEmail();
+            String collection = shardUtil.getBrowsingCollection(userEmail);
+
+            DateTimeFormatter mongoFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                    .withZone(ZoneOffset.UTC);
+
+            String isoFrom = mongoFormat.format(from.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
+            String isoTo   = mongoFormat.format(to.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
+            Criteria dateCriteria = Criteria.where("timestamp").gte(isoFrom).lt(isoTo);
+            Criteria userIdCriteria = Criteria.where("userId").is(userEmail);
+            log.info("쿼리 범위 from={}, to={}", isoFrom, isoTo);
+            Query query = new Query();
+            query.addCriteria(new Criteria().andOperator(userIdCriteria, dateCriteria));
+            log.info("실행되는 Query={}", query);
+            List<Document> logs = mongoTemplate.find(query, Document.class, collection);
+            log.info("로그 개수={}", logs.size());
+            log.info("user={} collection={} logs={}", userEmail, collection, logs.size());
+
+            // 기존 집계 로직 실행
+            processLogs(user, logs, from, to);
+        }
+    }
+
+    private void processLogs(User user, List<Document> logs, LocalDateTime from, LocalDateTime to) {
         // userStats
-        Map<Long, Set<String>> userDomains = new HashMap<>();
-        Map<Long, Long> userTotalTime = new HashMap<>();
+        Set<String> userDomains = new HashSet<>();
+        long userTotalTime = 0;
 
         // categoryStats
-        Map<Long, Map<String, Long>> categoryTime = new HashMap<>();
-        Map<Long, Map<String, Long>> categoryCount = new HashMap<>();
+        Map<String, Long> categoryTime = new HashMap<>();
+        Map<String, Long> categoryCount = new HashMap<>();
 
         // domainStats
-        Map<Long, Map<String, Long>> domainTime = new HashMap<>();
-        Map<Long, Map<String, Long>> domainCount = new HashMap<>();
+        Map<String, Long> domainTime = new HashMap<>();
+        Map<String, Long> domainCount = new HashMap<>();
 
         // hourlyStats
-        Map<Long, Map<Integer, Long>> hourlyTime = new HashMap<>();
+        Map<Integer, Long> hourlyTime = new HashMap<>();
 
         for (Document log : logs) {
-            String userEmail = log.getString("userId");
-            Long userId = userRepository.findByEmail(userEmail)
-                    .map(User::getId)
-                    .orElse(null);
-            if (userId == null) continue;
-
             String domain = log.getString("domain");
             String category = log.getString("category");
-            long timeSpent = log.getInteger("timeSpent", 0);
-            String tsStr = log.getString("timestamp");
-            LocalDateTime ts = Instant.parse(tsStr)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDateTime();
-            if (ts.isBefore(from) || !ts.isBefore(to)) continue; // 시간 범위 밖이면 skip
+            Number timeSpentNum = log.get("timeSpent", Number.class);
+            long timeSpent = timeSpentNum == null ? 0L : timeSpentNum.longValue();
+            Object tsObj = log.get("timestamp");
+            LocalDateTime ts = null;
+            if (tsObj instanceof Date) {
+                ts = ((Date) tsObj).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+            } else if (tsObj instanceof String) {
+                ts = Instant.parse((String) tsObj).atZone(ZoneId.systemDefault()).toLocalDateTime();
+            }
+
+            if (ts == null) {
+                continue;
+            }
+
             int hour = ts.getHour();
 
             // userStats
-            userDomains.computeIfAbsent(userId, k -> new HashSet<>()).add(domain);
-            userTotalTime.merge(userId, timeSpent, Long::sum);
+            userDomains.add(domain);
+            userTotalTime += timeSpent;
 
             // categoryStats
-            categoryTime.computeIfAbsent(userId, k -> new HashMap<>())
-                    .merge(category, timeSpent, Long::sum);
-            categoryCount.computeIfAbsent(userId, k -> new HashMap<>())
-                    .merge(category, 1L, Long::sum);
+            categoryTime.merge(category, timeSpent, Long::sum);
+            categoryCount.merge(category, 1L, Long::sum);
 
             // domainStats
-            domainTime.computeIfAbsent(userId, k -> new HashMap<>())
-                    .merge(domain, timeSpent, Long::sum);
-            domainCount.computeIfAbsent(userId, k -> new HashMap<>())
-                    .merge(domain, 1L, Long::sum);
+            domainTime.merge(domain, timeSpent, Long::sum);
+            domainCount.merge(domain, 1L, Long::sum);
 
             // hourlyStats
-            hourlyTime.computeIfAbsent(userId, k -> new HashMap<>())
-                    .merge(hour, timeSpent, Long::sum);
+            hourlyTime.merge(hour, timeSpent, Long::sum);
         }
 
-        log.info("집계 완료: userTotalTime.size={} categoryTime.size={} domainTime.size={} hourlyTime.size={}",
-                userTotalTime.size(), categoryTime.size(), domainTime.size(), hourlyTime.size());
+        // UserStats 저장
+        UserStats stats = userStatsRepository.findByUser(user)
+                .orElseGet(() -> UserStats.builder()
+                        .user(user)
+                        .totalSites(0L)
+                        .totalTimeSpent(0L)
+                        .build());
+        stats.addTotalSites(userDomains.size());
+        stats.addTotalTime(userTotalTime);
+        userStatsRepository.save(stats);
 
-        // mysql 저장
-        userTotalTime.forEach((userId, totalTime) -> {
-            userRepository.findById(userId).ifPresent(user -> {
-                long totalSites = userDomains.getOrDefault(userId, Set.of()).size();
-                UserStats stats = userStatsRepository.findByUser(user)
-                        .orElseGet(() -> UserStats.builder()
+        // CategoryStats 저장
+        categoryTime.forEach((catName, time) -> {
+            long count = categoryCount.getOrDefault(catName, 0L);
+            categoryRepository.findByName(catName).ifPresent(category -> {
+                UserCategoryStats catStats = userCategoryStatsRepository
+                        .findByUserAndCategory(user, category)
+                        .orElseGet(() -> UserCategoryStats.builder()
                                 .user(user)
-                                .totalSites(0L)
-                                .totalTimeSpent(0L)
+                                .category(category)  // 캐스팅 제거
+                                .timeSpent(0L)
+                                .visitCount(0L)
                                 .build());
-                stats.addTotalSites(totalSites);
-                stats.addTotalTime(totalTime);
-                userStatsRepository.save(stats);
+
+                catStats.addTimeSpent(time);
+                catStats.addVisitCount(count);
+                userCategoryStatsRepository.save(catStats);
             });
         });
 
-        categoryTime.forEach((userId, catMap) ->
-                userRepository.findById(userId).ifPresent(user -> {
-                    catMap.forEach((catName, time) -> {
-                        long count = categoryCount.get(userId).getOrDefault(catName, 0L);
-                        categoryRepository.findByName(catName).ifPresent(category -> {
-                            UserCategoryStats stats = userCategoryStatsRepository
-                                    .findByUserAndCategory(user, (Category) category)
-                                    .orElseGet(() -> UserCategoryStats.builder()
-                                            .user(user)
-                                            .category((Category) category)
-                                            .timeSpent(0L)
-                                            .visitCount(0L)
-                                            .build());
+        // DomainStats 저장
+        domainTime.forEach((dom, time) -> {
+            long count = domainCount.getOrDefault(dom, 0L);
+            UserDomainStats domStats = userDomainStatsRepository
+                    .findByUserAndDomain(user, dom)
+                    .orElseGet(() -> UserDomainStats.builder()
+                            .user(user)
+                            .domain(dom)
+                            .timeSpent(0L)
+                            .visitCount(0L)
+                            .build());
 
-                            stats.addTimeSpent(time);
-                            stats.addVisitCount(count);
+            domStats.addTimeSpent(time);
+            domStats.addVisitCount(count);
+            userDomainStatsRepository.save(domStats);
+        });
 
-                            userCategoryStatsRepository.save(stats);
-                        });
-                    });
-                })
-        );
+        // HourlyStats 저장
+        hourlyTime.forEach((hour, time) -> {
+            UserHourlyStats hStats = userHourlyStatsRepository
+                    .findByUserAndHour(user, hour)
+                    .orElseGet(() -> UserHourlyStats.builder()
+                            .user(user)
+                            .hour(hour)
+                            .timeSpent(0L)
+                            .build());
 
-        // DomainStats
-        domainTime.forEach((userId, domMap) ->
-                userRepository.findById(userId).ifPresent(user -> {
-                    domMap.forEach((dom, time) -> {
-                        long count = domainCount.get(userId).getOrDefault(dom, 0L);
-                        UserDomainStats stats = userDomainStatsRepository
-                                .findByUserAndDomain(user, dom)
-                                .orElseGet(() -> UserDomainStats.builder()
-                                        .user(user)
-                                        .domain(dom)
-                                        .timeSpent(0L)
-                                        .visitCount(0L)
-                                        .build());
-                        stats.addTimeSpent(time);
-                        stats.addVisitCount(count);
-                        userDomainStatsRepository.save(stats);
-                    });
-                })
-        );
-
-        // HourlyStats
-        hourlyTime.forEach((userId, hourMap) ->
-                userRepository.findById(userId).ifPresent(user -> {
-                    hourMap.forEach((hour, time) -> {
-                        UserHourlyStats stats = userHourlyStatsRepository
-                                .findByUserAndHour(user, hour)
-                                .orElseGet(() -> UserHourlyStats.builder()
-                                        .user(user)
-                                        .hour(hour)
-                                        .timeSpent(0L)
-                                        .build());
-                        stats.addTimeSpent(time);
-                        userHourlyStatsRepository.save(stats);
-                    });
-                })
-        );
-
-        log.info("집계 완료: {} ~ {}", from, to);
-
+            hStats.addTimeSpent(time);
+            userHourlyStatsRepository.save(hStats);
+        });
+        log.info("집계 완료: user={} 기간 {} ~ {}", user.getEmail(), from, to);
     }
 }
