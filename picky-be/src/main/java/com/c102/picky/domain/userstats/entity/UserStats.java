@@ -24,10 +24,13 @@ public class UserStats {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Builder.Default
     private Integer totalSites = 0;
+    @Builder.Default
     private Integer totalTimeSpent = 0;
 
     @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime lastUpdated = LocalDateTime.now();
 
     @PrePersist

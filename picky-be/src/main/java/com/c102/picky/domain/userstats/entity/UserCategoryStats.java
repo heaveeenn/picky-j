@@ -28,6 +28,8 @@ public class UserCategoryStats {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @Builder.Default
     private Integer visitCount = 0;
+    @Builder.Default
     private Integer timeSpent = 0;
 }

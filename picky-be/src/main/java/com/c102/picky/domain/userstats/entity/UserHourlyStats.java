@@ -25,5 +25,6 @@ public class UserHourlyStats {
     @Column(nullable = false)
     private Integer hour;  // 0~23
 
+    @Builder.Default
     private Integer timeSpent = 0;
 }

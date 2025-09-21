@@ -24,7 +24,8 @@ public class UserDomainStats {
 
     @Column(nullable = false, length = 255)
     private String domain;
-
+    @Builder.Default
     private Integer visitCount = 0;
+    @Builder.Default
     private Integer timeSpent = 0;
 }
