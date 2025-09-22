@@ -25,7 +25,7 @@ public class BrowsingStatsScheduler {
     /**
      * 매일 자정에 통계 테이블 초기화
      */
-    @Scheduled(cron = "0 30 0 * * *") // 매일 00:05 실행
+    @Scheduled(cron = "0 30 0 * * *") // 매일 00:30 실행
     @Transactional
     public void resetDailyStats() {
         log.info("==== 사용자 통계 테이블 초기화 시작 ====");
