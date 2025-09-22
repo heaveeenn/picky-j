@@ -1,14 +1,9 @@
 package com.c102.picky.domain.userstats.controller;
 
 import com.c102.picky.domain.users.entity.CustomUserDetails;
-import com.c102.picky.domain.userstats.dto.UserCategoryStatsDto;
-import com.c102.picky.domain.userstats.dto.UserDomainStatsDto;
-import com.c102.picky.domain.userstats.dto.UserHourlyStatsDto;
-import com.c102.picky.domain.userstats.dto.UserStatsDto;
-import com.c102.picky.domain.userstats.service.UserCategoryStatsService;
-import com.c102.picky.domain.userstats.service.UserDomainStatsService;
-import com.c102.picky.domain.userstats.service.UserHourlyStatsService;
-import com.c102.picky.domain.userstats.service.UserStatsService;
+import com.c102.picky.domain.userstats.dto.*;
+import com.c102.picky.domain.userstats.repository.UserDailySummaryRepository;
+import com.c102.picky.domain.userstats.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +23,7 @@ public class UserStatsController {
     private final UserHourlyStatsService userHourlyStatsService;
     private final UserCategoryStatsService userCategoryStatsService;
     private final UserDomainStatsService userDomainStatsService;
+    private final DailyAggregateSummaryService dailyAggregateSummaryService;
 
     // 전체 통계 조회
     @GetMapping()
@@ -51,6 +47,13 @@ public class UserStatsController {
     @GetMapping("/domains")
     public ResponseEntity<List<UserDomainStatsDto>> getUserDomainStats(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userDomainStatsService.getUserDomainStats(userDetails.getUser().getId()));
+    }
+
+    // 전날 전체 평균 요약 통계 조회
+    @GetMapping("/summary")
+    public ResponseEntity<DailyAggregateSummaryDto> getDailyAggregateSummary() {
+        DailyAggregateSummaryDto dto = dailyAggregateSummaryService.getYesterdaySummary();
+        return ResponseEntity.ok(dto);
     }
 
 }
