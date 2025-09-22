@@ -250,3 +250,49 @@ class QdrantService:
         except Exception as e:
             print(f"[실패] 벡터 검색 실패: {e}")
             return []
+
+    async def scroll_all_points(self, collection_name: str):
+        """컬렉션의 모든 포인트 조회"""
+        try:
+            all_points = []
+            offset = None
+
+            while True:
+                points, next_offset = self.client.scroll(
+                    collection_name=collection_name,
+                    limit=100,  # 배치 크기
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False
+                )
+
+                all_points.extend(points)
+
+                if next_offset is None:
+                    break
+                offset = next_offset
+
+            return all_points
+        except Exception as e:
+            print(f"[실패] 모든 포인트 조회 실패: {e}")
+            return []
+
+    async def delete_vector(self, collection_name: str, point_id: str):
+        """특정 포인트 삭제"""
+        try:
+            # 문자열 ID를 정수로 변환
+            numeric_id = int(point_id)
+
+            self.client.delete(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(
+                    points=[numeric_id]
+                )
+            )
+            return True
+        except ValueError as e:
+            print(f"[실패] 포인트 ID 변환 실패 (id: {point_id}): {e}")
+            return False
+        except Exception as e:
+            print(f"[실패] 포인트 삭제 실패 (id: {point_id}): {e}")
+            return False

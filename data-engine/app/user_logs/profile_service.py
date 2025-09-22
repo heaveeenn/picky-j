@@ -25,9 +25,8 @@ CATEGORIES = [
 class UserProfileService:
     """사용자 프로필 벡터 생성 및 관리"""
 
-    def __init__(self, processing_manager=None):
+    def __init__(self):
         self.qdrant_service = QdrantService()
-        self.processing_manager = processing_manager
         self.user_locks = {}  # 사용자별 asyncio.Lock
 
     def _calculate_weight(self, data: dict) -> float:
@@ -183,12 +182,6 @@ class UserProfileService:
         logger.info(f"[프로필 생성] 사용자 {user_id}의 초기 프로필 생성 시작")
 
         try:
-            # 히스토리 처리 시작 상태 설정
-            if not await self.processing_manager.start_history_processing(user_id):
-                return {"success": False, "message": "다른 히스토리 처리가 진행 중입니다."}
-
-            logger.info(f"🔄 [상태설정] 사용자 {user_id} 히스토리 처리 상태 활성화")
-            print(f"🔄 [상태설정] 사용자 {user_id} 히스토리 처리 상태 활성화")
             # MongoDB에서 히스토리 데이터 조회
             database = get_database()
             collection_name = get_collection_name(user_id, 'history')
@@ -244,8 +237,8 @@ class UserProfileService:
 
             logger.info(f"[완료] 사용자 {user_id} 프로필 생성 완료 - 총 가중치: {total_weight}")
 
-            # 히스토리 처리 완료 및 누락된 브라우징 데이터 처리
-            await self._finish_history_processing_and_update_missed_logs(user_id)
+            # 히스토리 처리 완료 후 브라우징 데이터 일괄 처리
+            await self._process_all_browsing_data(user_id)
 
             return {
                 "success": True,
@@ -258,8 +251,6 @@ class UserProfileService:
 
         except Exception as e:
             logger.error(f"[에러] 프로필 생성 실패: {e}")
-            # 실패 시에도 상태 정리
-            await self.processing_manager.finish_history_processing(user_id)
             return {"success": False, "message": f"프로필 생성 실패: {str(e)}"}
 
     def _calculate_weighted_average(self, vectors: List[List[float]], weights: List[float]) -> tuple:
@@ -493,57 +484,49 @@ class UserProfileService:
                 return {"success": False, "message": f"프로필 업데이트 실패: {str(e)}"}
 
 
-    async def _finish_history_processing_and_update_missed_logs(self, user_id: str):
-        """히스토리 처리 완료 및 누락된 브라우징 데이터 일괄 처리 (타임스탬프 기반)"""
+    async def _process_all_browsing_data(self, user_id: str):
+        """히스토리 처리 완료 후 모든 브라우징 데이터 일괄 처리"""
         try:
-            logger.info(f"🔍 [후처리] 사용자 {user_id} 히스토리 처리 완료 후 누락 데이터 처리 시작")
-            print(f"🔍 [후처리] 사용자 {user_id} 히스토리 처리 완료 후 누락 데이터 처리 시작")
+            logger.info(f"🔍 [후처리] 사용자 {user_id} 히스토리 처리 완료 후 브라우징 데이터 일괄 처리 시작")
+            print(f"🔍 [후처리] 사용자 {user_id} 히스토리 처리 완료 후 브라우징 데이터 일괄 처리 시작")
 
-            # 히스토리 처리 완료 및 시작 시각 조회
-            started_at = await self.processing_manager.finish_history_processing(user_id)
-
-            if started_at is None:
-                logger.info(f"ℹ️ [완료] started_at이 없어서 누락 데이터 처리 건너뛰기")
-                print(f"ℹ️ [완료] started_at이 없어서 누락 데이터 처리 건너뛰기")
-                return
-
-            # 해당 사용자의 모든 브라우징 데이터 조회 (프로필이 없었던 모든 데이터 처리)
+            # 해당 사용자의 모든 브라우징 데이터 조회
             database = get_database()
             collection_name = get_collection_name(user_id, 'browsing')
             collection = database[collection_name]
 
-            # 프로필이 없었던 모든 브라우징 데이터 조회
-            missed_data_cursor = collection.find({
+            # 모든 브라우징 데이터 조회 (히스토리 수집 중 쌓인 데이터)
+            browsing_data_cursor = collection.find({
                 "userId": user_id
             }).sort("savedAt", 1)  # 시간순 정렬
 
-            missed_data = await missed_data_cursor.to_list(length=None)
+            browsing_data = await browsing_data_cursor.to_list(length=None)
 
-            if not missed_data:
+            if not browsing_data:
                 logger.info(f"✅ [완료] 처리할 브라우징 데이터가 없습니다.")
-                print(f"✅ [완료] 처리할 브라우징 데이터가 없습니다.")
+                print(f"✅ [완룜] 처리할 브라우징 데이터가 없습니다.")
                 return
 
-            logger.info(f"📦 [발견] 처리할 브라우징 데이터 {len(missed_data)}개 발견, 일괄 증분 처리 시작")
-            print(f"📦 [발견] 처리할 브라우징 데이터 {len(missed_data)}개 발견, 일괄 증분 처리 시작")
+            logger.info(f"📦 [발견] 처리할 브라우징 데이터 {len(browsing_data)}개 발견, 일괄 증분 처리 시작")
+            print(f"📦 [발견] 처리할 브라우징 데이터 {len(browsing_data)}개 발견, 일괄 증분 처리 시작")
 
-            # 누락된 데이터를 하나씩 증분 업데이트 (이때는 processing state가 해제된 상태)
+            # 모든 브라우징 데이터를 하나씩 증분 업데이트
             success_count = 0
-            for data in missed_data:
+            for data in browsing_data:
                 try:
                     result = await self.update_profile_with_new_log(user_id, data)
                     if result.get("success"):
                         success_count += 1
                 except Exception as e:
-                    logger.warning(f"[경고] 누락 데이터 처리 실패: {e}")
+                    logger.warning(f"[경고] 브라우징 데이터 처리 실패: {e}")
                     continue
 
-            logger.info(f"🎯 [완료] 누락된 브라우징 데이터 {success_count}/{len(missed_data)}개 처리 완료")
-            print(f"🎯 [완료] 누락된 브라우징 데이터 {success_count}/{len(missed_data)}개 처리 완료")
+            logger.info(f"🎯 [완료] 브라우징 데이터 {success_count}/{len(browsing_data)}개 처리 완료")
+            print(f"🎯 [완료] 브라우징 데이터 {success_count}/{len(browsing_data)}개 처리 완료")
 
         except Exception as e:
-            logger.error(f"❌ [에러] 누락 데이터 후처리 실패: {e}")
-            print(f"❌ [에러] 누락 데이터 후처리 실패: {e}")
+            logger.error(f"❌ [에러] 브라우징 데이터 후처리 실패: {e}")
+            print(f"❌ [에러] 브라우징 데이터 후처리 실패: {e}")
 
 
 # Dependency Injection으로 관리되므로 전역 싱글톤 제거
