@@ -53,9 +53,10 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
 
             String isoFrom = mongoFormat.format(from.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
             String isoTo   = mongoFormat.format(to.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
-            Criteria dateCriteria = Criteria.where("timestamp").gte(isoFrom).lt(isoTo);
+            Criteria dateCriteria = Criteria.where("timestamp").gte(isoFrom).lte(isoTo);
             Criteria userIdCriteria = Criteria.where("userId").is(userEmail);
             log.info("쿼리 범위 from={}, to={}", isoFrom, isoTo);
+
             Query query = new Query();
             query.addCriteria(new Criteria().andOperator(userIdCriteria, dateCriteria));
             log.info("실행되는 Query={}", query);
