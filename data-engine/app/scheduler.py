@@ -7,8 +7,8 @@ from .quiz.recommendation_sender import QuizRecommendationSender
 
 scheduler = BackgroundScheduler()
 
-# 뉴스 크롤링: 매일 0시, 6시, 12시, 18시에 실행
-# scheduler.add_job(main, "cron", hour="0,6,12,18", minute=0, timezone="Asia/Seoul")
+# 뉴스 크롤링: 3시간마다 실행
+scheduler.add_job(main, "cron", hour="2,5,8,11,14,17,20,23", minute=0, timezone="Asia/Seoul")
 
 # 뉴스 추천
 def run_recommendation_job():

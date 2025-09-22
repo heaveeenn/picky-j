@@ -40,4 +40,5 @@ export default defineManifest({
       matches: ["<all_urls>"],
     },
   ],
+  key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtuycTMbd69JMFauQR7RZCJIZf+oV186MrvigZGjgBPFV2wPEtRy7wtptxtYnm46AfCsCwSucZFydpNqILdyJfyLxS5xTt9Qlk/1xl73ZL7TsFSxtUQZVo+gwNPkxD3vnbwcer3BAbkRGTIvM3bxGoe7XVn/D3sK26BImM48u5jl1GQdCz8axsoCaI6NxBvx4cA8VovZK5tF4opiClS6amygzOe0IeJ7RePs9RMAHR4ia1thY1mMQPwabLDDQH7MiI2Qbth9c8G/5PCnrWc4oY5PtRs+5dH4BYKgWw3PE4JnBYgy7xfM2SwKaGiCk8Mvgu4gt93asfpvRtNAxZkDZgwIDAQAB"
 });

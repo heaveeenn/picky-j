@@ -81,7 +81,7 @@ class NewsSummarizationService:
             start_time = time.time()
             generation_kwargs = {
                 "max_new_tokens": max(max_length, 1),
-                "do_sample": False,
+                "do_sample": True,
                 "truncation": True,
             }
 
@@ -108,7 +108,7 @@ class NewsSummarizationService:
             summary = result[0]["summary_text"]
 
             logger.info(f"[요약 완료] {processing_time:.2f}초 소요")
-            return summary
+            return summary.strip()
 
         except Exception as e:
             logger.error(f"[요약 실패] {e}")
