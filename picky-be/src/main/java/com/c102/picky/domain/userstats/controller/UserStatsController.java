@@ -21,7 +21,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/userstats")
+@RequestMapping("/api/dashboard/userstats")
 public class UserStatsController {
 
     private final UserStatsService userStatsService;
