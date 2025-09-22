@@ -24,7 +24,7 @@ public class News {
     @Column(nullable = false, length = 500)
     private String title;
 
-    @Column(nullable = false, unique = true, length = 255)
+    @Column(nullable = false, unique = true, length = 500)
     private String url;
 
     @Column(nullable = false, length = 1000)
