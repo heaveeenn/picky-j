@@ -22,8 +22,7 @@ public class SummaryController {
     // 전날 전체 평균 요약 통계 조회
     @GetMapping("/summary")
     public ResponseEntity<DailyAggregateSummaryDto> getDailyAggregateSummary() {
-        DailyAggregateSummaryDto dto = dailyAggregateSummaryService.getYesterdaySummary();
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(dailyAggregateSummaryService.getYesterdaySummary());
     }
 
 }

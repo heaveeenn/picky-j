@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ public class UserStatsController {
     private final UserHourlyStatsService userHourlyStatsService;
     private final UserCategoryStatsService userCategoryStatsService;
     private final UserDomainStatsService userDomainStatsService;
-    private final DailyAggregateSummaryService dailyAggregateSummaryService;
+    private final UserDailySummaryService userDailySummaryService;
 
     // 전체 통계 조회
     @GetMapping()
@@ -51,9 +52,8 @@ public class UserStatsController {
 
     // 전날 전체 평균 요약 통계 조회
     @GetMapping("/summary")
-    public ResponseEntity<DailyAggregateSummaryDto> getDailyAggregateSummary() {
-        DailyAggregateSummaryDto dto = dailyAggregateSummaryService.getYesterdaySummary();
-        return ResponseEntity.ok(dto);
+    public ResponseEntity<UserVsAverageDto> getUserDailySummary( @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userDailySummaryService.getUserVsAverage(userDetails.getUser().getId()));
     }
 
 }

@@ -18,8 +18,8 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
 
     @Transactional(readOnly = true)
     public DailyAggregateSummaryDto getYesterdaySummary() {
-        //LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDate yesterday = LocalDate.now();
+        //LocalDate yesterday = LocalDate.now().minusDays(1); // 운영
+        LocalDate yesterday = LocalDate.now(); // 테스트
         DailyAggregateSummary summary = dailyAggregateSummaryRepository.findBySummaryDate(yesterday)
                 .orElseThrow(() -> new ApiException(ErrorCode.SUMMARY_NOT_FOUND));
         return DailyAggregateSummaryDto.from(summary);
