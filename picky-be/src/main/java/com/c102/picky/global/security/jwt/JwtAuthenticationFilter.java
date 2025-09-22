@@ -1,5 +1,6 @@
 package com.c102.picky.global.security.jwt;
 
+import com.c102.picky.domain.users.entity.CustomUserDetails;
 import com.c102.picky.domain.users.entity.User;
 import com.c102.picky.domain.users.repository.UserRepository;
 import com.c102.picky.global.exception.ErrorCode;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -49,20 +51,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             var claims = jwt.parseClaims(token);
             String sub = claims.getSubject();
-            String role = (String) claims.get("role");
 
             request.setAttribute("sub", sub);
 
             // sub -> userId 매핑
             userRepository.findByGoogleSub(sub).ifPresent((User user) -> {
                 request.setAttribute("userId", user.getId());
+
+                CustomUserDetails userDetails = new CustomUserDetails(user);
+                var auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(auth);
             });
 
-            if(role!= null){
-                var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(sub, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_"+role)));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
             filterChain.doFilter(request, response);
         } catch (ExpiredJwtException e) {
             SecurityContextHolder.clearContext();

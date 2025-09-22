@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Table(name = "quiz_attempts",
         indexes = {
             @Index(name = "idx_attempt_user_time", columnList = "user_id, attempted_at"),
-            @Index(name = "idx_attempt_quiz_time", columnList = "quiz_id, attempted_id"),
+            @Index(name = "idx_attempt_quiz_time", columnList = "quiz_id, attempted_at"),
             @Index(name = "idx_attempt_slot", columnList = "slot_id")
         }
 )
