@@ -1,10 +1,12 @@
 package com.c102.picky.domain.userstats.service;
 
+import com.c102.picky.domain.userstats.repository.UserHourlyStatsRepository;
+import com.c102.picky.domain.userstats.repository.UserStatsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -17,9 +19,24 @@ import java.time.LocalDateTime;
  */
 public class BrowsingStatsScheduler {
     private final BrowsingStatsService statsService;
+    private final UserHourlyStatsRepository userHourlyStatsRepository;
+    private final UserStatsRepository userStatsRepository;
 
-    @Scheduled(cron = "0 * * * * *") // test
-    //@Scheduled(cron = "0 0 * * * *")
+    /**
+     * 매일 자정에 통계 테이블 초기화
+     */
+    @Scheduled(cron = "0 30 0 * * *") // 매일 00:05 실행
+    @Transactional
+    public void resetDailyStats() {
+        log.info("==== 사용자 통계 테이블 초기화 시작 ====");
+
+        userHourlyStatsRepository.deleteAllInBatch();
+        userStatsRepository.deleteAllInBatch();
+
+        log.info("==== 사용자 통계 테이블 초기화 완료 ====");
+    }
+
+    @Scheduled(cron = "0 0 * * * *") //매 정각 실행
     public void runHourlyAggregation(){
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime oneHourAgo = now.minusHours(1);
