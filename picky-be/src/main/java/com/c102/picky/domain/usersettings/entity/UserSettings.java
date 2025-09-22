@@ -73,11 +73,18 @@ public class UserSettings {
     private static String normalizeDomain(String d) {
         if (d == null) return "";
         d = d.trim().toLowerCase(Locale.ROOT);
-        // 앞뒤 점/슬래시 정리
-        while (d.startsWith(".")) d = d.substring(1);
+
+        // 프로토콜 제거
         if (d.startsWith("http://")) d = d.substring(7);
         if (d.startsWith("https://")) d = d.substring(8);
-        if (d.endsWith("/")) d =  d.substring(0, d.length() - 1);
+
+        // www. prefix 제거
+        if (d.startsWith("www.")) d = d.substring(4);
+
+        // 앞뒤 점/슬래시 정리
+        while (d.startsWith(".")) d = d.substring(1);
+        if (d.endsWith("/")) d = d.substring(0, d.length() - 1);
+
         return d;
     }
 
@@ -140,6 +147,13 @@ public class UserSettings {
     public void removeBlockedDomain(String domain) {
         String d = normalizeDomain(domain);
         this.blockedDomains.removeIf(x -> x.equalsIgnoreCase(d));
+    }
+
+    /**
+     * 기존 데이터의 중복 도메인 정리 (www. 포함/미포함 중복 제거)
+     */
+    public void cleanupDuplicateDomains() {
+        this.blockedDomains = normalizeDomains(this.blockedDomains);
     }
 }
 
