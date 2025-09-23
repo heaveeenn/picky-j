@@ -1,13 +1,15 @@
 /**
  * DataSender.js
- * 
+ *
  * Python 서버로 데이터 전송하는 로직
  */
+
+import { DATA_ENGINE_URL } from '../config/env.js';
 
 export class DataSender {
   constructor() {
     // 서버 설정
-    this.serverUrl = "http://localhost:8000"; // Python FastAPI 서버
+    this.serverUrl = DATA_ENGINE_URL; // Python FastAPI 서버
     this.dataQueue = []; // 전송 대기 데이터
     
     console.log("📤 DataSender 초기화");

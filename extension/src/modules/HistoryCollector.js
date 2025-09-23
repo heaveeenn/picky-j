@@ -6,6 +6,7 @@
  */
 
 import { HistoryContentExtractor } from './HistoryContentExtractor.js';
+import { DATA_ENGINE_URL } from '../config/env.js';
 
 export class HistoryCollector {
   constructor(userSession = null) {
@@ -122,11 +123,56 @@ export class HistoryCollector {
 
   
   /**
+   * 사용자 프로필 존재 여부 체크
+   */
+  async checkUserProfileExists() {
+    try {
+      const userId = this.userSession?.getUserId();
+      if (!userId) {
+        console.log("⚠️ 사용자 ID가 없어 프로필 체크 불가");
+        return false;
+      }
+
+      const response = await fetch(`${DATA_ENGINE_URL}/user-logs/users/${encodeURIComponent(userId)}/profile-exists`);
+
+      if (!response.ok) {
+        console.log("❌ 프로필 체크 API 호출 실패:", response.status);
+        return false;
+      }
+
+      const result = await response.json();
+      console.log("✅ 프로필 체크 결과:", result);
+
+      return result.exists;
+
+    } catch (error) {
+      console.error("❌ 프로필 체크 실패:", error);
+      return false; // 에러 시 히스토리 수집 진행
+    }
+  }
+
+  /**
    * 히스토리 + 콘텐츠 추출을 위한 통합 수집
    */
   async collectHistoryWithContent() {
     console.log("🔄 히스토리 + 콘텐츠 통합 수집 시작");
-    
+
+    // 1. 사용자 프로필 존재 여부 체크
+    console.log("🔍 사용자 프로필 존재 여부 확인 중...");
+    const profileExists = await this.checkUserProfileExists();
+
+    if (profileExists) {
+      console.log("⏭️ 사용자 프로필이 이미 존재하여 히스토리 수집을 건너뜁니다.");
+      return {
+        skipped: true,
+        reason: "profile_already_exists",
+        message: "사용자 프로필이 이미 존재하여 히스토리 수집을 건너뛰었습니다.",
+        userId: this.userSession?.getUserId()
+      };
+    }
+
+    console.log("✅ 프로필이 없어 히스토리 수집을 진행합니다.");
+
     try {
       // 1. 기본 히스토리 수집 및 분석
       const historyData = await this.collectRawHistory();
@@ -178,7 +224,6 @@ export class HistoryCollector {
    */
   async sendHistoryToServer(contentResults, timeRange) {
     try {
-      const serverUrl = 'http://localhost:8000';
       
       // 완전히 빈 콘텐츠만 필터링
       const filteredResults = contentResults.filter(item => {
@@ -218,7 +263,7 @@ export class HistoryCollector {
           title: item.title,
           visitCount: item.visitCount,
           typedCount: item.typedCount || 0,
-          lastVisitTime: new Date(Math.floor(item.lastVisitTime / 1000)).toISOString(), // 마이크로초 → ISO 날짜
+          lastVisitTime: new Date(item.lastVisitTime + 9 * 60 * 60 * 1000).toISOString(), // 로컬 시간을 KST로 변환
           visitMethods: item.visitMethods || ['unknown'],
           totalVisits: item.totalVisits || 0,
           directVisits: item.directVisits || 0,
@@ -237,7 +282,7 @@ export class HistoryCollector {
       console.log(`📤 히스토리 전송 시도: ${filteredResults.length}개 아이템 (필터링 후)`);
       
       // 히스토리 전용 API로 전송
-      const response = await fetch(`${serverUrl}/user-logs/history-data`, {
+      const response = await fetch(`${DATA_ENGINE_URL}/user-logs/history-data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

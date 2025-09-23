@@ -97,16 +97,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // 사용자 세션 정보 조회 (popup에서)
   if (message.type === "GET_USER_SESSION") {
-    // 세션 초기화가 안 되어 있으면 즉시 초기화
-    if (!userSession.isUserAuthenticated()) {
-      console.log("⚠️ 세션 미초기화 감지 - 즉시 초기화 실행");
-      try {
-        await userSession.tryAutoLogin();
-      } catch (error) {
-        console.error("❌ 긴급 세션 초기화 실패:", error);
-      }
-    }
-
     const isAuthenticated = userSession.isUserAuthenticated();
     const userInfo = isAuthenticated ? userSession.getUserInfo() : null;
 
@@ -125,6 +115,39 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log("👤 userId 요청 응답:", userId);
     sendResponse({ userId: userId });
     return;
+  }
+
+  // Content Script에서 Service Worker 활성화 및 자동 로그인 트리거
+  if (message.type === "TRIGGER_AUTO_LOGIN") {
+    console.log("🔄 Content Script에서 자동 로그인 트리거 요청:", message.url);
+
+    // 이미 로그인되어 있는지 확인
+    if (userSession.isUserAuthenticated()) {
+      console.log("✅ 이미 로그인된 상태");
+      sendResponse({ success: true, alreadyAuthenticated: true });
+      return;
+    }
+
+    // 자동 로그인 시도
+    (async () => {
+      try {
+        const sessionInfo = await userSession.tryAutoLogin();
+        console.log("🎯 Content Script 트리거 자동 로그인 결과:", sessionInfo);
+
+        if (sessionInfo.success) {
+          // 자동 로그인 성공시 히스토리 수집 체크
+          await checkAndCollectHistory();
+          sendResponse({ success: true, sessionInfo });
+        } else {
+          sendResponse({ success: false, reason: sessionInfo.reason });
+        }
+      } catch (error) {
+        console.error("❌ Content Script 트리거 자동 로그인 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true; // 비동기 응답을 위해 true 반환
   }
 
   // Google 로그인 처리 (popup에서)

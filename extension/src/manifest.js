@@ -20,10 +20,9 @@ export default defineManifest({
   permissions: [
     "tabs",
     "storage",
-    "identity",
-    "identity.email",
     "history",
     "offscreen",
+    "scripting",
   ],
 
   host_permissions: ["<all_urls>"],
