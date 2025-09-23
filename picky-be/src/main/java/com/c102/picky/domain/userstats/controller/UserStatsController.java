@@ -2,10 +2,7 @@ package com.c102.picky.domain.userstats.controller;
 
 import com.c102.picky.domain.users.entity.CustomUserDetails;
 import com.c102.picky.domain.userstats.dto.*;
-import com.c102.picky.domain.userstats.service.UserCategoryStatsService;
-import com.c102.picky.domain.userstats.service.UserDomainStatsService;
-import com.c102.picky.domain.userstats.service.UserHourlyStatsService;
-import com.c102.picky.domain.userstats.service.UserStatsService;
+import com.c102.picky.domain.userstats.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +21,7 @@ public class UserStatsController {
     private final UserHourlyStatsService userHourlyStatsService;
     private final UserCategoryStatsService userCategoryStatsService;
     private final UserDomainStatsService userDomainStatsService;
+    private final UserDailySummaryService userDailySummaryService;
 
     // 전체 통계 조회
     @GetMapping()
@@ -47,6 +45,12 @@ public class UserStatsController {
     @GetMapping("/domains")
     public ResponseEntity<List<UserDomainStatsDto>> getUserDomainStats(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userDomainStatsService.getUserDomainStats(userDetails.getUser().getId()));
+    }
+
+    // 전날 사용자 평균 차이 요약 통계 조회
+    @GetMapping("/summary")
+    public ResponseEntity<UserVsAverageDto> getUserDailySummary(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(userDailySummaryService.getUserVsAverage(userDetails.getUser().getId()));
     }
 
     // 카테고리별 사용자 분포
