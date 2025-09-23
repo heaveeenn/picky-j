@@ -211,7 +211,7 @@ export class HistoryCollector {
         totalItems: filteredResults.length,
         collectedAt: new Date().toISOString(),
         timeRange: timeRange,
-        userId: this.userSession?.getUserId() || 'dummy-user@picky.com', // UserSession에서 가져오기
+        userId: this.userSession?.getUserId() || 'anonymous-user', // UserSession에서 가져오기
         items: filteredResults.map(item => ({
           url: item.url,
           domain: new URL(item.url).hostname,
@@ -230,7 +230,7 @@ export class HistoryCollector {
             language: 'ko',
             extractionMethod: item.extractMethod || 'failed'
           } : null,
-          userId: this.userSession?.getUserId() || 'dummy-user@picky.com'
+          userId: this.userSession?.getUserId() || 'anonymous-user'
         }))
       };
       

@@ -20,7 +20,6 @@ export class DataCollector {
     this.maxScrollDepth = 0;
     this.isActive = true;
     this.isTrackingEnabled = true;
-    this.userId = 'dummy-user@picky.com'; // 기본값
     this.isInitialized = false; // 초기화 완료 여부
     
     
@@ -35,9 +34,6 @@ export class DataCollector {
    */
   async initializeWithToggleCheck() {
     await this.checkTrackingStatus();
-    
-    // userId 미리 캐시
-    this.userId = await this.getUserId();
     
     // 스토리지 변경 감지 - 실시간 토글 반영
     if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -58,7 +54,7 @@ export class DataCollector {
     
     // 초기화 완료
     this.isInitialized = true;
-    console.log('✅ DataCollector 초기화 완료 - userId:', this.userId);
+    console.log('✅ DataCollector 초기화 완료');
   }
 
   /**
@@ -267,26 +263,6 @@ export class DataCollector {
   }
 
 
-  /**
-   * Background에서 userId 가져오기
-   */
-  async getUserId() {
-    try {
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: "GET_USER_ID" }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn("⚠️ userId 가져오기 실패, 더미 사용:", chrome.runtime.lastError);
-            resolve('dummy-user@picky.com'); // fallback
-          } else {
-            resolve(response?.userId || 'dummy-user@picky.com');
-          }
-        });
-      });
-    } catch (error) {
-      console.warn("⚠️ userId 요청 실패, 더미 사용:", error);
-      return 'dummy-user@picky.com';
-    }
-  }
 
   /**
    * 수집된 데이터 반환
@@ -333,10 +309,7 @@ export class DataCollector {
         wordCount: contentData.wordCount,
         language: contentData.lang,
         extractionMethod: contentData.success ? 'readability' : 'basic'
-      },
-      
-      // 사용자 식별
-      userId: this.userId
+      }
     };
 
     console.log("📊 수집된 데이터:", {
@@ -344,8 +317,7 @@ export class DataCollector {
       title: data.title.substring(0, 50) + '...',
       timeSpent: data.timeSpent,
       scrollDepth: data.maxScrollDepth,
-      wordCount: data.content.wordCount,
-      userId: data.userId
+      wordCount: data.content.wordCount
     });
     
     return data;

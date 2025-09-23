@@ -20,12 +20,17 @@ const historyCollector = new HistoryCollector(userSession);
 // 사용자 세션 즉시 초기화 (Service Worker 재시작시에도 실행)
 (async () => {
   try {
-    const sessionInfo = await userSession.initialize();
+    const sessionInfo = await userSession.tryAutoLogin();
     console.log("👤 사용자 세션 초기화 완료:", sessionInfo);
+
+    // 자동 로그인 성공시 히스토리 수집 체크
+    if (sessionInfo.success) {
+      await checkAndCollectHistory();
+    }
   } catch (error) {
     console.error("❌ 사용자 세션 초기화 실패:", error);
   }
-  
+
 })();
 
 
@@ -33,11 +38,30 @@ const historyCollector = new HistoryCollector(userSession);
 
 
 
-// 디버깅용 함수 노출
-globalThis.testHistoryCollection = async () => {
-  console.log("🔍 수동 히스토리 수집 시작");
-  await historyCollector.collectHistoryWithContent();
-};
+
+// 히스토리 수집 체크 및 실행 함수
+async function checkAndCollectHistory() {
+  try {
+    const storage = await chrome.storage.local.get(['historyCollected']);
+
+    // 아직 히스토리를 수집하지 않았다면 수집 시작
+    if (!storage.historyCollected) {
+      console.log("📚 최초 로그인 - 히스토리 데이터 수집 시작");
+
+      const result = await historyCollector.collectHistoryWithContent();
+      console.log("✅ 로그인 후 히스토리 수집 완료:", result.contentExtractionSummary);
+
+      // 수집 완료 플래그 저장
+      await chrome.storage.local.set({ historyCollected: true });
+      console.log("📝 히스토리 수집 완료 플래그 저장");
+    } else {
+      console.log("ℹ️ 히스토리 이미 수집됨 - 건너뛰기");
+    }
+  } catch (error) {
+    console.error("❌ 히스토리 수집 실패:", error);
+  }
+}
+
 
 // content.js와 popup에서 온 메시지 처리
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
@@ -45,7 +69,15 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // 브라우징 데이터 처리 (content.js에서)
   if (message.type === "BROWSING_DATA") {
-    // 토글 상태 확인 (Chrome Storage에서)
+    // 1. 로그인 상태 확인
+    const userId = userSession.getUserId();
+    if (!userId || !userSession.isUserAuthenticated()) {
+      console.log("⚠️ 로그인되지 않음 - 데이터 수집 건너뛰기");
+      sendResponse({ success: false, reason: "User not authenticated" });
+      return;
+    }
+
+    // 2. 토글 상태 확인 (Chrome Storage에서)
     const trackingStatus = await chrome.storage.sync.get(["trackingEnabled"]);
     const isTrackingEnabled = trackingStatus.trackingEnabled !== false;
 
@@ -55,10 +87,9 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       return;
     }
 
-    // 사용자 ID와 함께 데이터를 큐에 추가
-    const userId = userSession.getUserId();
+    // 3. 사용자 ID와 함께 데이터를 큐에 추가
     dataSender.addToQueue(message.data, userId);
-    console.log("✅ 데이터 큐에 추가 완료");
+    console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
 
     sendResponse({ success: true });
     return;
@@ -70,7 +101,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (!userSession.isUserAuthenticated()) {
       console.log("⚠️ 세션 미초기화 감지 - 즉시 초기화 실행");
       try {
-        await userSession.initialize();
+        await userSession.tryAutoLogin();
       } catch (error) {
         console.error("❌ 긴급 세션 초기화 실패:", error);
       }
@@ -100,11 +131,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.type === "GOOGLE_LOGIN") {
     console.log("🔐 Google 로그인 요청 받음");
 
-    // UserSession의 Google 로그인 시도
-    userSession
-      .tryGoogleLogin()
-      .then((result) => {
+    // 비동기 함수로 처리하되 sendResponse 호출을 보장
+    userSession.loginWithGoogle()
+      .then(async (result) => {
         console.log("🔐 Google 로그인 결과:", result);
+
+        // 로그인 성공시 히스토리 수집 체크
+        if (result.success) {
+          try {
+            await checkAndCollectHistory();
+          } catch (historyError) {
+            console.error("히스토리 수집 실패:", historyError);
+          }
+        }
+
+        // Chrome Storage 이벤트를 통해 popup이 알아서 업데이트되므로
+        // 간단한 응답만 보냄
         sendResponse({
           success: result.success,
           user: result.user || null,
@@ -144,18 +186,15 @@ setInterval(async () => {
   await dataSender.sendAllQueuedData();
 }, 30000);
 
-// 확장프로그램 최초 설치시에만 히스토리 데이터 수집
+// 확장프로그램 설치시 초기화만 수행 (히스토리 수집은 로그인 후)
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
-    console.log("🎉 최초 설치 - 히스토리 데이터 수집 시작");
-    try {
-      const result = await historyCollector.collectHistoryWithContent();
-      console.log(
-        "✅ 설치 시 히스토리 수집 완료:",
-        result.contentExtractionSummary
-      );
-    } catch (error) {
-      console.error("❌ 설치 시 히스토리 수집 실패:", error);
-    }
+    console.log("🎉 확장프로그램 최초 설치 완료");
+    // 설치 완료 플래그 저장 (히스토리 수집은 로그인 후 진행)
+    await chrome.storage.local.set({
+      installed: true,
+      historyCollected: false
+    });
+    console.log("📝 설치 상태 저장 완료 - 로그인 후 히스토리 수집 예정");
   }
 });

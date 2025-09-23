@@ -12,6 +12,18 @@ console.log("📚 Readability.js 로드 완료");
 console.log("🔧 offscreen.js 로드 시도 완료");
 console.log("🔧 Offscreen document 로드됨");
 
+/**
+ * 예상 가능한 실패인지 확인
+ */
+function isExpectedFailure(error) {
+  const message = error.message.toLowerCase();
+  const expectedErrors = [
+    'http 430', 'http 429', 'http 500', 'http 503', 'http 404',
+    'cors', 'failed to fetch', 'network error', 'timeout'
+  ];
+  return expectedErrors.some(expected => message.includes(expected));
+}
+
 // 백그라운드 스크립트로부터 메시지 수신
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_CONTENT_OFFSCREEN') {
@@ -30,8 +42,11 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       });
       
     } catch (error) {
-      console.error(`❌ Offscreen 추출 실패: ${message.url}`, error);
-      
+      // 예상 가능한 실패들은 조용히 처리
+      if (!isExpectedFailure(error)) {
+        console.error(`❌ Offscreen 추출 실패: ${message.url}`, error);
+      }
+
       // 에러를 background script로 전송
       chrome.runtime.sendMessage({
         type: 'OFFSCREEN_EXTRACT_RESULT',

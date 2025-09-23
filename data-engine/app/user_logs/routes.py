@@ -65,19 +65,4 @@ async def create_user_profile(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/users/{user_id}/update-profile")
-async def update_user_profile(
-    user_id: str,
-    browsing_data: BrowsingData,
-    profile_service: UserProfileService = Depends(get_profile_service)
-) -> Dict[str, Any]:
-    """새로운 브라우징 데이터로 사용자 프로필 증분 업데이트"""
-    try:
-        # BrowsingData를 dict로 변환
-        new_data = browsing_data.dict()
-        result = await profile_service.update_profile_with_new_log(user_id, new_data)
-        return result
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
