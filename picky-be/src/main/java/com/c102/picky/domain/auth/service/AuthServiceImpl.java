@@ -24,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
+import java.util.Arrays;
+import java.util.Map;
+import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @Service
@@ -35,19 +38,45 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final CookieUtil cookieUtil;
 
-    @Value("${spring.security.oauth2.client.registration.google.client-id}")
-    private String googleClientId;
+    @Value("${app.oauth.google.web-client-id}")
+    private String webClientId;
+
+    @Value("${app.oauth.google.chrome-extension-client-id}")
+    private String chromeExtensionClientId;
 
     @Override
     @Transactional
     public TokenResponseDto googleLogin(GoogleLoginRequestDto request) {
+        String token = request.getToken(); // getToken() 메서드로 변경
+
+        if (token == null || token.isEmpty()) {
+            throw new ApiException(ErrorCode.INVALID_GOOGLE_TOKEN);
+        }
+
+        log.info("Google 로그인 요청 - 출처: {}, 토큰 타입: {}",
+                request.getSource(),
+                token.startsWith("ya29.") ? "Access Token" : "ID Token");
+
+        // 토큰 타입 감지: Access Token은 ya29.로 시작, ID Token은 eyJ로 시작
+        if (token.startsWith("ya29.")) {
+            // Access Token 처리
+            return handleAccessToken(token);
+        } else if (token.startsWith("eyJ")) {
+            // ID Token 처리
+            return handleIdToken(token);
+        } else {
+            throw new ApiException(ErrorCode.INVALID_GOOGLE_TOKEN);
+        }
+    }
+
+    private TokenResponseDto handleIdToken(String idTokenString) {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(), new GsonFactory())
-                    .setAudience(Collections.singletonList(googleClientId))
+                    .setAudience(Arrays.asList(webClientId, chromeExtensionClientId))
                     .build();
 
-            GoogleIdToken idToken = verifier.verify(request.getIdToken());
+            GoogleIdToken idToken = verifier.verify(idTokenString);
             if (idToken == null) {
                 throw new ApiException(ErrorCode.INVALID_GOOGLE_TOKEN);
             }
@@ -68,6 +97,45 @@ public class AuthServiceImpl implements AuthService {
 
         } catch (GeneralSecurityException | IOException e) {
             log.error("Google ID token verification failed", e);
+            throw new ApiException(ErrorCode.GOOGLE_TOKEN_VERIFICATION_FAILED);
+        }
+    }
+
+    private TokenResponseDto handleAccessToken(String accessToken) {
+        try {
+            log.info("Access Token 처리 시작: {}", accessToken.substring(0, 10) + "...");
+
+            // Google UserInfo API로 사용자 정보 직접 조회
+            RestTemplate restTemplate = new RestTemplate();
+            String userInfoUrl = "https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken;
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> userInfo = restTemplate.getForObject(userInfoUrl, Map.class);
+
+            if (userInfo == null) {
+                throw new ApiException(ErrorCode.INVALID_GOOGLE_TOKEN);
+            }
+
+            // Google API 응답에서 정보 추출
+            String googleSub = (String) userInfo.get("id");
+            String email = (String) userInfo.get("email");
+            String name = (String) userInfo.get("name");
+            String picture = (String) userInfo.get("picture");
+
+            log.info("Google API에서 사용자 정보 조회 성공: sub={}, email={}", googleSub, email);
+
+            // 사용자 조회 또는 생성
+            User user = userRepository.findByGoogleSub(googleSub)
+                    .orElseGet(() -> {
+                        User newUser = User.of(googleSub, email, name, picture, Role.USER);
+                        return userRepository.save(newUser);
+                    });
+
+            // 기존 JWT 시스템 그대로 사용
+            return jwtTokenProvider.createTokenResponse(user.getGoogleSub(), user.getRole().name());
+
+        } catch (Exception e) {
+            log.error("Access token processing failed", e);
             throw new ApiException(ErrorCode.GOOGLE_TOKEN_VERIFICATION_FAILED);
         }
     }
