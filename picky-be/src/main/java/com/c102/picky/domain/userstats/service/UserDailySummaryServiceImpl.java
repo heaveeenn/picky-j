@@ -20,9 +20,10 @@ public class UserDailySummaryServiceImpl implements UserDailySummaryService{
     private final UserDailySummaryRepository userDailySummaryRepository;
 
     @Transactional(readOnly = true)
+    @Override
     public UserVsAverageDto getUserVsAverage(Long userId) {
-        //LocalDate date = LocalDate.now().minusDays(1); // 운영
-        LocalDate date = LocalDate.now(); // 테스트
+        LocalDate date = LocalDate.now().minusDays(1); // 운영
+        //LocalDate date = LocalDate.now(); // 테스트
 
         // 1. 평균값 불러오기
         DailyAggregateSummary avgSummary = dailyAggregateSummaryRepository.findBySummaryDate(date)

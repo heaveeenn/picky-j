@@ -69,10 +69,8 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
         Double avgVisitCount = userStatsRepository.calculateAvgVisitCount();
         Double avgBrowsingSeconds = userStatsRepository.calculateAvgBrowsingSeconds();
 
-        // 2. 가장 활발한 시간대
         Integer peakHour = userHourlyStatsRepository.findPeakHour();
 
-        // 3. DailyAggregateSummary 저장
         DailyAggregateSummary summary = DailyAggregateSummary.builder()
                 .summaryDate(date)
                 .avgVisitCount(avgVisitCount != null ? avgVisitCount : 0.0)
@@ -82,7 +80,6 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
 
         dailyAggregateSummaryRepository.save(summary);
 
-        // 4. 개인별 요약 저장
         List<UserStats> allUserStats = userStatsRepository.findAll();
         for (UserStats stats : allUserStats) {
             UserDailySummary userSummary = UserDailySummary.builder()

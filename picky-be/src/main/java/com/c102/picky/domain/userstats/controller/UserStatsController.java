@@ -49,7 +49,7 @@ public class UserStatsController {
 
     // 전날 사용자 평균 차이 요약 통계 조회
     @GetMapping("/summary")
-    public ResponseEntity<UserVsAverageDto> getUserDailySummary( @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<UserVsAverageDto> getUserDailySummary(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(userDailySummaryService.getUserVsAverage(userDetails.getUser().getId()));
     }
 
