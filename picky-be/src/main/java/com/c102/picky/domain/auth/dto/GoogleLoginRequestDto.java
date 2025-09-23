@@ -13,7 +13,23 @@ import lombok.*;
 @ToString
 public class GoogleLoginRequestDto {
 
-    /** Google One-Tap/IDP에서 받은 ID Token(JWT) */
-    @NotBlank
+    /** Google ID Token (웹 애플리케이션에서 사용) */
     private String idToken;
+
+    /** Google Access Token (Chrome 확장프로그램에서 사용) */
+    private String accessToken;
+
+    /** 요청 출처 (optional) */
+    private String source;
+
+    /** Chrome 확장프로그램에서 전달하는 사용자 정보 (optional) */
+    private Object userInfo;
+
+    /** 실제 토큰 값 반환 (idToken 또는 accessToken 중 존재하는 것) */
+    public String getToken() {
+        if (accessToken != null && !accessToken.isEmpty()) {
+            return accessToken;
+        }
+        return idToken;
+    }
 }

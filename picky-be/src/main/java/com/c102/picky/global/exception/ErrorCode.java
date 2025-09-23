@@ -39,9 +39,11 @@ public enum ErrorCode {
 
     // Scrap 관련 에러
     SCRAP_NOT_FOUND("SCRAP_NOT_FOUND", HttpStatus.NOT_FOUND, "스크랩을 찾을 수 없습니다."),
-    ALREADY_SCRAPED("ALREADY_SCRAPED", HttpStatus.CONFLICT, "이미 스크랩된 콘텐츠입니다.");
+    ALREADY_SCRAPED("ALREADY_SCRAPED", HttpStatus.CONFLICT, "이미 스크랩된 콘텐츠입니다."),
 
     //
+    SUMMARY_NOT_FOUND("SUMMARY_NOT_FOUND", HttpStatus.NOT_FOUND, "어제의 요약을 찾을 수 없습니다.");
+
     // 필요한 에러 코드 계속 추가
 
 
