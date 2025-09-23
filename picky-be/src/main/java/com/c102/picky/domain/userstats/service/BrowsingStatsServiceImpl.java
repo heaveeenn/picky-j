@@ -3,14 +3,8 @@ package com.c102.picky.domain.userstats.service;
 import com.c102.picky.domain.category.repository.CategoryRepository;
 import com.c102.picky.domain.users.entity.User;
 import com.c102.picky.domain.users.repository.UserRepository;
-import com.c102.picky.domain.userstats.entity.UserCategoryStats;
-import com.c102.picky.domain.userstats.entity.UserDomainStats;
-import com.c102.picky.domain.userstats.entity.UserHourlyStats;
-import com.c102.picky.domain.userstats.entity.UserStats;
-import com.c102.picky.domain.userstats.repository.UserCategoryStatsRepository;
-import com.c102.picky.domain.userstats.repository.UserDomainStatsRepository;
-import com.c102.picky.domain.userstats.repository.UserHourlyStatsRepository;
-import com.c102.picky.domain.userstats.repository.UserStatsRepository;
+import com.c102.picky.domain.userstats.entity.*;
+import com.c102.picky.domain.userstats.repository.*;
 import com.c102.picky.global.util.ShardUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,11 +13,9 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -38,6 +30,8 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
     private final UserCategoryStatsRepository userCategoryStatsRepository;
     private final UserDomainStatsRepository userDomainStatsRepository;
     private final UserHourlyStatsRepository userHourlyStatsRepository;
+    private final DailyAggregateSummaryRepository dailyAggregateSummaryRepository;
+    private final UserDailySummaryRepository userDailySummaryRepository;
     private final ShardUtil shardUtil;
 
     @Override
@@ -66,6 +60,36 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
 
             // 기존 집계 로직 실행
             processLogs(user, logs, from, to);
+        }
+    }
+
+    @Transactional
+    @Override
+    public void aggregateDailySummary(LocalDate date) {
+        Double avgVisitCount = userStatsRepository.calculateAvgVisitCount();
+        Double avgBrowsingSeconds = userStatsRepository.calculateAvgBrowsingSeconds();
+
+        Integer peakHour = userHourlyStatsRepository.findPeakHour();
+
+        DailyAggregateSummary summary = DailyAggregateSummary.builder()
+                .summaryDate(date)
+                .avgVisitCount(avgVisitCount != null ? avgVisitCount : 0.0)
+                .avgBrowsingSeconds(avgBrowsingSeconds != null ? Math.round(avgBrowsingSeconds) : 0L)
+                .peakHour(peakHour != null ? peakHour : -1)
+                .build();
+
+        dailyAggregateSummaryRepository.save(summary);
+
+        List<UserStats> allUserStats = userStatsRepository.findAll();
+        for (UserStats stats : allUserStats) {
+            UserDailySummary userSummary = UserDailySummary.builder()
+                    .user(stats.getUser())
+                    .summaryDate(date)
+                    .totalSites(stats.getTotalSites())
+                    .totalTimeSpent(stats.getTotalTimeSpent())
+                    .build();
+
+            userDailySummaryRepository.save(userSummary);
         }
     }
 

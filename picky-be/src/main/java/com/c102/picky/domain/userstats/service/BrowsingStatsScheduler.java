@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -36,6 +37,7 @@ public class BrowsingStatsScheduler {
         log.info("==== 사용자 통계 테이블 초기화 완료 ====");
     }
 
+//    @Scheduled(cron = "0 */3 * * * *")
     @Scheduled(cron = "0 0 * * * *") //매 정각 실행
     public void runHourlyAggregation(){
         LocalDateTime now = LocalDateTime.now();
@@ -44,5 +46,22 @@ public class BrowsingStatsScheduler {
         log.info("사용자 log 집계 시작");
         statsService.aggregateAndSave(oneHourAgo, now);
     }
+
+    /**
+     * 매일 23:30에 전날 통계 집계 → DailyAggregateSummary 에 저장
+     */
+//    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 30 23 * * *") // 매일 23:30 실행
+    @Transactional
+    public void aggregateDailySummary() {
+        LocalDate today = LocalDate.now();
+
+        log.info("==== DailyAggregateSummary 집계 시작: {} ====", today);
+
+        statsService.aggregateDailySummary(today);
+
+        log.info("==== DailyAggregateSummary 집계 완료: {} ====", today);
+    }
+
 
 }
