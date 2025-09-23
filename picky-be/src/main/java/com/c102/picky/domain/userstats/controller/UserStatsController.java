@@ -1,10 +1,7 @@
 package com.c102.picky.domain.userstats.controller;
 
 import com.c102.picky.domain.users.entity.CustomUserDetails;
-import com.c102.picky.domain.userstats.dto.UserCategoryStatsDto;
-import com.c102.picky.domain.userstats.dto.UserDomainStatsDto;
-import com.c102.picky.domain.userstats.dto.UserHourlyStatsDto;
-import com.c102.picky.domain.userstats.dto.UserStatsDto;
+import com.c102.picky.domain.userstats.dto.*;
 import com.c102.picky.domain.userstats.service.UserCategoryStatsService;
 import com.c102.picky.domain.userstats.service.UserDomainStatsService;
 import com.c102.picky.domain.userstats.service.UserHourlyStatsService;
@@ -13,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -53,4 +49,9 @@ public class UserStatsController {
         return ResponseEntity.ok(userDomainStatsService.getUserDomainStats(userDetails.getUser().getId()));
     }
 
+    // 카테고리별 사용자 분포
+    @GetMapping("/categories/visit-share")
+    public ResponseEntity<List<CategoryVisitShareDto>> getVisitShare() {
+        return ResponseEntity.ok(userCategoryStatsService.getCategoryVisitShare());
+    }
 }
