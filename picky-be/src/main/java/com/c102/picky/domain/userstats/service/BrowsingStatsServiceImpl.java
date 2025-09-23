@@ -43,10 +43,10 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
             String collection = shardUtil.getBrowsingCollection(userEmail);
 
             DateTimeFormatter mongoFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                    .withZone(ZoneOffset.UTC);
+                    .withZone(ZoneId.of("Asia/Seoul"));
 
-            String isoFrom = mongoFormat.format(from.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
-            String isoTo   = mongoFormat.format(to.atZone(ZoneId.of("Asia/Seoul")).withZoneSameInstant(ZoneOffset.UTC));
+            String isoFrom = mongoFormat.format(from.atZone(ZoneId.of("Asia/Seoul")));
+            String isoTo   = mongoFormat.format(to.atZone(ZoneId.of("Asia/Seoul")));
             Criteria dateCriteria = Criteria.where("timestamp").gte(isoFrom).lte(isoTo);
             Criteria userIdCriteria = Criteria.where("userId").is(userEmail);
             log.info("쿼리 범위 from={}, to={}", isoFrom, isoTo);
@@ -116,10 +116,9 @@ public class BrowsingStatsServiceImpl implements BrowsingStatsService {
             long timeSpent = timeSpentNum == null ? 0L : timeSpentNum.longValue();
             Object tsObj = log.get("timestamp");
             LocalDateTime ts = null;
-            if (tsObj instanceof Date) {
-                ts = ((Date) tsObj).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-            } else if (tsObj instanceof String) {
-                ts = Instant.parse((String) tsObj).atZone(ZoneId.systemDefault()).toLocalDateTime();
+            if (tsObj instanceof String) {
+                String timeStr = ((String) tsObj).replace("Z", "");
+                ts = LocalDateTime.parse(timeStr);
             }
 
             if (ts == null) {
