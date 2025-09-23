@@ -24,19 +24,17 @@ public class AuthController {
     private final AuthService authService;
     private final CookieUtil cookieUtil;
 
-//    @PostMapping("/google/login")
-//    public ResponseEntity<ApiResponse<TokenResponseDto>> googleLogin(@Valid @RequestBody GoogleLoginRequestDto request,
-//                                                                    HttpServletRequest httpRequest,
-//                                                                    HttpServletResponse httpResponse) {
-//        log.info("Google login request received with ID token");
-//        TokenResponseDto tokens = authService.googleLogin(request);
-//
-//        // refresh token을 쿠키에 저장
-//        cookieUtil.addRefreshTokenCookie(httpResponse, tokens.getRefreshToken());
-//
-//        return ResponseEntity.status(HttpStatus.OK)
-//                .body(ApiResponse.of(HttpStatus.OK, "구글 로그인 성공", tokens, httpRequest.getRequestURI()));
-//    }
+    @PostMapping("/google/login")
+    public ResponseEntity<ApiResponse<TokenResponseDto>> googleLogin(@Valid @RequestBody GoogleLoginRequestDto request,
+                                                                    HttpServletRequest httpRequest,
+                                                                    HttpServletResponse httpResponse) {
+        log.info("Google login request received with ID token");
+        TokenResponseDto tokens = authService.googleLogin(request);
+        // refresh token을 쿠키에 저장
+        cookieUtil.addRefreshTokenCookie(httpResponse, tokens.getRefreshToken());
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.of(HttpStatus.OK, "구글 로그인 성공", tokens, httpRequest.getRequestURI()));
+    }
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenResponseDto>> refreshToken(HttpServletRequest httpRequest,

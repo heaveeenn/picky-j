@@ -53,4 +53,9 @@ public class UserStatsController {
         return ResponseEntity.ok(userDailySummaryService.getUserVsAverage(userDetails.getUser().getId()));
     }
 
+    // 카테고리별 사용자 분포
+    @GetMapping("/categories/visit-share")
+    public ResponseEntity<List<CategoryVisitShareDto>> getVisitShare() {
+        return ResponseEntity.ok(userCategoryStatsService.getCategoryVisitShare());
+    }
 }
