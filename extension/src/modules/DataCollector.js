@@ -127,11 +127,11 @@ export class DataCollector {
    */
   getKSTTimestamp() {
     const now = new Date();
-    const kstOffset = 9 * 60; // 한국은 UTC+9
-    const kstTime = new Date(now.getTime() + (kstOffset + now.getTimezoneOffset()) * 60 * 1000);
+    // 현재 UTC 시간에 9시간 더해서 KST 생성
+    const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     return {
       iso: kstTime.toISOString(),
-      formatted: kstTime.toLocaleString('ko-KR'),
+      formatted: now.toLocaleString('ko-KR', {timeZone: 'Asia/Seoul'}), // 원본 시간을 KST로 포맷
       hour: kstTime.getHours(),
       dayOfWeek: kstTime.getDay(), // 0=일요일, 1=월요일...
       timeCategory: this.getTimeCategory(kstTime.getHours())
