@@ -139,6 +139,50 @@ function App() {
     }
   };
 
+  // 로그아웃 처리 함수
+  const handleLogout = async () => {
+    try {
+      console.log("🔐 로그아웃 요청 시작");
+
+      // 1. background.js에 로그아웃 요청 (응답 대기하지 않음)
+      chrome.runtime.sendMessage({
+        type: 'LOGOUT'
+      }).catch(error => {
+        console.warn("메시지 전송 실패 (무시):", error);
+      });
+
+      // 2. 짧은 대기 후 Chrome Storage 직접 확인
+      setTimeout(async () => {
+        try {
+          const result = await chrome.storage.local.get(['jwt', 'userInfo']);
+
+          if (!result.jwt && !result.userInfo) {
+            // Storage가 비어있으면 로그아웃 성공
+            console.log("✅ 로그아웃 성공 - Storage 확인됨");
+            setIsAuthenticated(false);
+            setUserInfo(null);
+          } else {
+            console.warn("⚠️ 로그아웃 불완전 - 수동 UI 업데이트");
+            // Storage가 아직 있어도 UI는 업데이트 (사용자 경험)
+            setIsAuthenticated(false);
+            setUserInfo(null);
+          }
+        } catch (storageError) {
+          console.error("Storage 확인 실패:", storageError);
+          // 실패해도 UI는 로그아웃 상태로 변경
+          setIsAuthenticated(false);
+          setUserInfo(null);
+        }
+      }, 100); // 100ms 후 확인
+
+    } catch (error) {
+      console.error("❌ 로그아웃 처리 실패:", error);
+      // 모든 것이 실패해도 UI는 로그아웃 상태로 변경
+      setIsAuthenticated(false);
+      setUserInfo(null);
+    }
+  };
+
   // 토글 클릭 핸들러 (1초 쿨다운 + 디바운싱 보호장치 적용)
   const handleToggle = async () => {
     const now = Date.now();
@@ -187,7 +231,6 @@ function App() {
     return (
       <div className="w-80 h-96 bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl mb-2">🦞</div>
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
@@ -201,7 +244,6 @@ function App() {
         {/* 헤더 */}
         <div className="bg-blue-600 text-white p-4">
           <div className="flex items-center space-x-2">
-            <div className="text-2xl">🦞</div>
             <div>
               <h1 className="text-lg font-bold">picky</h1>
               <p className="text-sm opacity-90">지능형 지식 동반자</p>
@@ -270,8 +312,20 @@ function App() {
     <div className="w-80 p-5 font-sans">
       {/* 헤더 섹션 */}
       <div className="text-center mb-5">
-        <h2 className="text-xl font-bold mb-3">picky 🦞</h2>
-        <p className="text-xs text-gray-600">안녕하세요, {userInfo?.name || '사용자'}님!</p>
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex-1"></div>
+          <h2 className="text-xl font-bold">picky</h2>
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-500 hover:text-red-600 transition-colors px-2 py-1 rounded hover:bg-red-50"
+              title="로그아웃"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-gray-600">안녕하세요, {userInfo?.nickname || '사용자'}님!</p>
       </div>
 
       {/* 데이터 수집 토글 스위치 */}

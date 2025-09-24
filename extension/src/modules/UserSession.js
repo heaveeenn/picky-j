@@ -18,9 +18,6 @@ export class UserSession {
   }
 
 
-  // ===== 구식 chrome.identity 관련 메서드들 제거됨 =====
-  // 이제 백엔드 OAuth2 Flow를 사용하므로 불필요
-
   /**
    * JWT 유효성 검증 (단순히 JWT 존재 여부만 확인)
    */
@@ -273,28 +270,59 @@ export class UserSession {
   // clearMemorySession 제거됨 - async clearSession()으로 통합
 
   /**
-   * 완전한 로그아웃 (Google + JWT + Storage)
+   * 완전한 로그아웃 (백엔드 API + 로컬 Storage)
    */
   async logout() {
+    console.log("🔐 UserSession.logout() 시작");
     try {
-      // Chrome Identity API에서 모든 토큰 제거
-      await chrome.identity.clearAllCachedAuthTokens();
+      // 1. 백엔드 로그아웃 API 호출 (Refresh Token 블랙리스트 추가)
+      try {
+        console.log("1️⃣ 백엔드 로그아웃 API 호출 중...");
+        // JWT가 있는 경우에만 Authorization 헤더 추가
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        if (this.jwt) {
+          headers['Authorization'] = `Bearer ${this.jwt}`;
+          console.log("🎫 JWT 토큰으로 인증된 로그아웃");
+        } else {
+          console.log("⚠️ JWT 토큰 없음 - 쿠키만으로 로그아웃");
+        }
 
-      // Storage 클리어
-      await chrome.storage.local.remove(["jwt", "refreshToken", "userInfo"]);
+        const response = await fetch(`${this.BACKEND_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: headers,
+          credentials: 'include' // 쿠키 포함
+        });
 
-      // 메모리 세션 클리어
+        if (response.ok) {
+          console.log("✅ 백엔드 로그아웃 성공 - Refresh Token 무효화됨");
+        } else {
+          console.warn("⚠️ 백엔드 로그아웃 실패 (계속 진행):", response.status);
+        }
+      } catch (backendError) {
+        console.warn("⚠️ 백엔드 로그아웃 요청 실패 (계속 진행):", backendError);
+      }
+
+      // 2. 확장프로그램 로컬 Storage 클리어 (히스토리 수집 플래그도 함께 제거)
+      console.log("2️⃣ Chrome Storage 클리어 중...");
+      await chrome.storage.local.remove(["jwt", "refreshToken", "userInfo", "userId", "historyCollected"]);
+      console.log("✅ Chrome Storage 클리어 완료");
+
+      // 3. 메모리 세션 클리어
+      console.log("3️⃣ 메모리 세션 클리어 중...");
       this.userId = null;
       this.isAuthenticated = false;
       this.userInfo = null;
       this.jwt = null;
       this.refreshToken = null;
+      console.log("✅ 메모리 세션 클리어 완료");
 
       console.log("👋 완전 로그아웃 완료");
       return { success: true, message: "로그아웃 완료" };
     } catch (error) {
       console.error("❌ 로그아웃 실패:", error);
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "알 수 없는 오류" };
     }
   }
 
@@ -380,8 +408,9 @@ export class UserSession {
     return new Promise((resolve, reject) => {
       console.log("🌐 새 탭에서 백엔드 OAuth2 로그인 시작");
 
-      // 1. 백엔드 OAuth2 엔드포인트 URL 생성 (Extension임을 표시)
-      const backendOAuthUrl = `${this.BACKEND_URL}/oauth2/authorization/google`;
+      // 1. 백엔드 OAuth2 엔드포인트 URL 생성 (매번 계정 선택 강제)
+      const timestamp = Date.now();
+      const backendOAuthUrl = `${this.BACKEND_URL}/oauth2/authorization/google?prompt=select_account&state=${timestamp}`;
       console.log("🔗 OAuth2 URL:", backendOAuthUrl);
 
       let isCompleted = false;

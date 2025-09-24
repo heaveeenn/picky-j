@@ -30,26 +30,22 @@ const historyCollector = new HistoryCollector(userSession);
   } catch (error) {
     console.error("❌ 사용자 세션 초기화 실패:", error);
   }
-
 })();
-
-
-
-
-
-
 
 // 히스토리 수집 체크 및 실행 함수
 async function checkAndCollectHistory() {
   try {
-    const storage = await chrome.storage.local.get(['historyCollected']);
+    const storage = await chrome.storage.local.get(["historyCollected"]);
 
     // 아직 히스토리를 수집하지 않았다면 수집 시작
     if (!storage.historyCollected) {
       console.log("📚 최초 로그인 - 히스토리 데이터 수집 시작");
 
       const result = await historyCollector.collectHistoryWithContent();
-      console.log("✅ 로그인 후 히스토리 수집 완료:", result.contentExtractionSummary);
+      console.log(
+        "✅ 로그인 후 히스토리 수집 완료:",
+        result.contentExtractionSummary
+      );
 
       // 수집 완료 플래그 저장
       await chrome.storage.local.set({ historyCollected: true });
@@ -61,7 +57,6 @@ async function checkAndCollectHistory() {
     console.error("❌ 히스토리 수집 실패:", error);
   }
 }
-
 
 // content.js와 popup에서 온 메시지 처리
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
@@ -155,7 +150,8 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log("🔐 Google 로그인 요청 받음");
 
     // 비동기 함수로 처리하되 sendResponse 호출을 보장
-    userSession.loginWithGoogle()
+    userSession
+      .loginWithGoogle()
       .then(async (result) => {
         console.log("🔐 Google 로그인 결과:", result);
 
@@ -195,6 +191,26 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     return;
   }
 
+  // 로그아웃 처리 (popup에서)
+  if (message.type === "LOGOUT") {
+    console.log("🔐 로그아웃 요청 받음");
+
+    userSession.logout()
+      .then((result) => {
+        console.log("🔐 로그아웃 결과:", result);
+        sendResponse(result);
+      })
+      .catch((error) => {
+        console.error("❌ 로그아웃 실패:", error);
+        sendResponse({
+          success: false,
+          error: error.message,
+        });
+      });
+
+    return true; // 비동기 응답을 위해 true 반환
+  }
+
   // Offscreen 콘텐츠 추출 요청 (HistoryContentExtractor에서 사용)
   if (message.type === "EXTRACT_CONTENT_OFFSCREEN") {
     // 이 메시지는 offscreen.js에서 처리됨
@@ -209,15 +225,21 @@ setInterval(async () => {
   await dataSender.sendAllQueuedData();
 }, 30000);
 
-// 확장프로그램 설치시 초기화만 수행 (히스토리 수집은 로그인 후)
+// 확장프로그램 설치시 초기화 수행 (기존 인증 데이터 포함)
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     console.log("🎉 확장프로그램 최초 설치 완료");
-    // 설치 완료 플래그 저장 (히스토리 수집은 로그인 후 진행)
+
+    // 기존 인증 관련 데이터 모두 초기화
+    await chrome.storage.local.clear();
+    await chrome.storage.sync.clear();
+    console.log("🧹 기존 Chrome Storage 데이터 모두 초기화 완료");
+
+    // 새로운 설치 상태로 초기화
     await chrome.storage.local.set({
       installed: true,
-      historyCollected: false
+      historyCollected: false,
     });
-    console.log("📝 설치 상태 저장 완료 - 로그인 후 히스토리 수집 예정");
+    console.log("📝 새로운 설치 상태 저장 완료 - 로그인 후 히스토리 수집 예정");
   }
 });
