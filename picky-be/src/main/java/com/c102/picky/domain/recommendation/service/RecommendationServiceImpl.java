@@ -1,13 +1,14 @@
 package com.c102.picky.domain.recommendation.service;
 
 import com.c102.picky.domain.content.service.ContentQueryService;
+import com.c102.picky.domain.fact.entity.Fact;
+import com.c102.picky.domain.fact.entity.FactView;
+import com.c102.picky.domain.fact.repository.FactRepository;
+import com.c102.picky.domain.fact.repository.FactViewRepository;
 import com.c102.picky.domain.recommendation.dto.*;
-import com.c102.picky.domain.recommendation.entity.UserRecommendationEvent;
 import com.c102.picky.domain.recommendation.entity.UserRecommendationSlot;
 import com.c102.picky.domain.recommendation.model.ContentType;
-import com.c102.picky.domain.recommendation.model.RecommendationEventType;
 import com.c102.picky.domain.recommendation.model.SlotStatus;
-import com.c102.picky.domain.recommendation.repository.UserRecommendationEventRepository;
 import com.c102.picky.domain.recommendation.repository.UserRecommendationSlotRepository;
 import com.c102.picky.domain.usersettings.service.UserSettingsService;
 import com.c102.picky.global.dto.PageResponse;
@@ -31,38 +32,35 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final UserRecommendationSlotRepository slotRepository;
-    private final UserRecommendationEventRepository eventRepository;
+    private final FactRepository factRepository;
+    private final FactViewRepository factViewRepository;
+
     private final ContentQueryService contentQueryService;
     private final UserSettingsService userSettingsService;
 
     @Override
     @Transactional
     public RecommendationPayloadResponseDto getNextRecommendation(Long userId, ContentType contentType, LocalDateTime windowStart, LocalDateTime windowEnd) {
+
+        // 1) 윈도우 내에서 'SCHEDULED' 슬롯 1건을 락 걸고 집어온다 (경쟁 방지)
         var list = slotRepository.findTopForDeliveryWithLock(
                 userId, contentType, windowStart, windowEnd, SlotStatus.SCHEDULED, PageRequest.of(0, 1));
 
         if (list.isEmpty()) return null;
 
         UserRecommendationSlot slot = list.get(0);
-        slot.setStatus(SlotStatus.DELIEVERED);
 
-        // 이벤트 로그
-        eventRepository.save(UserRecommendationEvent.builder()
-                .userId(userId)
-                .slotId(slot.getId())
-                .eventType(RecommendationEventType.DELIVERED)
-                .build());
-
-
+        // 2) 공통 응답 빌더 (타입별 contentId는 분기 안에서 넣는다)
         var builder = RecommendationPayloadResponseDto.builder()
                 .slotId(slot.getId())
                 .contentType(slot.getContentType())
-                .contentId(slot.getContentId())
                 .slotAt(slot.getSlotAt());
 
-        // 최초 팝업은 정답/해설 미포함
+        // 3) 타입별 페이로드 구성 & 딜리버리 처리
         switch (slot.getContentType()) {
             case NEWS -> {
+                // NEWS: 슬롯에 이미 newsId가 있으니 바로 채운다
+                builder.contentId(slot.getNewsId());
                 var news = contentQueryService.getNewsPayload(slot.getNewsId());
                 builder
                         .title(news.getTitle())
@@ -73,8 +71,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                         "categoryId", news.getCategoryId(),
                         "categoryName", news.getCategoryName()
                 ));
+                // 딜리버리 완료 마킹(상태 = DELIVERED, 이벤트 기록)
+                slot.setStatus(SlotStatus.DELIVERED);
             }
             case QUIZ -> {
+                // QUIZ: 정답/해설 없이 문제만 노출
+                builder.contentId(slot.getQuizId());
                 var quiz = contentQueryService.getQuizPayload(slot.getQuizId(), false, false);
                 builder
                         .question(quiz.getQuestion())
@@ -83,47 +85,114 @@ public class RecommendationServiceImpl implements RecommendationService {
                                 "url", quiz.getUrl(),
                                 "rule", quiz.getRule()
                         ));
+                // 딜리버리 완료 마킹
+                slot.setStatus(SlotStatus.DELIVERED);
+            }
+            case FACT -> {
+                // FACT: 슬롯에 factId가 '미리 바인딩'되어 있어야 한다
+                Long factId = slot.getFactId();
+                if (factId == null) {   // 방어: 없으면 뒤로 미룬다
+                    pushBack(slot);
+                    return null;
+                }
+
+                // 3-1) 팩트 존재 확인 (삭제/비활성 등으로 사라졌을 수 있음)
+                var factOpt = factRepository.findById(factId);
+                if (factOpt.isEmpty()) {    // 방어: 없으면 뒤로 미룬다
+                    pushBack(slot);
+                    return null;
+                }
+
+                // 3-2) '이미 본 팩트'인지 체크 -> 이미 봤다면 뒤로 미룬다
+                if (factViewRepository.existsByUserIdAndFactId(userId, factId)) {
+                    pushBack(slot);
+                    return null;
+                }
+
+                // 3-3) 전달 가능: 페이로드 채우기
+                var fact = factOpt.get();
+                builder.contentId(fact.getId());
+                builder.title(fact.getTitle());
+                builder.extras(Map.of("content", fact.getContent(), "url", fact.getUrl()));
+
+                // 3-4) 딜리버리 완료 마킹
+                slot.setStatus(SlotStatus.DELIVERED);
             }
         }
+
+        // 4) 최종 응답
         return builder.build();
     }
 
     @Override
     @Transactional
     public void acknowledgeRecommendation(Long userId, Long slotId, RecommendationAckRequestDto request) {
+        // 1) 유저 소유의 슬롯인지 확인
         UserRecommendationSlot slot = slotRepository.findByIdAndUserId(slotId, userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SLOT_NOT_FOUND));
 
+        // 2) 이벤트 타입별 상태 전이 + (FACT일 때) 열람 기록
         // 상태 전이 : OPENED -> SEEN, DISMISS -> DISMISSED
         switch (request.getEventType()) {
-            case OPENED -> slot.setStatus(SlotStatus.SEEN);
+            case OPENED -> {
+                // UI가 실제로 팝업을 연 시점 -> 슬롯 상태를 SEEN으로
+                slot.setStatus(SlotStatus.SEEN);
+
+                // FACT는 'OPENED' 시점에만 봤다고 기록 (전달 시에는 기록 X)
+                if (slot.getContentType() == ContentType.FACT) {
+                    Long factId = slot.getFactId();
+                    if (factId != null) {
+                        // 중복 방지: 이미 기록돼 있으면 스킵
+                        if (!factViewRepository.existsByUserIdAndFactId(userId, factId)) {
+                            factViewRepository.save(
+                                    FactView.builder()
+                                            .userId(userId)
+                                            .factId(factId)
+                                            .viewAt(LocalDateTime.now())
+                                            .build()
+                            );
+                        }
+                    }
+                }
+            }
             case DISMISS -> slot.setStatus(SlotStatus.DISMISSED);
         }
-
-        eventRepository.save(UserRecommendationEvent.builder()
-                .userId(userId)
-                .slotId(slotId)
-                .eventType(request.getEventType())
-                .dwellMs(Optional.ofNullable(request.getDwellMs()).orElse(0))
-                .build());
     }
 
     @Override
     @Transactional
     public void upsertSlot(RecommendationUpsertRequestDto request) {
 
-        // 무결성 검증: 타입에 따라 newsId/quizId 정확히 하나만
+        // 1) 타입별 바인딩 무결성 체크
         boolean newsOk = request.getContentType() == ContentType.NEWS && request.getNewsId() != null && request.getQuizId() == null;
         boolean quizOk = request.getContentType() == ContentType.QUIZ && request.getQuizId() != null && request.getNewsId() == null;
-        if (!(newsOk || quizOk)) {
+
+        // FACT: newsId/quizId 없이 와야 함
+        // factId가 비어서 오면 '업서트 시점'에 랜덤 바인딩
+        boolean factOk = false;
+        if (request.getContentType() == ContentType.FACT && request.getNewsId() == null && request.getQuizId() == null) {
+            factOk = true;
+
+            // 2) factId 미지정이면 '안 본 것 우선'으로 랜덤 픽 -> 없으면 전체 랜덤
+            if (request.getFactId() == null) {
+                var rnd = java.util.concurrent.ThreadLocalRandom.current();
+                Long factId = factRepository.pickRandomUnseen(request.getUserId(), rnd)
+                        .or(() -> factRepository.pickAny(rnd))
+                        .map(Fact::getId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND)); // 팩트가 0개
+                request.setFactId(factId);  // 미리 바인딩 확정
+            }
+        }
+
+        if (!(newsOk || quizOk || factOk)) {
             throw new ApiException(ErrorCode.INVALID_CONTENT_BINDING);
         }
 
-        // 사용자 설정 기반으로 다음 알림 시간 계산
+        // 3) 사용자 설정 기반으로 '다음 슬롯 시간' 계산
         var userSettings = userSettingsService.findByUserId(request.getUserId());
         LocalDateTime nextSlotTime = calculateNextSlotTime(request.getUserId(), request.getContentType(), userSettings.getNotifyInterval());
 
-        // Unique(userId, ContentType, slotAt) 기반 업서트 : 조회 -> 있으면 갱신, 없으면 생성
+        // 4) Unique(userId, ContentType, slotAt) 기반 업서트 : 조회 -> 있으면 갱신, 없으면 생성
         LocalDateTime start = nextSlotTime;
         LocalDateTime end = nextSlotTime;
 
@@ -132,17 +201,20 @@ public class RecommendationServiceImpl implements RecommendationService {
         );
 
         if (existList.isEmpty()) {
+            // 신규 생성
             slotRepository.save(UserRecommendationSlot.builder()
                     .userId(request.getUserId())
                     .contentType(request.getContentType())
                     .newsId(request.getNewsId())
                     .quizId(request.getQuizId())
+                    .factId(request.getFactId())
                     .slotAt(nextSlotTime)
                     .priority(request.getPriority() == null ? 5 : request.getPriority())
                     .reason(request.getReason())
                     .status(SlotStatus.SCHEDULED)
                     .build());
         } else {
+            // 동일 타임 슬롯 존재 -> 갱신
             UserRecommendationSlot s = existList.get(0);
 
             // 우선순위 더 높으면 교체
@@ -151,6 +223,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
             s.setNewsId(request.getNewsId());
             s.setQuizId(request.getQuizId());
+            s.setFactId(request.getFactId());
             s.setReason(request.getReason());
         }
     }
@@ -215,5 +288,13 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         return baseTime;
+    }
+
+    /**
+     * 이번 슬롯은 보류: 우선순위 + 1하고 상태를 다시 SCHEDULED로 (다음 기회로 미룸)
+     */
+    private void pushBack(UserRecommendationSlot slot) {
+        slot.setPriority(slot.getPriority() + 1);
+        slot.setStatus(SlotStatus.SCHEDULED);
     }
 }
