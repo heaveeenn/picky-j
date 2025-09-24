@@ -18,8 +18,7 @@ public class DashboardQuizController {
 
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<QuizStatsResponseDto>> getQuizStats(HttpServletRequest request) {
-        String sub = (String) request.getAttribute("sub");
-        Long userId = Long.valueOf(sub);
+        Long userId = (Long) request.getAttribute("userId");
 
         QuizStatsResponseDto response = dashboardQuizService.getQuizStats(userId);
         return ResponseEntity.status(HttpStatus.OK)

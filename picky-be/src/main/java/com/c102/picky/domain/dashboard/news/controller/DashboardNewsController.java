@@ -18,8 +18,7 @@ public class DashboardNewsController {
 
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<NewsStatsResponseDto>> getNewsStats(HttpServletRequest request) {
-        String sub = (String) request.getAttribute("sub");
-        Long userId = Long.valueOf(sub);
+        Long userId = (Long) request.getAttribute("userId");
 
         NewsStatsResponseDto response = dashboardNewsService.getNewsStats(userId);
         return ResponseEntity.status(HttpStatus.OK)
@@ -29,8 +28,7 @@ public class DashboardNewsController {
     @PostMapping("/{newsId}/view")
     public ResponseEntity<ApiResponse<Void>> recordNewsView(HttpServletRequest request,
                                                            @PathVariable Long newsId) {
-        String sub = (String) request.getAttribute("sub");
-        Long userId = Long.valueOf(sub);
+        Long userId = (Long) request.getAttribute("userId");
 
         dashboardNewsService.recordNewsView(userId, newsId);
         return ResponseEntity.status(HttpStatus.OK)

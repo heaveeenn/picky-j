@@ -1,9 +1,8 @@
 package com.c102.picky.domain.dashboard.news.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -18,8 +17,8 @@ import java.time.LocalDateTime;
 )
 public class NewsView {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -30,7 +29,7 @@ public class NewsView {
 
     @Column(name = "viewed_at", nullable = false)
     @Builder.Default
-    private LocalDateTime viewedAt = LocalDateTime.now();
+    private LocalDateTime viewedAt =  LocalDateTime.now();
 
     @Column(name = "created_at", nullable = false)
     @Builder.Default
@@ -38,7 +37,8 @@ public class NewsView {
 
     @PrePersist
     void onCreate() {
-        if (viewedAt == null) this.viewedAt = LocalDateTime.now();
-        if (createdAt == null) this.createdAt = LocalDateTime.now();
+        if(viewedAt == null) this.viewedAt = LocalDateTime.now();
+        if(createdAt == null) this.createdAt = LocalDateTime.now();
     }
+
 }

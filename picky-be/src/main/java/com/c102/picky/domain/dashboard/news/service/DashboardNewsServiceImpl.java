@@ -3,12 +3,11 @@ package com.c102.picky.domain.dashboard.news.service;
 import com.c102.picky.domain.dashboard.news.dto.NewsStatsResponseDto;
 import com.c102.picky.domain.dashboard.news.entity.NewsView;
 import com.c102.picky.domain.dashboard.news.repository.NewsViewRepository;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
