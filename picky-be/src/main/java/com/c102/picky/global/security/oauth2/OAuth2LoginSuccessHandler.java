@@ -35,9 +35,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String referer = request.getHeader("Referer");
 
         // Extension에서 온 요청인지 확인
-        boolean isExtensionRequest = (referer != null && referer.contains("chrome-extension://")) ||
-                                   (userAgent != null && userAgent.contains("Chrome") &&
-                                    (referer == null || !referer.contains("localhost:5173")));
+        boolean isExtensionRequest = referer != null && referer.contains("chrome-extension://");
 
         log.info("OAuth2 요청 구분 - Extension: {}, UserAgent: {}, Referer: {}",
                 isExtensionRequest, userAgent, referer);
