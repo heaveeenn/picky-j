@@ -3,18 +3,18 @@ import pkg from "../package.json";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "picky",
+  name: "Picky",
   version: pkg.version,
-  description: "사용자의 웹 활동 로그를 기반으로 학습하는 지능형 지식 동반자",
+  description: "사용자의 웹 활동 로그를 기반으로 학습하여 맞춤형 콘텐츠를 추천하는 지능형 지식 동반자",
   oauth2: {
     client_id:
       "263377384158-59v1q0tl0ue430cnvj660spbfbh4t094.apps.googleusercontent.com",
     scopes: ["openid", "email", "profile"],
   },
   icons: {
-    16: "public/logo.svg",
-    48: "public/logo.svg",
-    128: "public/logo.svg",
+    16: "public/picky_icon_16.png",
+    48: "public/picky_icon_48.png",
+    128: "public/picky_icon_128.png",
   },
 
   permissions: [
@@ -34,7 +34,7 @@ export default defineManifest({
 
   action: {
     default_popup: "src/popup/index.html",
-    default_title: "picky",
+    default_title: "Picky",
   },
 
   content_scripts: [
@@ -52,7 +52,7 @@ export default defineManifest({
 
   web_accessible_resources: [
     {
-      resources: ["offscreen.html", "Readability.js"],
+      resources: ["offscreen.html", "Readability.js", "content.css", "images/characters/*"],
       matches: ["<all_urls>"],
     },
   ],

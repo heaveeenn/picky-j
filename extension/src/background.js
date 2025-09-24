@@ -4,7 +4,55 @@
  * Chrome Extension 백그라운드 스크립트
  * - content.js에서 온 데이터를 받아서 Python 서버로 전송
  * - 배치 처리 및 에러 처리 담당
+ * - [추가] UI 관련 설정(캐릭터, 알림 등) 관리 기능 통합
  */
+
+// --- [추가] UI 설정 관련 ---
+// 기본 설정 스키마
+const DEFAULT_SETTINGS = {
+  isExtensionOn: true,
+  isCharacterOn: true,
+  notificationInterval: 30,
+  // 관심 카테고리는 맵 형태로 저장한다.
+  selectedCategories: {
+    tech: true,
+    news: true,
+    education: false,
+    design: true,
+    business: false,
+    entertainment: false,
+  },
+};
+
+/**
+ * [추가] 현재 스토리지 값 중 비어 있는 키만 기본값으로 채운다.
+ * - 사용자가 이미 설정한 값은 덮어쓰지 않는다.
+ */
+async function ensureDefaults() {
+  try {
+    const keys = Object.keys(DEFAULT_SETTINGS);
+    const current = await chrome.storage.sync.get(keys);
+
+    const toSet = {};
+    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
+      const cur = current[k];
+      const isEmpty = cur === undefined || cur === null;
+      if (isEmpty) {
+        toSet[k] = v;
+      }
+    }
+
+    if (Object.keys(toSet).length > 0) {
+      await chrome.storage.sync.set(toSet);
+    }
+  } catch (err) {
+    // 초기화 실패는 치명적이지 않으므로 로깅만 수행한다.
+    // eslint-disable-next-line no-console
+    console.warn('[background] ensureDefaults failed:', err);
+  }
+}
+// --- [추가] UI 설정 관련 끝 ---
+
 
 import { DataSender } from "./modules/DataSender.js";
 import { UserSession } from "./modules/UserSession.js";
@@ -74,8 +122,9 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     }
 
     // 2. 토글 상태 확인 (Chrome Storage에서)
-    const trackingStatus = await chrome.storage.sync.get(["trackingEnabled"]);
-    const isTrackingEnabled = trackingStatus.trackingEnabled !== false;
+    // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
+    const settings = await chrome.storage.sync.get(["isExtensionOn"]);
+    const isTrackingEnabled = settings.isExtensionOn !== false;
 
     if (!isTrackingEnabled) {
       console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
@@ -212,6 +261,19 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     // background.js에서는 단순히 전달만
     return false;
   }
+
+  // --- [추가] UI 관련 메시지 핸들러 ---
+  if (message.type === 'GET_SETTINGS') {
+    chrome.storage.sync.get(null, (settings) => {
+      sendResponse({ success: true, settings });
+    });
+    return true; // 비동기 응답
+  }
+
+  if (message.type === 'PING') {
+    sendResponse({ success: true, data: 'PONG' });
+    return; // 동기 응답
+  }
 });
 
 // 30초마다 큐에 있는 데이터들을 서버로 전송
@@ -222,12 +284,19 @@ setInterval(async () => {
 
 // 확장프로그램 설치시 초기화 수행 (기존 인증 데이터 포함)
 chrome.runtime.onInstalled.addListener(async (details) => {
+  // [추가] UI 기본 설정 보장
+  await ensureDefaults();
+
   if (details.reason === "install") {
     console.log("🎉 확장프로그램 최초 설치 완료");
 
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
     console.log("🧹 기존 Chrome Storage 데이터 모두 초기화 완료");
+    
+    // [추가] sync 스토리지를 초기화했으므로 UI 기본 설정을 다시 저장
+    await ensureDefaults();
+
     await chrome.storage.local.set({
       installed: true,
       historyCollected: false,
