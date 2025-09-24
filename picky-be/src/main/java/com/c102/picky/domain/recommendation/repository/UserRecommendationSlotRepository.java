@@ -69,4 +69,31 @@ public interface UserRecommendationSlotRepository extends JpaRepository<UserReco
             @Param("to") LocalDateTime to,
             Pageable pageable
     );
+
+    @Query(value = """
+            select s from UserRecommendationSlot s
+              left join QuizAttempt qa
+                on qa.quizId = s.quizId and qa.userId = :userId
+            where s.userId = :userId
+              and s.contentType = com.c102.picky.domain.recommendation.model.ContentType.QUIZ
+              and s.status = com.c102.picky.domain.recommendation.model.SlotStatus.SCHEDULED
+              and s.quizId is not null
+            group by s
+            order by case when count(qa.id) > 0 then 1 else 0 end,  -- 미시도(0) 먼저, 시도(1) 뒤로
+                     s.priority asc,
+                     s.slotAt asc,
+                     s.id desc
+            """,
+            countQuery = """
+                      select count(s) from UserRecommendationSlot s
+                      where s.userId = :userId
+                        and s.contentType = com.c102.picky.domain.recommendation.model.ContentType.QUIZ
+                        and s.status = com.c102.picky.domain.recommendation.model.SlotStatus.SCHEDULED
+                        and s.quizId is not null
+                    """
+    )
+    Page<UserRecommendationSlot> findQuizSlotsForWindow(
+            @Param("userId") Long userId,
+            Pageable pageable
+    );
 }
