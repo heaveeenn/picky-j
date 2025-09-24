@@ -17,4 +17,18 @@ public interface NewsViewRepository extends JpaRepository<NewsView, Long> {
     long countByUserId(@Param("userId") Long userId);
 
     boolean existsByUserIdAndNewsId(Long userId, Long newsId);
+
+    // 일별 뉴스 소비량 조회 (현재 주 월요일부터)
+    @Query("""
+        SELECT DAYOFWEEK(nv.viewedAt) as dayOfWeek, COUNT(nv) as count
+        FROM NewsView nv
+        WHERE nv.userId = :userId
+        AND nv.viewedAt >= :weekStart
+        AND nv.viewedAt < :weekEnd
+        GROUP BY DAYOFWEEK(nv.viewedAt)
+        ORDER BY DAYOFWEEK(nv.viewedAt)
+        """)
+    Object[][] findDailyConsumptionByWeek(@Param("userId") Long userId,
+                                        @Param("weekStart") LocalDateTime weekStart,
+                                        @Param("weekEnd") LocalDateTime weekEnd);
 }
