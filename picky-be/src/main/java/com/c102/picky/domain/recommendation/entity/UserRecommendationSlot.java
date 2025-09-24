@@ -4,7 +4,6 @@ import com.c102.picky.domain.recommendation.model.ContentType;
 import com.c102.picky.domain.recommendation.model.SlotStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
@@ -17,7 +16,8 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_user_time", columnList = "user_id, slot_at"),
                 @Index(name = "idx_news", columnList = "news_id"),
-                @Index(name = "idx_quiz", columnList = "quiz_id")
+                @Index(name = "idx_quiz", columnList = "quiz_id"),
+                @Index(name = "idx_fact", columnList = "fact_id")
         }
 )
 @Getter
@@ -27,7 +27,8 @@ import java.time.LocalDateTime;
 @Builder
 public class UserRecommendationSlot {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -44,6 +45,10 @@ public class UserRecommendationSlot {
     // quiz.id (content_type=QUIZ일 때만)
     @Column(name = "quiz_id")
     private Long quizId;
+
+    // fact.id (content_type=FACT일 때만)
+    @Column(name = "fact_id")
+    private Long factId;
 
     // 알림 슬롯 시간
     @Column(name = "slot_at", nullable = false)
@@ -77,6 +82,10 @@ public class UserRecommendationSlot {
 
     // 편의메서드 : contentId 공통 취득
     public Long getContentId() {
-        return contentType == ContentType.NEWS ? newsId : quizId;
+        return switch (contentType) {
+            case NEWS -> newsId;
+            case QUIZ -> quizId;
+            case FACT -> factId;
+        };
     }
 }
