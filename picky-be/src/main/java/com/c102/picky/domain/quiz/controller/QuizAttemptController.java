@@ -2,6 +2,7 @@ package com.c102.picky.domain.quiz.controller;
 
 import com.c102.picky.domain.content.dto.QuizPayloadDto;
 import com.c102.picky.domain.content.service.ContentQueryService;
+import com.c102.picky.domain.dashboard.quiz.service.DashboardQuizService;
 import com.c102.picky.domain.quiz.dto.QuizAnswerResponseDto;
 import com.c102.picky.domain.quiz.dto.QuizAttemptCreateRequestDto;
 import com.c102.picky.domain.quiz.entity.QuizAttempt;
@@ -20,6 +21,7 @@ public class QuizAttemptController {
 
     private final ContentQueryService contentQueryService;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final DashboardQuizService dashboardQuizService;
 
     @GetMapping("/{quizId}")
     public ResponseEntity<ApiResponse<QuizPayloadDto>> getQuiz(
@@ -48,6 +50,8 @@ public class QuizAttemptController {
                 .isCorrect(isCorrect)
                 .slotId(dto.getSlotId())
                 .build());
+
+        dashboardQuizService.recordQuizView(userId, quizId, dto.getUserAnswer(), isCorrect);
 
         var response = QuizAnswerResponseDto.builder()
                 .quizId(quizId)
