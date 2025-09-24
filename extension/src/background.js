@@ -9,11 +9,13 @@
 import { DataSender } from "./modules/DataSender.js";
 import { UserSession } from "./modules/UserSession.js";
 import { HistoryCollector } from "./modules/HistoryCollector.js";
+import { initApi } from "./modules/AuthenticatedApi.js";
 
 console.log("🔧 Background script 시작");
 
 const dataSender = new DataSender();
 const userSession = new UserSession();
+initApi(userSession); // 인증 API 모듈 초기화
 const historyCollector = new HistoryCollector(userSession);
 
 // Service Worker 재시작시 세션 자동 복원
