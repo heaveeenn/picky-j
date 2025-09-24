@@ -7,8 +7,11 @@ import lombok.*;
 
 @Entity
 @Table(name = "user_category_stats", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_user_category", columnNames = {"user_id", "category_id"})
-})
+        @UniqueConstraint(name = "uq_user_category", columnNames = {"user_id", "category_id"})},
+        indexes = {
+                @Index(name = "idx_ucs_category", columnList = "category_id")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -36,6 +39,7 @@ public class UserCategoryStats {
     public void addVisitCount(long count) {
         this.visitCount += count;
     }
+
     public void addTimeSpent(long time) {
         this.timeSpent += time;
     }

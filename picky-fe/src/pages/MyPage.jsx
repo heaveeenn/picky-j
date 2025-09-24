@@ -1,19 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import Box from '../components/Box';
-import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain, ArrowLeft } from 'lucide-react';
+import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain, ArrowLeft, Loader, AlertCircle } from 'lucide-react';
 import Button from '../components/Button';
-
-// Mock data for scraps is kept for now. These will be integrated later.
-const mockScrapedNews = [
-  { id: 1, title: "AI 기술의 최신 동향과 미래 전망", category: "기술", source: "TechNews", date: "2024-03-10" },
-  { id: 2, title: "웹 개발 트렌드 2024: React부터 AI까지", category: "개발", source: "DevWorld", date: "2024-03-09" },
-];
-
-const mockScrapedQuizzes = [
-  { id: 1, question: "React의 useState Hook은 함수형 컴포넌트에서만 사용할 수 있다.", category: "개발", difficulty: "중급", date: "2024-03-10" },
-  { id: 2, question: "CSS Grid는 1차원 레이아웃을 위한 기술이다.", category: "웹디자인", difficulty: "초급", date: "2024-03-09" },
-];
 
 const characterOptions = [
   { id: 'robot', emoji: '🤖', name: '로봇 친구' },
@@ -24,7 +13,6 @@ const characterOptions = [
 
 const MyPage = ({ onClose, nickname, profileImage }) => {
   const [activeTab, setActiveTab] = useState('profile');
-  // nickname and profileImage are now props, no need for local state
   
   // Settings states
   const [selectedCharacter, setSelectedCharacter] = useState('robot');
@@ -36,6 +24,14 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
   const [newExcludedSite, setNewExcludedSite] = useState("");
 
   // Scraps states
+  const [scrapedNews, setScrapedNews] = useState([]);
+  const [scrapedQuizzes, setScrapedQuizzes] = useState([]);
+  const [scrapsLoading, setScrapsLoading] = useState(false);
+  const [scrapsError, setScrapsError] = useState(null);
+  const [newsPage, setNewsPage] = useState(0);
+  const [quizPage, setQuizPage] = useState(0);
+  const [hasMoreNews, setHasMoreNews] = useState(true);
+  const [hasMoreQuizzes, setHasMoreQuizzes] = useState(true);
   const [newsSearchQuery, setNewsSearchQuery] = useState('');
   const [quizSearchQuery, setQuizSearchQuery] = useState('');
   const [selectedNewsCategory, setSelectedNewsCategory] = useState('all');
@@ -43,43 +39,38 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) return;
-
       try {
-        // Removed userRes from Promise.all as nickname and profileImage are now props
         const [settingsRes, allCategoriesRes, interestsRes] = await Promise.all([
           api.get('/api/users/me/settings'),
           api.get('/api/categories'),
           api.get('/api/users/me/interests')
         ]);
 
-        // Removed userData processing as nickname and profileImage are now props
-        // const userData = userRes.data.data;
-        // setNickname(userData.nickname);
-        // setProfileImage(userData.profileImage);
-
         const settingsData = settingsRes.data.data;
-        setSelectedCharacter(settingsData.avatarCode);
-        setNotificationInterval(settingsData.notifyInterval);
-        setNotifyEnabled(settingsData.notifyEnabled);
-        setPopupSettings({
-          news: settingsData.newsEnabled,
-          quiz: settingsData.quizEnabled,
-          fact: settingsData.factEnabled,
-        });
-        setExcludedSites(settingsData.blockedDomains || []);
+        if (settingsData) {
+            setSelectedCharacter(settingsData.avatarCode);
+            setNotificationInterval(settingsData.notifyInterval);
+            setNotifyEnabled(settingsData.notifyEnabled);
+            setPopupSettings({
+              news: settingsData.newsEnabled,
+              quiz: settingsData.quizEnabled,
+              fact: settingsData.factEnabled,
+            });
+            setExcludedSites(settingsData.blockedDomains || []);
+        }
 
         const allCategoriesData = allCategoriesRes.data.data;
         const userInterestData = interestsRes.data.data;
-        const userInterestIds = new Set(userInterestData.map(interest => interest.categoryId));
-
-        const categoryCheckboxes = allCategoriesData.map(cat => ({
-          id: cat.id,
-          label: cat.name || `Category ${cat.id}`, // Fallback to ID if name is null
-          checked: userInterestIds.has(cat.id)
-        }));
-        setCategories(categoryCheckboxes);
+        
+        if (allCategoriesData && userInterestData) {
+            const userInterestIds = new Set(userInterestData.map(interest => interest.categoryId));
+            const categoryCheckboxes = allCategoriesData.map(cat => ({
+              id: cat.id,
+              label: cat.name || `Category ${cat.id}`,
+              checked: userInterestIds.has(cat.id)
+            }));
+            setCategories(categoryCheckboxes);
+        }
 
       } catch (error) {
         console.error('Failed to fetch page data', error);
@@ -89,13 +80,39 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
     fetchData();
   }, []);
 
-  const handleSaveSettings = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-      alert("로그인이 필요합니다.");
-      return;
-    }
+  useEffect(() => {
+    if (activeTab !== 'scraps' || newsPage > 0 || quizPage > 0) return; // Only fetch initial data once
 
+    const fetchInitialScraps = async () => {
+      setScrapsLoading(true);
+      setScrapsError(null);
+      try {
+        const [newsRes, quizRes] = await Promise.all([
+          api.get('/api/scraps', { params: { type: 'NEWS', page: 0, size: 10 } }),
+          api.get('/api/scraps', { params: { type: 'QUIZ', page: 0, size: 10 } })
+        ]);
+        
+        const newsData = newsRes.data.data;
+        const quizData = quizRes.data.data;
+
+        setScrapedNews(newsData.content);
+        setHasMoreNews(!newsData.last);
+
+        setScrapedQuizzes(quizData.content);
+        setHasMoreQuizzes(!quizData.last);
+
+      } catch (error) {
+        console.error('Failed to fetch scraps', error);
+        setScrapsError('스크랩 데이터를 불러오는 데 실패했습니다.');
+      } finally {
+        setScrapsLoading(false);
+      }
+    };
+
+    fetchInitialScraps();
+  }, [activeTab]);
+
+  const handleSaveSettings = async () => {
     try {
       const settingsToUpdate = {
         avatarCode: selectedCharacter,
@@ -141,21 +158,58 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
     setExcludedSites(prev => prev.filter(site => site !== siteToRemove));
   };
 
-  const filteredNews = mockScrapedNews.filter(news => {
-    const matchesSearch = news.title.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
-                          news.category.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
-                          news.source.toLowerCase().includes(newsSearchQuery.toLowerCase());
-    const matchesCategory = selectedNewsCategory === 'all' || news.category.toLowerCase() === selectedNewsCategory.toLowerCase();
+  const filteredNews = scrapedNews.filter(news => {
+    const content = news.content || {};
+    const matchesSearch = (content.title && content.title.toLowerCase().includes(newsSearchQuery.toLowerCase())) ||
+                          (content.categoryName && content.categoryName.toLowerCase().includes(newsSearchQuery.toLowerCase()));
+    const matchesCategory = selectedNewsCategory === 'all' || (content.categoryName && content.categoryName.toLowerCase() === selectedNewsCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 
-  const filteredQuizzes = mockScrapedQuizzes.filter(quiz => {
-    const matchesSearch = quiz.question.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
-                          quiz.category.toLowerCase().includes(quizSearchQuery.toLowerCase()) ||
-                          quiz.difficulty.toLowerCase().includes(quizSearchQuery.toLowerCase());
-    const matchesCategory = selectedQuizCategory === 'all' || quiz.category.toLowerCase() === selectedQuizCategory.toLowerCase();
+  const filteredQuizzes = scrapedQuizzes.filter(quiz => {
+    const content = quiz.content || {};
+    const matchesSearch = (content.question && content.question.toLowerCase().includes(quizSearchQuery.toLowerCase())) ||
+                          (content.categoryName && content.categoryName.toLowerCase().includes(quizSearchQuery.toLowerCase()));
+    const matchesCategory = selectedQuizCategory === 'all' || (content.categoryName && content.categoryName.toLowerCase() === selectedQuizCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
+
+  const handleLoadMore = async (type) => {
+    const pageToFetch = type === 'NEWS' ? newsPage + 1 : quizPage + 1;
+    try {
+      const res = await api.get('/api/scraps', { params: { type, page: pageToFetch, size: 10 } });
+      const data = res.data.data;
+      if (type === 'NEWS') {
+        setScrapedNews(prev => [...prev, ...data.content]);
+        setHasMoreNews(!data.last);
+        setNewsPage(pageToFetch);
+      } else {
+        setScrapedQuizzes(prev => [...prev, ...data.content]);
+        setHasMoreQuizzes(!data.last);
+        setQuizPage(pageToFetch);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch more ${type} scraps`, error);
+      setScrapsError('추가 데이터를 불러오는 데 실패했습니다.');
+    }
+  };
+
+  const handleDeleteScrap = async (scrapId, type) => {
+    if (!window.confirm("정말로 이 스크랩을 삭제하시겠습니까?")) return;
+
+    try {
+      await api.delete(`/api/scraps/${scrapId}`);
+      if (type === 'NEWS') {
+        setScrapedNews(prev => prev.filter(item => item.id !== scrapId));
+      } else if (type === 'QUIZ') {
+        setScrapedQuizzes(prev => prev.filter(item => item.id !== scrapId));
+      }
+      alert("스크랩이 삭제되었습니다.");
+    } catch (error) {
+      console.error('Failed to delete scrap', error);
+      alert("스크랩 삭제에 실패했습니다.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -165,11 +219,11 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
           <Button onClick={onClose} variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />대시보드로 돌아가기</Button>
         </div>
 
-        <div className="mb-4 border-b border-gray-200"> {/* Changed flex space-x-2 border-b mb-6 to match App.jsx's nav container */}
-          <nav className="-mb-px flex space-x-6"> {/* Added nav and flex space-x-6 */}
+        <div className="mb-4 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-6">
             <Button
               onClick={() => setActiveTab('profile')}
-              variant="ghost" // Always ghost, styling handled by className
+              variant="ghost"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'profile'
                   ? 'border-purple-500 text-purple-600'
@@ -180,7 +234,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
             </Button>
             <Button
               onClick={() => setActiveTab('scraps')}
-              variant="ghost" // Always ghost, styling handled by className
+              variant="ghost"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'scraps'
                   ? 'border-purple-500 text-purple-600'
@@ -204,7 +258,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
                 )}
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
-                  <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                  <input type="text" value={nickname} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" />
                 </div>
               </div>
             </Box>
@@ -285,74 +339,84 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
 
         {activeTab === 'scraps' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-             <Box>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bookmark className="w-5 h-5 mr-2 text-purple-600" />스크랩한 뉴스</h3>
-              <div className="flex space-x-2 mb-4">
-                <input
-                  type="text"
-                  placeholder="뉴스 검색..."
-                  value={newsSearchQuery}
-                  onChange={(e) => setNewsSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                />
-                <select
-                  value={selectedNewsCategory}
-                  onChange={(e) => setSelectedNewsCategory(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="all">모든 카테고리</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
-                  ))}
-                </select>
+            {scrapsLoading && (newsPage === 0 && quizPage === 0) ? (
+              <div className="col-span-2 flex justify-center items-center h-64">
+                <Loader className="w-12 h-12 animate-spin text-purple-600" />
               </div>
-              <div className="space-y-3">
-                {filteredNews.length > 0 ? (
-                  filteredNews.map(news => (
-                    <div key={news.id} className="p-3 border rounded-lg">
-                      <h4 className="font-semibold">{news.title}</h4>
-                      <p className="text-sm text-gray-500">{news.source} | {news.date}</p>
+            ) : scrapsError ? (
+              <div className="col-span-2 flex flex-col justify-center items-center h-64 bg-red-50 p-4 rounded-lg">
+                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                <h3 className="text-xl font-semibold text-red-700">오류 발생</h3>
+                <p className="text-red-600">{scrapsError}</p>
+              </div>
+            ) : (
+              <>
+                <Box>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bookmark className="w-5 h-5 mr-2 text-purple-600" />스크랩한 뉴스</h3>
+                  <div className="flex space-x-2 mb-4">
+                    <input
+                      type="text"
+                      placeholder="뉴스 검색..."
+                      value={newsSearchQuery}
+                      onChange={(e) => setNewsSearchQuery(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    {filteredNews.length > 0 ? (
+                      filteredNews.map(news => (
+                        <div key={news.id} className="p-3 border rounded-lg flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold">{news.content.title}</h4>
+                            <p className="text-sm text-gray-500">{news.content.categoryName}</p>
+                          </div>
+                          <Button onClick={() => handleDeleteScrap(news.id, 'NEWS')} variant="ghost" size="sm"><X className="w-4 h-4 text-red-500" /></Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">스크랩한 뉴스가 없습니다.</p>
+                    )}
+                  </div>
+                  {hasMoreNews && (
+                    <div className="text-center mt-4">
+                      <Button onClick={() => handleLoadMore('NEWS')} variant="secondary">더 보기</Button>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">검색 결과가 없습니다.</p>
-                )}
-              </div>
-            </Box>
-            <Box>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Brain className="w-5 h-5 mr-2 text-blue-600" />스크랩한 퀴즈</h3>
-              <div className="flex space-x-2 mb-4">
-                <input
-                  type="text"
-                  placeholder="퀴즈 검색..."
-                  value={quizSearchQuery}
-                  onChange={(e) => setQuizSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                />
-                <select
-                  value={selectedQuizCategory}
-                  onChange={(e) => setSelectedQuizCategory(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="all">모든 카테고리</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.label.toLowerCase()}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-3">
-                {filteredQuizzes.length > 0 ? (
-                  filteredQuizzes.map(quiz => (
-                    <div key={quiz.id} className="p-3 border rounded-lg">
-                      <p className="text-sm">{quiz.question}</p>
-                      <p className="text-xs text-gray-500">{quiz.category} | {quiz.difficulty}</p>
+                  )}
+                </Box>
+                <Box>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Brain className="w-5 h-5 mr-2 text-blue-600" />스크랩한 퀴즈</h3>
+                  <div className="flex space-x-2 mb-4">
+                    <input
+                      type="text"
+                      placeholder="퀴즈 검색..."
+                      value={quizSearchQuery}
+                      onChange={(e) => setQuizSearchQuery(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    {filteredQuizzes.length > 0 ? (
+                      filteredQuizzes.map(quiz => (
+                        <div key={quiz.id} className="p-3 border rounded-lg flex justify-between items-start">
+                          <div>
+                            <p className="text-sm">{quiz.content.question}</p>
+                            <p className="text-xs text-gray-500">{quiz.content.categoryName}</p>
+                          </div>
+                          <Button onClick={() => handleDeleteScrap(quiz.id, 'QUIZ')} variant="ghost" size="sm"><X className="w-4 h-4 text-red-500" /></Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">스크랩한 퀴즈가 없습니다.</p>
+                    )}
+                  </div>
+                  {hasMoreQuizzes && (
+                    <div className="text-center mt-4">
+                      <Button onClick={() => handleLoadMore('QUIZ')} variant="secondary">더 보기</Button>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">검색 결과가 없습니다.</p>
-                )}
-              </div>
-            </Box>
+                  )}
+                </Box>
+              </>
+            )}
           </div>
         )}
       </div>

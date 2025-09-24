@@ -4,6 +4,7 @@ GPT_recommend.md의 증분 갱신 공식 구현
 """
 
 import asyncio
+import hashlib
 import logging
 import numpy as np
 import uuid
@@ -28,6 +29,15 @@ class UserProfileService:
     def __init__(self):
         self.qdrant_service = QdrantService()
         self.user_locks = {}  # 사용자별 asyncio.Lock
+
+    def _get_deterministic_profile_id(self, user_id: str) -> str:
+        """사용자 ID 기반으로 고유한 프로필 Point ID 생성 (UUID 형식)"""
+        # SHA-256 해시를 사용해 동일한 user_id에 대해 항상 같은 ID 생성
+        hash_input = f"user_profile_{user_id}".encode('utf-8')
+        hash_hex = hashlib.sha256(hash_input).hexdigest()
+        # UUID 형식으로 변환 (8-4-4-4-12)
+        uuid_format = f"{hash_hex[:8]}-{hash_hex[8:12]}-{hash_hex[12:16]}-{hash_hex[16:20]}-{hash_hex[20:32]}"
+        return uuid_format
 
     def _calculate_weight(self, data: dict) -> float:
         """사용자 행동 기반 가중치 계산 (visitCount 가중가중치 문제 해결)"""
@@ -178,10 +188,28 @@ class UserProfileService:
             logger.error(f"[MongoDB 업데이트 에러] {e}")
 
     async def create_initial_profile_from_history(self, user_id: str, limit: int = 500) -> Dict:
-        """히스토리 데이터로부터 초기 user_profile 생성"""
+        """히스토리 데이터로부터 초기 user_profile 생성 (중복 생성 방지)"""
         logger.info(f"[프로필 생성] 사용자 {user_id}의 초기 프로필 생성 시작")
 
         try:
+            # 사용자별 고유 Point ID 생성
+            profile_point_id = self._get_deterministic_profile_id(user_id)
+
+            # 기존 프로필 존재 여부 확인 (Point ID로 직접 조회)
+            existing_profile = await self.qdrant_service.get_point("user_profiles", profile_point_id)
+            if existing_profile:
+                logger.info(f"[건너뛰기] 사용자 {user_id}의 프로필이 이미 존재합니다 (Point ID: {profile_point_id})")
+                return {
+                    "success": False,
+                    "message": "사용자 프로필이 이미 존재합니다.",
+                    "existing_profile": {
+                        "user_id": user_id,
+                        "point_id": profile_point_id,
+                        "weight_sum": existing_profile.get("payload", {}).get("weight_sum"),
+                        "log_count": existing_profile.get("payload", {}).get("log_count"),
+                        "created_from": existing_profile.get("payload", {}).get("created_from")
+                    }
+                }
             # MongoDB에서 히스토리 데이터 조회
             database = get_database()
             collection_name = get_collection_name(user_id, 'history')
@@ -232,8 +260,8 @@ class UserProfileService:
             # user_logs 컬렉션에 개별 로그 저장 (URL 해시 기반)
             await self._save_user_logs_to_qdrant(user_id, valid_data, vectors, weights)
 
-            # user_profiles 컬렉션에 프로필 벡터 저장
-            await self._save_user_profile_to_qdrant(user_id, profile_vector, total_weight, len(vectors), weights)
+            # user_profiles 컬렉션에 프로필 벡터 저장 (고유 Point ID 사용)
+            await self._save_user_profile_to_qdrant(user_id, profile_vector, total_weight, len(vectors), weights, profile_point_id)
 
             logger.info(f"[완료] 사용자 {user_id} 프로필 생성 완료 - 총 가중치: {total_weight}")
 
@@ -317,8 +345,8 @@ class UserProfileService:
             logger.error(f"[에러] user_logs 저장 실패: {e}")
             raise
 
-    async def _save_user_profile_to_qdrant(self, user_id: str, profile_vector: List[float], total_weight: float, log_count: int, weights: List[float]):
-        """user_profiles 컬렉션에 프로필 벡터 저장"""
+    async def _save_user_profile_to_qdrant(self, user_id: str, profile_vector: List[float], total_weight: float, log_count: int, weights: List[float], profile_point_id: str):
+        """user_profiles 컬렉션에 프로필 벡터 저장 (고유 Point ID 사용)"""
         try:
             collection_name = "user_profiles"
 
@@ -337,11 +365,8 @@ class UserProfileService:
                 "created_from": "history_data"
             }
 
-            # UUID로 고유 Point ID 생성
-            profile_point_id = str(uuid.uuid4())
-
             # 디버깅: 저장할 데이터 확인
-            logger.info(f"[디버그] 프로필 저장 중: user_id={user_id}")
+            logger.info(f"[디버그] 프로필 저장 중: user_id={user_id}, point_id={profile_point_id}")
             logger.info(f"[디버그] profile_vector 타입: {type(profile_vector)}, None 여부: {profile_vector is None}")
             if profile_vector is not None:
                 logger.info(f"[디버그] profile_vector 길이: {len(profile_vector)}, 처음 3개 값: {profile_vector[:3]}")
@@ -375,8 +400,9 @@ class UserProfileService:
                 v_new = await embedding_service.encode(combined_text)
                 w_new = self._calculate_weight(new_data)
 
-                # 기존 프로필 벡터 가져오기 (메타데이터 필터 사용)
-                old_profile = await self.qdrant_service.get_user_profile("user_profiles", user_id)
+                # 기존 프로필 벡터 가져오기 (고유 Point ID 사용)
+                profile_point_id = self._get_deterministic_profile_id(user_id)
+                old_profile = await self.qdrant_service.get_point("user_profiles", profile_point_id)
 
                 if not old_profile:
                     # 프로필이 없으면 히스토리 처리 완료를 기다림 (히스토리 재처리 방지)
@@ -387,8 +413,8 @@ class UserProfileService:
                         "skipped": True
                     }
 
-                V_old = old_profile["vector"]
-                W_old = old_profile["payload"]["weight_sum"]
+                V_old = old_profile.get("vector")
+                W_old = old_profile.get("payload", {}).get("weight_sum")
 
                 # 디버깅: None 값 원인 분석
                 logger.info(f"[디버그] old_profile 구조: id={old_profile.get('id')}, vector는 None: {V_old is None}, payload keys: {list(old_profile.get('payload', {}).keys())}")
@@ -428,10 +454,10 @@ class UserProfileService:
                 )
 
                 # 기존 통계 정보 가져오기
-                old_log_count = old_profile["payload"].get("log_count", 0)
-                old_avg_weight = old_profile["payload"].get("avg_weight", 0.0)
-                old_max_weight = old_profile["payload"].get("max_weight", 0.0)
-                old_min_weight = old_profile["payload"].get("min_weight", 0.0)
+                old_payload = old_profile.get("payload", {})
+                old_log_count = old_payload.get("log_count", 0)
+                old_max_weight = old_payload.get("max_weight", 0.0)
+                old_min_weight = old_payload.get("min_weight", 0.0)
 
                 # 새로운 통계 계산
                 new_log_count = old_log_count + 1
@@ -448,14 +474,13 @@ class UserProfileService:
                     "avg_weight": round(new_avg_weight, 3),
                     "max_weight": new_max_weight,
                     "min_weight": new_min_weight,
-                    "created_from": old_profile["payload"].get("created_from", "history_data"),
+                    "created_from": old_payload.get("created_from", "history_data"),
                     "last_update": new_data.get('savedAt')
                 }
 
-                # 기존 프로필의 Point ID를 사용해서 업데이트
-                existing_point_id = old_profile["id"]
+                # 고유 Point ID를 사용해서 업데이트 (덮어쓰기)
                 await self.qdrant_service.save_vectors_with_metadata_and_ids(
-                    "user_profiles", [V_new.tolist()], [updated_metadata], [existing_point_id]
+                    "user_profiles", [V_new.tolist()], [updated_metadata], [profile_point_id]
                 )
 
                 # Qdrant 저장 완료 후 카테고리 분류 수행
@@ -527,6 +552,3 @@ class UserProfileService:
         except Exception as e:
             logger.error(f"❌ [에러] 브라우징 데이터 후처리 실패: {e}")
             print(f"❌ [에러] 브라우징 데이터 후처리 실패: {e}")
-
-
-# Dependency Injection으로 관리되므로 전역 싱글톤 제거

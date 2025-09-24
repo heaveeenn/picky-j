@@ -1,13 +1,15 @@
 /**
  * DataSender.js
- * 
+ *
  * Python 서버로 데이터 전송하는 로직
  */
+
+import { DATA_ENGINE_URL } from '../config/env.js';
 
 export class DataSender {
   constructor() {
     // 서버 설정
-    this.serverUrl = "http://localhost:8000"; // Python FastAPI 서버
+    this.serverUrl = DATA_ENGINE_URL; // Python FastAPI 서버
     this.dataQueue = []; // 전송 대기 데이터
     
     console.log("📤 DataSender 초기화");
@@ -17,15 +19,21 @@ export class DataSender {
    * 데이터를 큐에 추가 (사용자 ID 포함)
    */
   addToQueue(data, userId = null) {
+    // userId가 없으면 큐에 추가하지 않음
+    if (!userId) {
+      console.log("⚠️ userId 없음 - 데이터 큐에 추가하지 않음");
+      return;
+    }
+
     // 사용자 ID 및 재시도 정보 추가
     const dataWithUser = {
       ...data,
       userId: userId,
       retryCount: 0  // 재시도 횟수 초기화 (전송시 제거됨)
     };
-    
+
     this.dataQueue.push(dataWithUser);
-    console.log("📥 데이터 큐에 추가:", this.dataQueue.length, "개", userId ? `(${userId})` : "(no user)");
+    console.log("📥 데이터 큐에 추가:", this.dataQueue.length, "개", `(${userId})`);
   }
 
   /**
@@ -34,9 +42,18 @@ export class DataSender {
   async sendData(data) {
     try {
       console.log("📤 서버로 데이터 전송 중...");
-      
+
       // 전송용 데이터 (retryCount 제거)
       const { retryCount, ...sendData } = data;
+
+      // 디버깅: 전송할 데이터 확인
+      console.log("📊 전송할 데이터:", {
+        url: sendData.url,
+        userId: sendData.userId,
+        timestamp: sendData.timestamp,
+        contentLength: sendData.content?.length || 0,
+        hasReadability: !!sendData.readabilityContent
+      });
       
       const response = await fetch(`${this.serverUrl}/user-logs/browsing-data`, {
         method: "POST",
@@ -51,7 +68,16 @@ export class DataSender {
         console.log("✅ 전송 성공:", result);
         return true;
       } else {
+        // 에러 응답 내용 확인
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = 'Unable to read error response';
+        }
+
         console.error("❌ 전송 실패:", response.status, response.statusText);
+        console.error("❌ 에러 응답:", errorText);
         return false;
       }
     } catch (error) {

@@ -70,7 +70,12 @@ export class HistoryContentExtractor {
             console.warn(`⚠️ 추출 실패: ${item.url}`);
           }
         } catch (error) {
-          console.warn(`⚠️ 추출 실패: ${item.url} - ${error.message}`);
+          // 예상 가능한 실패들은 조용히 처리
+          if (this.isExpectedFailure(error)) {
+            // 조용히 넘어가기
+          } else {
+            console.warn(`⚠️ 추출 실패: ${item.url} - ${error.message}`);
+          }
         }
       }
       
@@ -85,6 +90,18 @@ export class HistoryContentExtractor {
     
     console.log(`✅ 히스토리 콘텐츠 추출 완료: ${results.length}개 성공`);
     return results;
+  }
+
+  /**
+   * 예상 가능한 실패인지 확인
+   */
+  isExpectedFailure(error) {
+    const message = error.message.toLowerCase();
+    const expectedErrors = [
+      'http 430', 'http 429', 'http 500', 'http 503', 'http 404',
+      'cors', 'failed to fetch', 'network error', 'timeout'
+    ];
+    return expectedErrors.some(expected => message.includes(expected));
   }
 
   /**

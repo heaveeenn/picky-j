@@ -10,11 +10,46 @@ import { DataCollector } from "./modules/DataCollector.js";
 // 전역 변수로 dataCollector 선언
 let dataCollector = null;
 
+/**
+ * Service Worker 활성화 및 자동 로그인 트리거
+ */
+let autoLoginTriggered = false;
+
+async function triggerServiceWorkerAndCheckSession() {
+  if (autoLoginTriggered) {
+    console.log("🔄 자동 로그인 이미 트리거됨 - 스킵");
+    return;
+  }
+
+  try {
+    console.log("🔄 Service Worker 활성화 및 세션 체크 시작");
+    autoLoginTriggered = true;
+
+    const response = await chrome.runtime.sendMessage({
+      type: 'TRIGGER_AUTO_LOGIN',
+      source: 'content_script',
+      url: window.location.href
+    });
+
+    if (response && response.success) {
+      console.log("✅ Service Worker 활성화 및 자동 로그인 완료");
+    } else {
+      console.log("ℹ️ Service Worker 활성화됨, 자동 로그인 상태:", response);
+    }
+
+  } catch (error) {
+    console.log("ℹ️ Service Worker 통신 실패 (정상일 수 있음):", error.message);
+  }
+}
+
 // Extension context 검증 후 초기화
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
   console.log("🚀 Content script 시작:", window.location.href);
 
-  // 이 페이지 전용 데이터 수집기 생성
+  // 1. Service Worker 자동 활성화 및 세션 체크
+  triggerServiceWorkerAndCheckSession();
+
+  // 2. 이 페이지 전용 데이터 수집기 생성
   dataCollector = new DataCollector();
 
   // DataCollector 초기화 완료까지 대기 후 이벤트 등록

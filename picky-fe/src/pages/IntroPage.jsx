@@ -1,27 +1,27 @@
 import Button from '../components/Button';
-import api from '../lib/api';
+
 // Card component might need to be created or replaced with Box
 // import { Card } from './ui/card'; // Assuming Card is not directly available or needs to be adapted
 // import { Chrome, Newspaper, Brain, Users, BarChart3, LogIn, MessageCircle } from 'lucide-react'; // Assuming lucide-react is not used
 
 export function IntroPage({ onLogin }) {
   const handleGoogleLogin = () => {
-    const oauthUrl = `${api.defaults.baseURL}/oauth2/authorization/google`;
+    const oauthUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/oauth2/authorization/google`;
     window.open(oauthUrl, 'google-login', 'width=500,height=600');
 
     // 토큰 받기
     const messageListener = (event) => {
+      const backendOrigin = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       // 보안 강화: event.origin을 확인하여 신뢰할 수 있는 출처의 메시지만 처리
-      if (event.origin !== api.defaults.baseURL) {
+      if (event.origin !== backendOrigin) {
         return;
       }
 
       if (event.data.type === 'OAUTH2_SUCCESS') {
-        const { accessToken, refreshToken } = event.data;
+        const { accessToken } = event.data;
 
         // 토큰을 localStorage에 저장
         localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
 
         // 로그인 성공 처리
         onLogin();

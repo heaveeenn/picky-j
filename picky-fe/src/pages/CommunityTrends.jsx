@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '../components/Box';
 import Badge from '../components/Badge';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, Globe, Award, ExternalLink } from 'lucide-react';
+import { TrendingUp, Users, Globe, Award, ExternalLink, Clock, Loader, AlertCircle } from 'lucide-react';
 import Button from '../components/Button';
+import api from '../lib/api';
+
+const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1', '#ec4899'];
 
 const categoryWiseSites = {
   '전체': [
@@ -45,42 +48,10 @@ const categoryWiseSites = {
     { name: 'LinkedIn', visits: 980, category: '비즈니스', change: '-3%' },
     { name: 'Notion', visits: 890, category: '비즈니스', change: '+18%' },
     { name: 'Slack', visits: 820, category: '비즈니스', change: '+12%' },
-    { name: 'Trello', visits: 750, category: '비즈니스', change: '+8%' },
-    { name: 'Asana', visits: 680, category: '비즈니스', change: '+15%' }
+    { name: 'Trello', visits: 750, category: '+8%' },
+    { name: 'Asana', visits: 680, category: '+15%' }
   ]
 };
-
-const categoryDistribution = [
-  { name: '개발/기술', value: 35, color: '#8b5cf6' },
-  { name: '디자인', value: 22, color: '#10b981' },
-  { name: '뉴스/미디어', value: 18, color: '#f59e0b' },
-  { name: '교육', value: 15, color: '#ef4444' },
-  { name: '비즈니스', value: 10, color: '#3b82f6' }
-];
-
-
-
-
-const communityInsights = [
-  {
-    title: '가장 활발한 시간대',
-    value: '오후 2-4시',
-    description: '전체 사용자의 67%가 활동',
-    icon: Users,
-  },
-  {
-    title: '평균 브라우징 시간',
-    value: '1시간 23분',
-    description: '지난주 대비 +8% 증가',
-    icon: TrendingUp,
-  },
-  {
-    title: '평균 방문한 사이트',
-    value: '18.5개',
-    description: '매일 다양한 사이트 방문',
-    icon: Globe,
-  }
-];
 
 const trendingTopics = [
   { rank: 1, topic: 'AI 및 머신러닝', growth: '+45%', category: '기술' },
@@ -92,12 +63,102 @@ const trendingTopics = [
 
 const CommunityTrends = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [categoryDistributionData, setCategoryDistributionData] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const getChangeColor = (change) => {
     if (change.startsWith('+')) return 'text-green-600';
     if (change.startsWith('-')) return 'text-red-600';
     return 'text-gray-500';
   };
+
+  useEffect(() => {
+    const fetchCommunityData = async () => {
+      try {
+        setLoading(true);
+        const [
+          visitShareRes,
+          summaryRes
+        ] = await Promise.all([
+          api.get('/api/dashboard/userstats/categories/visit-share'),
+          api.get('/api/dashboard/summary')
+        ]);
+
+        // Process category distribution data
+        const visitShareData = visitShareRes.data;
+        if (visitShareData && visitShareData.length > 0) {
+          const sortedData = [...visitShareData].sort((a, b) => b.percent - a.percent);
+          const top5Data = sortedData.slice(0, 5);
+          setCategoryDistributionData(top5Data);
+        } else {
+          setCategoryDistributionData([]);
+        }
+
+        // Process aggregate summary data
+        if (summaryRes.data) {
+          setSummaryData(summaryRes.data);
+        } else {
+          setSummaryData(null);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch community data:", err);
+        setError("커뮤니티 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCommunityData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader className="w-12 h-12 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 bg-red-50 p-4 rounded-lg">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-xl font-semibold text-red-700">오류 발생</h3>
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  const communityInsights = [
+    {
+      title: '가장 활발한 시간대',
+      value: summaryData ? summaryData.activeHour.substring(0, 5) : 'N/A',
+      description: '',
+      icon: Users,
+    },
+    {
+      title: '평균 브라우징 시간',
+      value: summaryData ? summaryData.avgBrowsingTime.substring(0, 5) : 'N/A',
+      description: '',
+      icon: TrendingUp,
+    },
+    {
+      title: '평균 방문한 사이트',
+      value: summaryData ? `${Number(summaryData.avgVisitCount).toFixed(1)}개` : 'N/A',
+      description: '',
+      icon: Globe,
+    }
+  ];
+
+  const categoryDistribution = categoryDistributionData.length > 0 ? categoryDistributionData.map((cat, index) => ({
+    name: cat.categoryName,
+    value: cat.percent,
+    color: COLORS[index % COLORS.length]
+  })) : [
+    { name: '데이터 없음', value: 100, color: '#d1d5db' },
+  ];
 
   const currentSites = categoryWiseSites[selectedCategory] || categoryWiseSites['전체'];
 
@@ -115,6 +176,7 @@ const CommunityTrends = () => {
                 <div>
                   <p className="text-gray-500 text-sm">{insight.title}</p>
                   <p className="text-gray-800 font-bold text-xl">{insight.value}</p>
+                  <p className="text-gray-500 text-xs">{insight.description}</p>
                 </div>
               </div>
             </Box>

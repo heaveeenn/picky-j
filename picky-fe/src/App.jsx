@@ -34,36 +34,38 @@ const App = () => {
   }, []);
 
   const fetchUserData = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
-      try {
-        const response = await api.get('/api/users/me');
-        const userData = response.data.data;
-        setNickname(userData.nickname);
-        setProfileImage(userData.profileImage);
-      } catch (error) {
-        console.error('Failed to fetch user data in App.jsx', error);
-      }
+    try {
+      const response = await api.get('/api/users/me');
+      const userData = response.data.data;
+      setNickname(userData.nickname);
+      setProfileImage(userData.profileImage);
+    } catch (error) {
+      console.error('Failed to fetch user data in App.jsx', error);
+      // If fetching user data fails, it might mean the token is invalid or expired.
+      // The api.js interceptor should handle token refresh/logout, but as a fallback:
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setIsLoggedIn(false);
+      setNickname("사용자");
+      setProfileImage(null);
     }
   };
 
   const handleLogout = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
-      try {
-        await api.post('/api/auth/logout', {}, {
-          withCredentials: true
-        });
-      } catch (error) {
-        console.error('Logout failed', error);
-        // Even if logout API fails, proceed to clear client-side session
-      }
+    try {
+      await api.post('/api/auth/logout', {}, {
+        withCredentials: true
+      });
+    } catch (error) {
+      console.error('Logout failed', error);
+      // Even if logout API fails, proceed to clear client-side session
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setIsLoggedIn(false);
+      setNickname("사용자"); // Reset nickname on logout
+      setProfileImage(null); // Reset profile image on logout
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    setIsLoggedIn(false);
-    setNickname("사용자"); // Reset nickname on logout
-    setProfileImage(null); // Reset profile image on logout
   };
 
   if (!isLoggedIn) {
