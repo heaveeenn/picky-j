@@ -11,4 +11,6 @@ public interface ScrapService {
   void deleteScrap(Long userId, Long scrapId);
 
   Page<ScrapResponseDto> getScraps(Long userId, ContentType type, int page, int size);
+
+  ScrapResponseDto toggleScrap(Long userId, ScrapCreateRequestDto request);
 }
