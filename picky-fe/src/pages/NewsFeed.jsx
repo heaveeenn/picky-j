@@ -13,17 +13,19 @@ const weeklyStats = [
 
 const NewsFeed = () => {
   const [newsData, setNewsData] = useState([]);
+  const [sortMode, setSortMode] = useState('MIXED');
 
   useEffect(() => {
     const fetchNewsFeed = async () => {
       try {
-        console.log("Fetching news feed...");
-        const response = await api.get('/api/recommendations/feed');
+        console.log(`Fetching news feed with sort: ${sortMode}...`);
+        const response = await api.get(`/api/recommendations/feed?sort=${sortMode}`);
         console.log("API Response:", response);
 
         if (response.data && response.data.data && response.data.data.content) {
           setNewsData(response.data.data.content);
         } else {
+          setNewsData([]);
           console.warn("API response structure is not as expected. Data might be empty.", response.data);
         }
       } catch (error) {
@@ -35,7 +37,7 @@ const NewsFeed = () => {
     };
 
     fetchNewsFeed();
-  }, []);
+  }, [sortMode]);
 
   const getCategoryVariant = (category) => {
     switch (category) {
@@ -76,7 +78,25 @@ const NewsFeed = () => {
       </Box>
 
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">추천 뉴스 피드</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">추천 뉴스 피드</h2>
+          <div className="flex space-x-2">
+            <Button
+              variant={sortMode === 'LATEST' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setSortMode('LATEST')}
+            >
+              최신순
+            </Button>
+            <Button
+              variant={sortMode === 'PRIORITY' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setSortMode('PRIORITY')}
+            >
+              중요도순
+            </Button>
+          </div>
+        </div>
         <div className="space-y-4">
           {newsData && newsData.length > 0 ? (
             newsData.map((news) => (

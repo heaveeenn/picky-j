@@ -30,6 +30,7 @@ const ActivityReport = () => {
   const [error, setError] = useState(null);
   const [mostActiveCategory, setMostActiveCategory] = useState(mockData.todayStats[3].value);
   const [mostVisitedSite, setMostVisitedSite] = useState(mockData.todayStats[2].value);
+  const [userVsAverageStats, setUserVsAverageStats] = useState(null); // New state variable
 
   const parseTimeToSeconds = (timeString) => {
     if (!timeString || typeof timeString !== 'string') return 0;
@@ -48,20 +49,24 @@ const ActivityReport = () => {
           userStatsRes,
           hourlyStatsRes,
           categoryStatsRes,
-          domainStatsRes
+          domainStatsRes,
+          userVsAverageRes // New API call
         ] = await Promise.all([
           api.get('/api/dashboard/userstats'),
           api.get('/api/dashboard/userstats/hourly'),
           api.get('/api/dashboard/userstats/categories'),
-          api.get('/api/dashboard/userstats/domains')
+          api.get('/api/dashboard/userstats/domains'),
+          api.get('/api/dashboard/userstats/summary') // New API call
         ]);
 
         const userStatsData = userStatsRes.data;
         const hourlyStatsData = hourlyStatsRes.data;
         const categoryStatsData = categoryStatsRes.data;
         const domainStatsData = domainStatsRes.data;
+        const userVsAverageData = userVsAverageRes.data; // New: Get data from response
 
         setUserStats(userStatsData);
+        setUserVsAverageStats(userVsAverageData); // New: Set userVsAverageStats
         
         if (hourlyStatsData && hourlyStatsData.length > 0) {
           const processedHourlyStats = hourlyStatsData.map(stat => ({
@@ -232,7 +237,7 @@ const ActivityReport = () => {
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 브라우징 시간</span>
-              <span className="text-gray-600">평균보다 <span className="text-purple-600">15% 많음</span></span>
+              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
@@ -241,7 +246,7 @@ const ActivityReport = () => {
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 방문 사이트</span>
-              <span className="text-gray-600">평균보다 <span className="text-purple-600">12% 많음</span></span>
+              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>
