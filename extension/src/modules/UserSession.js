@@ -353,7 +353,12 @@ export class UserSession {
           console.log("ℹ️ Chrome 브라우저에 Google 로그인이 안되어 있음:", chrome.runtime.lastError.message);
 
           // Chrome 로그인이 안되어도 기본 Chrome Identity API로 시도
-          this.performBasicIdentityLogin().then(resolve).catch(reject);
+          this.performBasicIdentityLogin()
+            .then(resolve)
+            .catch((error) => {
+              console.warn("⚠️ 기본 Identity 로그인 실패:", error);
+              resolve({ success: false, error: error?.message || "Chrome Identity 로그인 실패" });
+            });
           return;
         }
 
@@ -361,7 +366,12 @@ export class UserSession {
           console.log("⚠️ Chrome 브라우저에 Google 로그인이 안되어 있음 - 기본 Identity API로 시도");
 
           // Chrome 로그인이 안되어도 기본 Chrome Identity API로 시도
-          this.performBasicIdentityLogin().then(resolve).catch(reject);
+          this.performBasicIdentityLogin()
+            .then(resolve)
+            .catch((error) => {
+              console.warn("⚠️ 기본 Identity 로그인 실패:", error);
+              resolve({ success: false, error: error?.message || "Chrome Identity 로그인 실패" });
+            });
           return;
         }
 
@@ -395,14 +405,14 @@ export class UserSession {
             console.log("📥 Chrome Identity API Interactive 응답 (계정:", profileInfo.email + ")");
 
             if (chrome.runtime.lastError) {
-              console.error("❌ getAuthToken Interactive 오류:", chrome.runtime.lastError);
-              reject(new Error(`getAuthToken 실패: ${chrome.runtime.lastError.message}`));
+              console.warn("⚠️ getAuthToken Interactive 오류:", chrome.runtime.lastError);
+              resolve({ success: false, error: chrome.runtime.lastError.message });
               return;
             }
 
             if (!newToken) {
               console.error("❌ Interactive 모드에서도 토큰을 받지 못함");
-              reject(new Error("Google 로그인에서 토큰을 받지 못했습니다."));
+              resolve({ success: false, error: "Google 로그인에서 토큰을 받지 못했습니다." });
               return;
             }
 
@@ -415,7 +425,7 @@ export class UserSession {
 
             } catch (error) {
               console.error("❌ OAuth2 처리 실패:", error);
-              reject(error);
+              resolve({ success: false, error: error?.message || "OAuth2 처리 실패" });
             }
           });
         });
@@ -460,16 +470,14 @@ export class UserSession {
           console.log("📥 Chrome Identity API Interactive 응답");
 
           if (chrome.runtime.lastError) {
-            console.log("⚠️ getAuthToken Interactive 실패, launchWebAuthFlow로 fallback:", chrome.runtime.lastError.message);
-
-            // Chrome 브라우저와 Google 계정이 완전히 분리된 상태 - launchWebAuthFlow 사용
-            this.performWebAuthFlow().then(resolve).catch(reject);
+            console.warn("⚠️ getAuthToken Interactive 오류:", chrome.runtime.lastError);
+            resolve({ success: false, error: chrome.runtime.lastError.message });
             return;
           }
 
           if (!newToken) {
             console.error("❌ Interactive 모드에서도 토큰을 받지 못함");
-            reject(new Error("Google 로그인에서 토큰을 받지 못했습니다."));
+            resolve({ success: false, error: "Google 로그인에서 토큰을 받지 못했습니다." });
             return;
           }
 
@@ -482,7 +490,7 @@ export class UserSession {
 
           } catch (error) {
             console.error("❌ OAuth2 처리 실패:", error);
-            reject(error);
+            resolve({ success: false, error: error?.message || "OAuth2 처리 실패" });
           }
         });
       });
@@ -730,72 +738,7 @@ export class UserSession {
     }
   }
 
-  /**
-   * launchWebAuthFlow를 사용한 Google OAuth2 로그인
-   */
-  async performWebAuthFlow() {
-    return new Promise((resolve, reject) => {
-      console.log("🌐 launchWebAuthFlow로 Google OAuth2 시작");
-
-      // Google OAuth2 Authorization URL 생성
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const redirectUri = `https://${chrome.runtime.id}.chromiumapp.org/`;
-      const scope = 'openid email profile';
-
-      const authUrl = `https://accounts.google.com/oauth2/auth?` +
-        `client_id=${clientId}&` +
-        `response_type=token&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${encodeURIComponent(scope)}`;
-
-      console.log("🔗 OAuth2 URL:", authUrl);
-      console.log("🔗 Redirect URI:", redirectUri);
-
-      chrome.identity.launchWebAuthFlow({
-        url: authUrl,
-        interactive: true
-      }, async (responseUrl) => {
-        if (chrome.runtime.lastError) {
-          console.error("❌ launchWebAuthFlow 오류:", chrome.runtime.lastError);
-          reject(new Error(`WebAuthFlow 실패: ${chrome.runtime.lastError.message}`));
-          return;
-        }
-
-        if (!responseUrl) {
-          console.error("❌ launchWebAuthFlow에서 응답 URL 없음");
-          reject(new Error("Google 로그인 취소 또는 실패"));
-          return;
-        }
-
-        console.log("📍 launchWebAuthFlow 응답 URL:", responseUrl);
-
-        try {
-          // URL에서 access token 추출
-          const url = new URL(responseUrl);
-          const fragment = url.hash.substring(1);
-          const params = new URLSearchParams(fragment);
-          const accessToken = params.get('access_token');
-
-          if (!accessToken) {
-            console.error("❌ Access token을 응답 URL에서 찾을 수 없음");
-            reject(new Error("Access token을 받지 못했습니다"));
-            return;
-          }
-
-          console.log("✅ Access token 추출 성공:", accessToken.substring(0, 10) + "...");
-
-          // 백엔드에 access token 전달해서 JWT로 교환
-          const result = await this.exchangeAccessTokenForJWT(accessToken);
-          resolve(result);
-
-        } catch (error) {
-          console.error("❌ launchWebAuthFlow 처리 실패:", error);
-          reject(error);
-        }
-      });
-    });
-  }
-
+  
   /**
    * 세션 완전 초기화
    */
@@ -811,7 +754,7 @@ export class UserSession {
       this.refreshToken = null;
 
       // 저장소 초기화
-      await chrome.storage.local.remove(['jwt', 'refreshToken', 'userInfo', 'userId']);
+      await chrome.storage.local.remove(['jwt', 'refreshToken', 'userInfo', 'userId', 'loginSuccess']);
 
       console.log("✅ 세션 초기화 완료");
     } catch (error) {
