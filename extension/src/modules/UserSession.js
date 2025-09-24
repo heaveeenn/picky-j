@@ -133,7 +133,7 @@ export class UserSession {
       console.log("🔐 Chrome Identity API를 사용한 Google 로그인 시작");
 
       // 1. Chrome Identity API로 토큰 받고 백엔드 API 호출
-      const authResult = await this.performChromeIdentityLogin();
+      const authResult = await this.performIdentityLogin();
 
       if (authResult.success) {
         console.log("🔍 authResult 전체:", authResult);
@@ -213,10 +213,10 @@ export class UserSession {
         console.warn("⚠️ 백엔드 로그아웃 요청 실패 (계속 진행):", backendError);
       }
 
-      // 2. Chrome Identity API 캐시된 토큰 무효화 (계정 선택 강제를 위해)
-      console.log("2️⃣ Chrome Identity API 토큰 캐시 무효화 중...");
+      // 2. Chrome Identity API 토큰 정리 (확장프로그램 전용)
+      console.log("2️⃣ Chrome Identity API 토큰 정리 중...");
       try {
-        // 현재 캐시된 토큰 가져오기 (interactive: false)
+        // 현재 확장프로그램이 사용하던 토큰만 무효화
         chrome.identity.getAuthToken({
           interactive: false,
           scopes: ['openid', 'email', 'profile']
@@ -224,16 +224,15 @@ export class UserSession {
           if (chrome.runtime.lastError) {
             console.log("ℹ️ 캐시된 토큰 없음:", chrome.runtime.lastError.message);
           } else if (token) {
-            // 캐시된 토큰 무효화
             chrome.identity.removeCachedAuthToken({token: token}, () => {
               if (chrome.runtime.lastError) {
                 console.log("⚠️ 토큰 무효화 실패:", chrome.runtime.lastError.message);
               } else {
-                console.log("✅ Chrome Identity API 토큰 캐시 무효화 완료");
+                console.log("✅ Chrome Identity API 토큰 정리 완료");
               }
             });
           } else {
-            console.log("ℹ️ 무효화할 캐시된 토큰 없음");
+            console.log("ℹ️ 정리할 토큰 없음");
           }
         });
       } catch (identityError) {
@@ -338,148 +337,42 @@ export class UserSession {
   }
 
 
-  /**
-   * Chrome Identity API를 사용한 Google OAuth2 (Chrome 로그인 계정 자동 사용)
-   */
-  async performChromeIdentityLogin() {
-    return new Promise((resolve, reject) => {
-      console.log("🔐 Chrome Identity API - 사용자 계정 선택 로그인 시작");
-
-      // 1단계: Chrome 로그인된 사용자 정보 먼저 확인
-      chrome.identity.getProfileUserInfo({ accountStatus: 'ANY' }, (profileInfo) => {
-        console.log("👤 Chrome 프로필 정보:", profileInfo);
-
-        if (chrome.runtime.lastError) {
-          console.log("ℹ️ Chrome 브라우저에 Google 로그인이 안되어 있음:", chrome.runtime.lastError.message);
-
-          // Chrome 로그인이 안되어도 기본 Chrome Identity API로 시도
-          this.performBasicIdentityLogin()
-            .then(resolve)
-            .catch((error) => {
-              console.warn("⚠️ 기본 Identity 로그인 실패:", error);
-              resolve({ success: false, error: error?.message || "Chrome Identity 로그인 실패" });
-            });
-          return;
-        }
-
-        if (!profileInfo || !profileInfo.email) {
-          console.log("⚠️ Chrome 브라우저에 Google 로그인이 안되어 있음 - 기본 Identity API로 시도");
-
-          // Chrome 로그인이 안되어도 기본 Chrome Identity API로 시도
-          this.performBasicIdentityLogin()
-            .then(resolve)
-            .catch((error) => {
-              console.warn("⚠️ 기본 Identity 로그인 실패:", error);
-              resolve({ success: false, error: error?.message || "Chrome Identity 로그인 실패" });
-            });
-          return;
-        }
-
-        console.log("✅ Chrome 로그인 계정 확인:", profileInfo.email);
-
-        // Chrome 계정에 강제 바인딩하지 않고 사용자가 직접 선택하도록 함
-        console.log("🔄 사용자 계정 선택 모드로 로그인 진행");
-
-        this.performBasicIdentityLogin()
-          .then((loginResult) => {
-            if (loginResult.success) {
-              const selectedAccount = loginResult.userInfo?.email;
-              console.log("✅ 선택된 계정:", selectedAccount);
-
-              // Chrome 계정과 선택한 계정이 다른 경우 경고
-              if (profileInfo.email && selectedAccount && profileInfo.email !== selectedAccount) {
-                return this.showAccountMismatchWarning(profileInfo.email, selectedAccount)
-                  .then((shouldContinue) => {
-                    if (!shouldContinue) {
-                      // 사용자가 취소한 경우 토큰 정리하고 실패 반환
-                      return this.clearPreviousAccountData()
-                        .then(() => {
-                          resolve({ success: false, error: "사용자가 로그인을 취소했습니다." });
-                        });
-                    }
-
-                    // 계속 진행하기로 한 경우 이전 데이터 클리어
-                    console.log("🧹 계정 전환으로 인한 이전 데이터 클리어");
-                    return this.clearPreviousAccountData()
-                      .then(() => {
-                        resolve(loginResult);
-                      });
-                  });
-              }
-
-              resolve(loginResult);
-            } else {
-              resolve(loginResult);
-            }
-          })
-          .catch((error) => {
-            console.error("❌ 사용자 선택 로그인 실패:", error);
-            resolve({ success: false, error: error?.message || "로그인 실패" });
-          });
-      });
-    });
-  }
 
   /**
-   * Chrome 로그인이 안된 경우 기본 Chrome Identity API 시도
+   * Chrome Identity API를 사용한 Google OAuth2 로그인
    */
-  async performBasicIdentityLogin() {
+  async performIdentityLogin() {
     return new Promise((resolve, reject) => {
-      console.log("🔐 Chrome 로그인 없이 기본 Identity API로 Google OAuth2 시작");
-
-      // 1단계: 캐시된 토큰 먼저 확인 (사용자 상호작용 없음)
+      console.log("🔐 Chrome Identity API로 Google OAuth2 시작");
       chrome.identity.getAuthToken({
-        interactive: false,
+        interactive: true,
         scopes: ['openid', 'email', 'profile']
       }, async (token) => {
-        // runtime.lastError 체크 (Chrome 로그인 안된 상태에서 발생하는 정상적인 오류)
+        console.log("📥 Chrome Identity API Interactive 응답");
+
         if (chrome.runtime.lastError) {
-          console.log("ℹ️ 캐시된 토큰 없음 (Chrome 로그인 안됨):", chrome.runtime.lastError.message);
-          // interactive 모드로 계속 진행
-        } else if (token) {
-          // 캐시된 토큰이 있으면 바로 사용
-          console.log("✅ 캐시된 토큰 사용:", token.substring(0, 10) + "...");
-          try {
-            const result = await this.exchangeAccessTokenForJWT(token);
-            resolve(result);
-            return;
-          } catch (error) {
-            console.warn("⚠️ 캐시된 토큰으로 로그인 실패, interactive 모드로 재시도");
-          }
+          console.warn("⚠️ getAuthToken Interactive 오류:", chrome.runtime.lastError);
+          resolve({ success: false, error: chrome.runtime.lastError.message });
+          return;
         }
 
-        // 2단계: 캐시된 토큰이 없거나 실패하면 interactive 모드
-        console.log("🔄 Interactive 모드로 새 토큰 요청");
-        chrome.identity.getAuthToken({
-          interactive: true,
-          scopes: ['openid', 'email', 'profile']
-        }, async (newToken) => {
-          console.log("📥 Chrome Identity API Interactive 응답");
+        if (!token) {
+          console.error("❌ Interactive 모드에서 토큰을 받지 못함");
+          resolve({ success: false, error: "Google 로그인에서 토큰을 받지 못했습니다." });
+          return;
+        }
 
-          if (chrome.runtime.lastError) {
-            console.warn("⚠️ getAuthToken Interactive 오류:", chrome.runtime.lastError);
-            resolve({ success: false, error: chrome.runtime.lastError.message });
-            return;
-          }
+        try {
+          console.log("✅ Google access token 수신 (Interactive):", token.substring(0, 10) + "...");
 
-          if (!newToken) {
-            console.error("❌ Interactive 모드에서도 토큰을 받지 못함");
-            resolve({ success: false, error: "Google 로그인에서 토큰을 받지 못했습니다." });
-            return;
-          }
+          // 백엔드에 access token 전달해서 JWT로 교환
+          const result = await this.exchangeAccessTokenForJWT(token);
+          resolve(result);
 
-          try {
-            console.log("✅ Google access token 수신 (Interactive):", newToken.substring(0, 10) + "...");
-
-            // 백엔드에 access token 전달해서 JWT로 교환
-            const result = await this.exchangeAccessTokenForJWT(newToken);
-            resolve(result);
-
-          } catch (error) {
-            console.error("❌ OAuth2 처리 실패:", error);
-            resolve({ success: false, error: error?.message || "OAuth2 처리 실패" });
-          }
-        });
+        } catch (error) {
+          console.error("❌ OAuth2 처리 실패:", error);
+          resolve({ success: false, error: error?.message || "OAuth2 처리 실패" });
+        }
       });
     });
   }
@@ -726,77 +619,6 @@ export class UserSession {
   }
 
   
-  /**
-   * 계정 불일치 경고창 표시
-   */
-  async showAccountMismatchWarning(chromeAccount, selectedAccount) {
-    return new Promise((resolve) => {
-      const message =
-        `⚠️ 계정 불일치 감지\n\n` +
-        `Chrome 브라우저: ${chromeAccount}\n` +
-        `선택한 계정: ${selectedAccount}\n\n` +
-        `다른 계정으로 로그인하시겠습니까?\n` +
-        `(이전 계정 데이터가 삭제됩니다)`;
-
-      const result = confirm(message);
-      resolve(result);
-    });
-  }
-
-  /**
-   * 이전 계정 데이터 완전 클리어
-   */
-  async clearPreviousAccountData() {
-    try {
-      console.log("🧹 이전 계정 데이터 완전 클리어 시작...");
-
-      // 1. Chrome Identity API 토큰 캐시 클리어
-      if (chrome.identity.clearAllCachedAuthTokens) {
-        chrome.identity.clearAllCachedAuthTokens(() => {
-          if (chrome.runtime.lastError) {
-            console.log("⚠️ Identity API 캐시 클리어 실패:", chrome.runtime.lastError.message);
-          } else {
-            console.log("✅ Chrome Identity API 토큰 캐시 클리어 완료");
-          }
-        });
-      }
-
-      // 2. Extension Storage 완전 클리어
-      await chrome.storage.local.clear();
-      console.log("✅ Extension Local Storage 클리어 완료");
-
-      // 3. 백엔드 로그아웃 API 호출 (쿠키 삭제)
-      try {
-        const response = await fetch(`${this.BACKEND_URL}/api/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': this.jwt ? `Bearer ${this.jwt}` : ''
-          }
-        });
-
-        if (response.ok) {
-          console.log("✅ 백엔드 로그아웃 (쿠키 삭제) 완료");
-        } else {
-          console.log("⚠️ 백엔드 로그아웃 실패 (계속 진행):", response.status);
-        }
-      } catch (error) {
-        console.log("⚠️ 백엔드 로그아웃 요청 실패 (계속 진행):", error);
-      }
-
-      // 4. 메모리 세션 클리어
-      this.userId = null;
-      this.isAuthenticated = false;
-      this.userInfo = null;
-      this.jwt = null;
-      this.refreshToken = null;
-
-      console.log("✅ 이전 계정 데이터 완전 클리어 완료");
-    } catch (error) {
-      console.error("❌ 이전 계정 데이터 클리어 실패:", error);
-    }
-  }
 
   /**
    * 세션 완전 초기화
