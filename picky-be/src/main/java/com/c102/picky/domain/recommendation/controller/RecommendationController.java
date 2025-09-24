@@ -1,11 +1,10 @@
 package com.c102.picky.domain.recommendation.controller;
 
-import com.c102.picky.domain.recommendation.dto.RecommendationAckRequestDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationPayloadResponseDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationUpsertRequestDto;
+import com.c102.picky.domain.recommendation.dto.*;
 import com.c102.picky.domain.recommendation.model.ContentType;
 import com.c102.picky.domain.recommendation.service.RecommendationService;
 import com.c102.picky.global.dto.ApiResponse;
+import com.c102.picky.global.dto.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/recommendations")
@@ -25,10 +23,11 @@ class RecommendationController {
 
     /**
      * 다음 팝업용 추천 1건 가져오기
+     *
      * @param request
-     * @param type NEWS | QUIZ
+     * @param type        NEWS | QUIZ
      * @param windowStart 기본 : 정시
-     * @param windowEnd 기본 : 정시 + 5분
+     * @param windowEnd   기본 : 정시 + 5분
      * @return
      */
     @GetMapping("/next")
@@ -36,10 +35,10 @@ class RecommendationController {
             HttpServletRequest request,
             @RequestParam ContentType type,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime windowStart,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime windowStart,
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime windowEnd
-            ) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime windowEnd
+    ) {
         Long userId = (Long) request.getAttribute("userId");
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = windowStart != null ? windowStart : now.withMinute(0).withSecond(0).withNano(0);
@@ -63,15 +62,15 @@ class RecommendationController {
             HttpServletRequest request,
             @PathVariable Long slotId,
             @Valid @RequestBody RecommendationAckRequestDto dto
-            ) {
+    ) {
 
         Long userId = (Long) request.getAttribute("userId");
         recommendationService.acknowledgeRecommendation(userId, slotId, dto);
-        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "상호작용 기록 성공",  null, request.getRequestURI()));
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "상호작용 기록 성공", null, request.getRequestURI()));
     }
 
     /**
-     *  (내부/패치) 슬롯 UPSERT
+     * (내부/패치) 슬롯 UPSERT
      */
     @PostMapping("/slots")
     public ResponseEntity<ApiResponse<Void>> upsertSlot(
@@ -84,20 +83,28 @@ class RecommendationController {
     }
 
     /**
-     * 스케줄된 추천 목록 조회 (SCHEDULED 상태)
-     * @param request
-     * @param type NEWS | QUIZ
-     * @return
+     * 개인화 뉴스 피드
+     * <p>
+     * 흐름:
+     * - userId를 요청 컨텍스트에서 추출
+     * - Service 위임(검증/정렬/조회/페이지 변환)
+     * - 성공 시 ApiResponse 래핑하여 200 OK 반환
+     * <p>
+     * 실패 시:
+     * - ApiException 발생 → GlobalExceptionHandler가 ErrorResponse로 변환하여 적절한 HTTP Status와 함께 반환
      */
-    @GetMapping("/scheduled")
-    public ResponseEntity<ApiResponse<List<RecommendationPayloadResponseDto>>> getScheduledRecommendations(
+    @GetMapping("/feed")
+    public ResponseEntity<ApiResponse<PageResponse<NewsFeedItemDto>>> getNewsFeed(
             HttpServletRequest request,
-            @RequestParam ContentType type
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(name = "sort", defaultValue = "MIXED") FeedSort sort,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
     ) {
         Long userId = (Long) request.getAttribute("userId");
-        List<RecommendationPayloadResponseDto> recommendations = recommendationService.getScheduledRecommendations(userId, type);
-
-        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "스케줄된 추천 조회 성공", recommendations, request.getRequestURI()));
+        var data = recommendationService.getNewsFeed(userId, page, size, sort, from, to);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "개인화 뉴스 피드 조회 성공", data, request.getRequestURI()));
     }
 }
 

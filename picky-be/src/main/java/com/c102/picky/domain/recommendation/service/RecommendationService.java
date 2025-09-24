@@ -1,12 +1,10 @@
 package com.c102.picky.domain.recommendation.service;
 
-import com.c102.picky.domain.recommendation.dto.RecommendationAckRequestDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationPayloadResponseDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationUpsertRequestDto;
+import com.c102.picky.domain.recommendation.dto.*;
 import com.c102.picky.domain.recommendation.model.ContentType;
+import com.c102.picky.global.dto.PageResponse;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public interface RecommendationService {
     RecommendationPayloadResponseDto getNextRecommendation(Long userId, ContentType contentType, LocalDateTime windowStart, LocalDateTime windowEnd);
@@ -15,5 +13,5 @@ public interface RecommendationService {
 
     void upsertSlot(RecommendationUpsertRequestDto request);
 
-    List<RecommendationPayloadResponseDto> getScheduledRecommendations(Long userId, ContentType contentType);
+    PageResponse<NewsFeedItemDto> getNewsFeed(Long userId, Integer page, Integer size, FeedSort sortMode, LocalDateTime from, LocalDateTime to);
 }

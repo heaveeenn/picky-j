@@ -1,22 +1,22 @@
 package com.c102.picky.domain.recommendation.service;
 
 import com.c102.picky.domain.content.service.ContentQueryService;
-import com.c102.picky.domain.recommendation.dto.RecommendationAckRequestDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationPayloadResponseDto;
-import com.c102.picky.domain.recommendation.dto.RecommendationUpsertRequestDto;
+import com.c102.picky.domain.recommendation.dto.*;
 import com.c102.picky.domain.recommendation.entity.UserRecommendationEvent;
 import com.c102.picky.domain.recommendation.entity.UserRecommendationSlot;
 import com.c102.picky.domain.recommendation.model.ContentType;
 import com.c102.picky.domain.recommendation.model.RecommendationEventType;
 import com.c102.picky.domain.recommendation.model.SlotStatus;
-import com.c102.picky.domain.recommendation.respository.UserRecommendationEventRepository;
-import com.c102.picky.domain.recommendation.respository.UserRecommendationSlotRepository;
+import com.c102.picky.domain.recommendation.repository.UserRecommendationEventRepository;
+import com.c102.picky.domain.recommendation.repository.UserRecommendationSlotRepository;
 import com.c102.picky.domain.usersettings.service.UserSettingsService;
+import com.c102.picky.global.dto.PageResponse;
 import com.c102.picky.global.exception.ApiException;
 import com.c102.picky.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.userdetails.ReactiveUserDetailsPasswordService;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +29,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final UserRecommendationSlotRepository slotRepository;
     private final UserRecommendationEventRepository eventRepository;
     private final ContentQueryService contentQueryService;
@@ -40,7 +42,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         var list = slotRepository.findTopForDeliveryWithLock(
                 userId, contentType, windowStart, windowEnd, SlotStatus.SCHEDULED, PageRequest.of(0, 1));
 
-        if(list.isEmpty()) return null;
+        if (list.isEmpty()) return null;
 
         UserRecommendationSlot slot = list.get(0);
         slot.setStatus(SlotStatus.DELIEVERED);
@@ -130,7 +132,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 request.getUserId(), request.getContentType(), start, end, SlotStatus.SCHEDULED, PageRequest.of(0, 1)
         );
 
-        if(existList.isEmpty()) {
+        if (existList.isEmpty()) {
             slotRepository.save(UserRecommendationSlot.builder()
                     .userId(request.getUserId())
                     .contentType(request.getContentType())
@@ -145,13 +147,56 @@ public class RecommendationServiceImpl implements RecommendationService {
             UserRecommendationSlot s = existList.get(0);
 
             // 우선순위 더 높으면 교체
-            if(request.getPriority() != null && request.getPriority() < s.getPriority()) {
+            if (request.getPriority() != null && request.getPriority() < s.getPriority()) {
                 s.setPriority(request.getPriority());
             }
             s.setNewsId(request.getNewsId());
             s.setQuizId(request.getQuizId());
             s.setReason(request.getReason());
         }
+    }
+
+    /**
+     * 개인화 뉴스 피드 조회
+     * <p>
+     * 흐름:
+     * 1) 입력 검증(인증/파라미터) -> 실패 시 ApiException 던짐
+     * 2) 정렬 모드 -> Sort 스펙 변환
+     * 3) Pageable 구성 -> Repository 호출(JPQL DTO 프로젝션 + countQuery)
+     * 4) Page<T> -> 공통 PageResponse<T> 변환 후 반환
+     * <p>
+     * 예외는 GlobalExceptionHandler가 받아서 ErrorResponse로 반환
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public PageResponse<NewsFeedItemDto> getNewsFeed(
+            Long userId, Integer page, Integer size, FeedSort sortMode, LocalDateTime from, LocalDateTime to) {
+
+        // 1) 입력 검증
+        if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED);
+        if (from != null && to != null && !from.isBefore(to)) throw new ApiException(ErrorCode.VALIDATION_FAILED);
+
+        int p = Optional.ofNullable(page).orElse(0);
+        int s = Optional.ofNullable(size).orElse(10);
+
+        if (p < 0 || s <= 0 || s > MAX_PAGE_SIZE) {   // size 상한(100)으로 과도한 요청 방지
+            throw new ApiException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        // 2) 정렬 모드 -> Sort
+        FeedSort mode = Optional.ofNullable(sortMode).orElse(FeedSort.MIXED);
+        Sort sortSpec = switch (mode) {
+            case LATEST -> Sort.by(Sort.Order.desc("slotAt"), Sort.Order.desc("id"));
+            case PRIORITY -> Sort.by(Sort.Order.asc("priority"), Sort.Order.desc("slotAt"), Sort.Order.desc("id"));
+            case MIXED -> Sort.by(Sort.Order.desc("slotAt"), Sort.Order.asc("priority"), Sort.Order.desc("id"));
+        };
+
+        // 3) Pageable 구성 & Repository 호출
+        Pageable pageable = PageRequest.of(p, s, sortSpec);
+        var pageResult = slotRepository.findNewsFeed(userId, from, to, pageable);
+
+        // 4) 공통 페이지 응답으로 변환
+        return PageResponse.from(pageResult);
     }
 
     /**
@@ -173,16 +218,16 @@ public class RecommendationServiceImpl implements RecommendationService {
         return baseTime;
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<RecommendationPayloadResponseDto> getScheduledRecommendations(Long userId, ContentType contentType) {
-        List<UserRecommendationSlot> slots = slotRepository.findByUserIdAndStatusAndContentTypeOrderBySlotAtAsc(
-                userId, SlotStatus.SCHEDULED, contentType);
-
-        return slots.stream()
-                .map(this::buildRecommendationPayload)
-                .toList();
-    }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<RecommendationPayloadResponseDto> getScheduledRecommendations(Long userId, ContentType contentType) {
+//        List<UserRecommendationSlot> slots = slotRepository.findByUserIdAndStatusAndContentTypeOrderBySlotAtAsc(
+//                userId, SlotStatus.SCHEDULED, contentType);
+//
+//        return slots.stream()
+//                .map(this::buildRecommendationPayload)
+//                .toList();
+//    }
 
     private RecommendationPayloadResponseDto buildRecommendationPayload(UserRecommendationSlot slot) {
         var builder = RecommendationPayloadResponseDto.builder()
