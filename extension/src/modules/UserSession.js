@@ -12,15 +12,15 @@ export class UserSession {
     this.userInfo = null;
     this.jwt = null;
     this.refreshToken = null;
-    this.isLoginInProgress = false; // 로그인 진행 중 플래그
-    this.BACKEND_URL = BACKEND_URL; // BACKEND_URL을 인스턴스 변수로 설정
+    this.isLoginInProgress = false;
+    this.BACKEND_URL = BACKEND_URL;
 
     console.log("👤 UserSession 인스턴스 생성");
   }
 
 
   /**
-   * JWT 유효성 검증 (단순히 JWT 존재 여부만 확인)
+   * JWT 유효성 검증
    */
   async validateJwt() {
     return !!this.jwt;
@@ -83,7 +83,7 @@ export class UserSession {
 
 
   /**
-   * 개선된 자동 로그인 (저장된 세션 → Refresh Token 순서)
+   * 자동 로그인 시도
    */
   async tryAutoLogin() {
     console.log("🔄 자동 로그인 시도 시작");
@@ -127,23 +127,18 @@ export class UserSession {
   }
 
   /**
-   * Google 수동 로그인 (팝업에서 호출) - 백엔드 OAuth2 Flow 활용
+   * Google 로그인
    */
   async loginWithGoogle() {
     try {
-      console.log("🔐 Chrome Identity API를 사용한 Google 로그인 시작");
-
       // 로그인 진행 중 플래그 설정
       this.isLoginInProgress = true;
 
-      // 1. Chrome Identity API로 토큰 받고 백엔드 API 호출
       const authResult = await this.performIdentityLogin();
 
       if (authResult.success) {
         console.log("🔍 authResult 전체:", authResult);
         console.log("🔍 authResult.userInfo:", authResult.userInfo);
-
-        // 2. JWT 토큰 저장 및 사용자 정보 설정
         await this.saveSession(authResult.accessToken, authResult.refreshToken, authResult.userInfo);
         this.setGoogleUser(authResult.userInfo);
 
@@ -167,7 +162,6 @@ export class UserSession {
 
       return { success: false, error: error.message || "로그인 중 오류가 발생했습니다." };
     } finally {
-      // 로그인 진행 중 플래그 해제
       this.isLoginInProgress = false;
     }
   }
@@ -181,91 +175,6 @@ export class UserSession {
     this.isAuthenticated = true;
     this.userInfo = userInfo;
     // userId는 exchangeForJwt에서 JWT를 통해 설정됨
-  }
-
-  // clearMemorySession 제거됨 - async clearSession()으로 통합
-
-  /**
-   * 완전한 로그아웃 (백엔드 API + 로컬 Storage)
-   */
-  async logout() {
-    console.log("🔐 UserSession.logout() 시작");
-    try {
-      // 1. 백엔드 로그아웃 API 호출 (Refresh Token 블랙리스트 추가)
-      try {
-        console.log("1️⃣ 백엔드 로그아웃 API 호출 중...");
-        // JWT가 있는 경우에만 Authorization 헤더 추가
-        const headers = {
-          'Content-Type': 'application/json'
-        };
-        if (this.jwt) {
-          headers['Authorization'] = `Bearer ${this.jwt}`;
-          console.log("🎫 JWT 토큰으로 인증된 로그아웃");
-        } else {
-          console.log("⚠️ JWT 토큰 없음 - 쿠키만으로 로그아웃");
-        }
-
-        const response = await fetch(`${this.BACKEND_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: headers,
-          credentials: 'include' // 쿠키 포함
-        });
-
-        if (response.ok) {
-          console.log("✅ 백엔드 로그아웃 성공 - Refresh Token 무효화됨");
-        } else {
-          console.warn("⚠️ 백엔드 로그아웃 실패 (계속 진행):", response.status);
-        }
-      } catch (backendError) {
-        console.warn("⚠️ 백엔드 로그아웃 요청 실패 (계속 진행):", backendError);
-      }
-
-      // 2. Chrome Identity API 토큰 정리 (확장프로그램 전용)
-      console.log("2️⃣ Chrome Identity API 토큰 정리 중...");
-      try {
-        // 현재 확장프로그램이 사용하던 토큰만 무효화
-        chrome.identity.getAuthToken({
-          interactive: false,
-          scopes: ['openid', 'email', 'profile']
-        }, (token) => {
-          if (chrome.runtime.lastError) {
-            console.log("ℹ️ 캐시된 토큰 없음:", chrome.runtime.lastError.message);
-          } else if (token) {
-            chrome.identity.removeCachedAuthToken({token: token}, () => {
-              if (chrome.runtime.lastError) {
-                console.log("⚠️ 토큰 무효화 실패:", chrome.runtime.lastError.message);
-              } else {
-                console.log("✅ Chrome Identity API 토큰 정리 완료");
-              }
-            });
-          } else {
-            console.log("ℹ️ 정리할 토큰 없음");
-          }
-        });
-      } catch (identityError) {
-        console.log("⚠️ Chrome Identity API 작업 실패:", identityError);
-      }
-
-      // 3. 확장프로그램 로컬 Storage 클리어 (히스토리 수집 플래그도 함께 제거)
-      console.log("3️⃣ Chrome Storage 클리어 중...");
-      await chrome.storage.local.remove(["jwt", "refreshToken", "userInfo", "userId", "historyCollected"]);
-      console.log("✅ Chrome Storage 클리어 완료");
-
-      // 4. 메모리 세션 클리어
-      console.log("4️⃣ 메모리 세션 클리어 중...");
-      this.userId = null;
-      this.isAuthenticated = false;
-      this.userInfo = null;
-      this.jwt = null;
-      this.refreshToken = null;
-      console.log("✅ 메모리 세션 클리어 완료");
-
-      console.log("👋 완전 로그아웃 완료");
-      return { success: true, message: "로그아웃 완료" };
-    } catch (error) {
-      console.error("❌ 로그아웃 실패:", error);
-      return { success: false, message: error.message || "알 수 없는 오류" };
-    }
   }
 
   /**
@@ -372,7 +281,6 @@ export class UserSession {
         try {
           console.log("✅ Google access token 수신 (Interactive):", token.substring(0, 10) + "...");
 
-          // 백엔드에 access token 전달해서 JWT로 교환
           const result = await this.exchangeAccessTokenForJWT(token);
           resolve(result);
 
