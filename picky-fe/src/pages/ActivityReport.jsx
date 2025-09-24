@@ -30,6 +30,16 @@ const ActivityReport = () => {
   const [error, setError] = useState(null);
   const [mostActiveCategory, setMostActiveCategory] = useState(mockData.todayStats[3].value);
   const [mostVisitedSite, setMostVisitedSite] = useState(mockData.todayStats[2].value);
+  const [userVsAverageStats, setUserVsAverageStats] = useState(null); // New state variable
+
+  const parseTimeToSeconds = (timeString) => {
+    if (!timeString || typeof timeString !== 'string') return 0;
+    const parts = timeString.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    return 0;
+  };
 
   useEffect(() => {
     const fetchAllStats = async () => {
@@ -39,49 +49,57 @@ const ActivityReport = () => {
           userStatsRes,
           hourlyStatsRes,
           categoryStatsRes,
-          domainStatsRes
+          domainStatsRes,
+          userVsAverageRes // New API call
         ] = await Promise.all([
           api.get('/api/dashboard/userstats'),
           api.get('/api/dashboard/userstats/hourly'),
           api.get('/api/dashboard/userstats/categories'),
-          api.get('/api/dashboard/userstats/domains')
+          api.get('/api/dashboard/userstats/domains'),
+          api.get('/api/dashboard/userstats/summary') // New API call
         ]);
 
-        console.log("API Responses:", { userStatsRes, hourlyStatsRes, categoryStatsRes, domainStatsRes });
-
         const userStatsData = userStatsRes.data;
-        console.log("userStatsData.totalTimeSpent:", userStatsData.totalTimeSpent);
         const hourlyStatsData = hourlyStatsRes.data;
         const categoryStatsData = categoryStatsRes.data;
         const domainStatsData = domainStatsRes.data;
-
-        console.log("Extracted Data:", { userStatsData, hourlyStatsData, categoryStatsData, domainStatsData });
+        const userVsAverageData = userVsAverageRes.data; // New: Get data from response
 
         setUserStats(userStatsData);
-        if (hourlyStatsData && hourlyStatsData.length > 0) setHourlyStats(hourlyStatsData); else setHourlyStats(mockData.hourlyActivity);
+        setUserVsAverageStats(userVsAverageData); // New: Set userVsAverageStats
+        
+        if (hourlyStatsData && hourlyStatsData.length > 0) {
+          const processedHourlyStats = hourlyStatsData.map(stat => ({
+            ...stat,
+            timeSpentMinutes: Math.round(parseTimeToSeconds(stat.timeSpent) / 60)
+          }));
+          setHourlyStats(processedHourlyStats);
+        } else {
+          setHourlyStats(mockData.hourlyActivity);
+        }
+        
         if (categoryStatsData && categoryStatsData.length > 0) {
-          setCategoryStats(categoryStatsData);
-          const mostVisitedCat = categoryStatsData.reduce((prev, current) => (
-            (prev.visitCount || 0) > (current.visitCount || 0) ? prev : current
-          ), { categoryName: '-', visitCount: 0 });
+          const sortedCategories = [...categoryStatsData].sort((a, b) => b.visitCount - a.visitCount);
+          const top5Categories = sortedCategories.slice(0, 5);
+          setCategoryStats(top5Categories);
+
+          const mostVisitedCat = sortedCategories[0] || { categoryName: '-' };
           setMostActiveCategory(mostVisitedCat.categoryName);
         } else {
           setCategoryStats(mockData.categoryData);
           setMostActiveCategory(mockData.todayStats[3].value);
         }
+
         if (domainStatsData && domainStatsData.length > 0) {
-          setDomainStats(domainStatsData);
-          const mostVisitedDom = domainStatsData.reduce((prev, current) => (
-            (prev.visitCount || 0) > (current.visitCount || 0) ? prev : current
-          ), { domain: '-', visitCount: 0 });
+          const sortedDomains = [...domainStatsData].sort((a, b) => b.visitCount - a.visitCount);
+          setDomainStats(sortedDomains);
+          const mostVisitedDom = sortedDomains[0] || { domain: '-' };
           setMostVisitedSite(mostVisitedDom.domain);
         } else {
           setDomainStats(mockData.domainStats);
           setMostVisitedSite(mockData.todayStats[2].value);
         }
         
-        console.log("Extracted Data:", { userStatsData, hourlyStatsData, categoryStatsData, domainStatsData });
-
         setError(null);
       } catch (err) {
         console.error("Failed to fetch stats:", err);
@@ -119,24 +137,15 @@ const ActivityReport = () => {
     return `${hours}시간 ${mins}분`;
   };
 
-  const parseTimeToSeconds = (timeString) => {
-    if (!timeString || typeof timeString !== 'string') return 0;
-    const parts = timeString.split(':').map(Number);
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    }
-    return 0; // Default to 0 if format is unexpected
-  };
-
   const todayStats = [
     { title: '방문한 사이트 수', value: userStats?.totalSites || mockData.todayStats[0].value, icon: Globe },
-    { title: '총 브라우징 시간', value: userStats?.totalTimeSpent || mockData.todayStats[1].value, icon: Clock },
+    { title: '총 브라우징 시간', value: userStats?.totalTimeSpent ? formatTime(Math.round(parseTimeToSeconds(userStats.totalTimeSpent) / 60)) : '-', icon: Clock },
     { title: '가장 오래 머문 사이트', value: mostVisitedSite, icon: Globe },
     { title: '가장 많이 방문한 카테고리', value: mostActiveCategory, icon: TrendingUp }
   ];
 
-  const hasHourlyData = hourlyStats.some(stat => parseTimeToSeconds(stat.timeSpent) > 0);
-  const totalBrowsingTimeForMessage = userStats?.totalTimeSpent || '데이터 없음';
+  const hasHourlyData = hourlyStats.some(stat => stat.timeSpentMinutes > 0);
+  const totalBrowsingTimeForMessage = userStats?.totalTimeSpent ? formatTime(Math.round(userStats.totalTimeSpent / 60)) : '데이터 없음';
 
   return (
     <div className="space-y-8">
@@ -170,8 +179,8 @@ const ActivityReport = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="hourLabel" />
                 <YAxis />
-                <Tooltip />
-                <Bar dataKey="timeSpent" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="시간" />
+                <Tooltip formatter={(value) => `${value}분`} />
+                <Bar dataKey="timeSpentMinutes" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="활동 시간(분)" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -228,7 +237,7 @@ const ActivityReport = () => {
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 브라우징 시간</span>
-              <span className="text-gray-600">평균보다 <span className="text-purple-600">15% 많음</span></span>
+              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
@@ -237,7 +246,7 @@ const ActivityReport = () => {
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 방문 사이트</span>
-              <span className="text-gray-600">평균보다 <span className="text-purple-600">12% 많음</span></span>
+              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>

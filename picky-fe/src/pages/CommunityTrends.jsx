@@ -53,27 +53,6 @@ const categoryWiseSites = {
   ]
 };
 
-const communityInsights = [
-  {
-    title: '가장 활발한 시간대',
-    value: '오후 2-4시',
-    description: '전체 사용자의 67%가 활동',
-    icon: Users,
-  },
-  {
-    title: '평균 브라우징 시간',
-    value: '1시간 23분',
-    description: '지난주 대비 +8% 증가',
-    icon: TrendingUp,
-  },
-  {
-    title: '평균 방문한 사이트',
-    value: '18.5개',
-    description: '매일 다양한 사이트 방문',
-    icon: Globe,
-  }
-];
-
 const trendingTopics = [
   { rank: 1, topic: 'AI 및 머신러닝', growth: '+45%', category: '기술' },
   { rank: 2, topic: 'React 19 업데이트', growth: '+38%', category: '개발' },
@@ -85,6 +64,7 @@ const trendingTopics = [
 const CommunityTrends = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [categoryDistributionData, setCategoryDistributionData] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -97,19 +77,39 @@ const CommunityTrends = () => {
   useEffect(() => {
     const fetchCommunityData = async () => {
       try {
-                    setLoading(true);
-                    const visitShareRes = await api.get('/api/dashboard/userstats/categories/visit-share');
-                    const apiData = visitShareRes.data;
-        
-                    setCategoryDistributionData(apiData || []);
-        
-                  } catch (err) {
-                    console.error("Failed to fetch community data:", err);
-                    setError("커뮤니티 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
-                  } finally {
-                    setLoading(false);
-                  }
-                };
+        setLoading(true);
+        const [
+          visitShareRes,
+          summaryRes
+        ] = await Promise.all([
+          api.get('/api/dashboard/userstats/categories/visit-share'),
+          api.get('/api/dashboard/summary')
+        ]);
+
+        // Process category distribution data
+        const visitShareData = visitShareRes.data;
+        if (visitShareData && visitShareData.length > 0) {
+          const sortedData = [...visitShareData].sort((a, b) => b.percent - a.percent);
+          const top5Data = sortedData.slice(0, 5);
+          setCategoryDistributionData(top5Data);
+        } else {
+          setCategoryDistributionData([]);
+        }
+
+        // Process aggregate summary data
+        if (summaryRes.data) {
+          setSummaryData(summaryRes.data);
+        } else {
+          setSummaryData(null);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch community data:", err);
+        setError("커뮤니티 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchCommunityData();
   }, []);
 
@@ -131,10 +131,31 @@ const CommunityTrends = () => {
     );
   }
 
+  const communityInsights = [
+    {
+      title: '가장 활발한 시간대',
+      value: summaryData ? summaryData.activeHour.substring(0, 5) : 'N/A',
+      description: '',
+      icon: Users,
+    },
+    {
+      title: '평균 브라우징 시간',
+      value: summaryData ? summaryData.avgBrowsingTime.substring(0, 5) : 'N/A',
+      description: '',
+      icon: TrendingUp,
+    },
+    {
+      title: '평균 방문한 사이트',
+      value: summaryData ? `${Number(summaryData.avgVisitCount).toFixed(1)}개` : 'N/A',
+      description: '',
+      icon: Globe,
+    }
+  ];
+
   const categoryDistribution = categoryDistributionData.length > 0 ? categoryDistributionData.map((cat, index) => ({
     name: cat.categoryName,
     value: cat.percent,
-    color: COLORS[index % COLORS.length] // Use COLORS array for dynamic colors
+    color: COLORS[index % COLORS.length]
   })) : [
     { name: '데이터 없음', value: 100, color: '#d1d5db' },
   ];
@@ -155,6 +176,7 @@ const CommunityTrends = () => {
                 <div>
                   <p className="text-gray-500 text-sm">{insight.title}</p>
                   <p className="text-gray-800 font-bold text-xl">{insight.value}</p>
+                  <p className="text-gray-500 text-xs">{insight.description}</p>
                 </div>
               </div>
             </Box>

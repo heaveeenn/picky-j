@@ -1,65 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '../components/Box';
 import Badge from '../components/Badge';
 import { BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts';
-import { Bookmark, ExternalLink, Calendar, TrendingUp } from 'lucide-react';
+import { ExternalLink, Calendar, TrendingUp } from 'lucide-react';
 import Button from '../components/Button';
-
-const mockNewsData = [
-  {
-    id: 1,
-    title: "AI 기술의 최신 동향과 미래 전망",
-    summary: "인공지능 기술이 빠르게 발전하면서 다양한 산업 분야에 혁신을 가져오고 있습니다. 특히 생성형 AI의 등장으로 창작, 교육, 의료 등의 영역에서...",
-    category: "기술",
-    imageUrl: "https://images.unsplash.com/photo-1697577418970-95d99b5a55cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcnRpZmljaWFsJTIwaW50ZWxsaWdlbmNlfGVufDF8fHx8MTc1NjgxNDgyMHww&ixlib=rb-4.1.0&q=80&w=1080",
-    source: "TechNews",
-    publishedAt: "2시간 전",
-    isScraped: false
-  },
-  {
-    id: 2,
-    title: "웹 개발 트렌드 2024: React부터 AI까지",
-    summary: "2024년 웹 개발 생태계를 주도할 핵심 기술들을 살펴봅니다. React 19의 새로운 기능, TypeScript의 진화, 그리고 AI 도구들의 활용법까지...",
-    category: "개발",
-    imageUrl: "https://images.unsplash.com/photo-1457305237443-44c3d5a30b89?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWIlMjBkZXZlbG9wbWVudHxlbnwxfHx8fDE3NTY4MTIxNDh8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    source: "DevWorld",
-    publishedAt: "4시간 전",
-    isScraped: true
-  },
-  {
-    id: 3,
-    title: "디지털 전환 시대의 UX 디자인 원칙",
-    summary: "사용자 경험 디자인이 비즈니스 성공의 핵심 요소로 부상하고 있습니다. 모바일 우선 설계, 접근성 개선, 그리고 사용자 중심 설계의 중요성이...",
-    category: "디자인",
-    imageUrl: "https://images.unsplash.com/photo-1726566289392-011dc554e604?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobm9sb2d5JTIwbmV3c3xlbnwxfHx8fDE3NTY4NDA1NTV8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    source: "DesignDaily",
-    publishedAt: "6시간 전",
-    isScraped: false
-  }
-];
+import api from '../lib/api';
 
 const weeklyStats = [
   { day: '월', news: 12 }, { day: '화', news: 8 }, { day: '수', news: 15 }, 
   { day: '목', news: 11 }, { day: '금', news: 18 }, { day: '토', news: 6 }, { day: '일', news: 9 }
 ];
 
-
-
 const NewsFeed = () => {
-  const [newsData, setNewsData] = useState(mockNewsData);
+  const [newsData, setNewsData] = useState([]);
+  const [sortMode, setSortMode] = useState('MIXED');
 
-  const toggleScrap = (id) => {
-    setNewsData(prev => prev.map(news => news.id === id ? { ...news, isScraped: !news.isScraped } : news));
-  };
+  useEffect(() => {
+    const fetchNewsFeed = async () => {
+      try {
+        console.log(`Fetching news feed with sort: ${sortMode}...`);
+        const response = await api.get(`/api/recommendations/feed?sort=${sortMode}`);
+        console.log("API Response:", response);
+
+        if (response.data && response.data.data && response.data.data.content) {
+          setNewsData(response.data.data.content);
+        } else {
+          setNewsData([]);
+          console.warn("API response structure is not as expected. Data might be empty.", response.data);
+        }
+      } catch (error) {
+        console.error("뉴스 피드를 가져오는 데 실패했습니다.", error);
+        if (error.response) {
+          console.error("Detailed Error Response:", error.response);
+        }
+      }
+    };
+
+    fetchNewsFeed();
+  }, [sortMode]);
 
   const getCategoryVariant = (category) => {
     switch (category) {
-      case '기술': return 'primary';
+      case 'IT/과학': return 'primary';
       case '개발': return 'success';
       case '디자인': return 'info';
+      case '정치/사회': return 'warning';
+      case '여행/레저': return 'danger';
       default: return 'default';
     }
   };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString('ko-KR', options);
+  };
+
+  console.log("Current newsData state:", newsData);
 
   return (
     <div className="space-y-6">
@@ -81,34 +78,53 @@ const NewsFeed = () => {
       </Box>
 
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">추천 뉴스 피드</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">추천 뉴스 피드</h2>
+          <div className="flex space-x-2">
+            <Button
+              variant={sortMode === 'LATEST' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setSortMode('LATEST')}
+            >
+              최신순
+            </Button>
+            <Button
+              variant={sortMode === 'PRIORITY' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setSortMode('PRIORITY')}
+            >
+              중요도순
+            </Button>
+          </div>
+        </div>
         <div className="space-y-4">
-          {newsData.map((news) => (
-            <Box key={news.id} className="p-0 hover:shadow-md transition-shadow">
-              <div className="flex gap-4 p-6">
-                <img src={news.imageUrl} alt={news.title} className="w-24 h-24 object-cover rounded-lg flex-shrink-0" />
+          {newsData && newsData.length > 0 ? (
+            newsData.map((news) => (
+              <Box key={news.newsId} className="p-6 hover:shadow-md transition-shadow">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <Badge variant={getCategoryVariant(news.category)}>{news.category}</Badge>
-                      <span className="text-xs text-gray-500 flex items-center"><Calendar className="w-3 h-3 mr-1" />{news.publishedAt}</span>
+                      <Badge variant={getCategoryVariant(news.categoryName)}>{news.categoryName}</Badge>
+                      <span className="text-xs text-gray-500 flex items-center"><Calendar className="w-3 h-3 mr-1" />{formatDate(news.publishedAt)}</span>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => toggleScrap(news.id)} className={news.isScraped ? 'text-yellow-500' : 'text-gray-400'}>
-                      <Bookmark className={`w-4 h-4 ${news.isScraped ? 'fill-current' : ''}`} />
-                    </Button>
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-2 truncate">{news.title}</h3>
                   <p className="text-sm text-gray-600 mb-3 line-clamp-2">{news.summary}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">출처: {news.source}</span>
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="w-3 h-3 mr-1" />자세히 보기
-                    </Button>
+                  <div className="flex items-center justify-end">
+                    <a href={news.url} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm">
+                        <ExternalLink className="w-3 h-3 mr-1" />자세히 보기
+                      </Button>
+                    </a>
                   </div>
                 </div>
-              </div>
+              </Box>
+            ))
+          ) : (
+            <Box className="p-6 text-center text-gray-500">
+              <p>추천 뉴스 피드를 불러오는 중이거나, 표시할 뉴스가 없습니다.</p>
             </Box>
-          ))}
+          )}
         </div>
         <div className="text-center mt-6">
           <Button variant="secondary">더 많은 뉴스 보기</Button>

@@ -1,5 +1,5 @@
 import Button from '../components/Button';
-import api from '../lib/api';
+
 // Card component might need to be created or replaced with Box
 // import { Card } from './ui/card'; // Assuming Card is not directly available or needs to be adapted
 // import { Chrome, Newspaper, Brain, Users, BarChart3, LogIn, MessageCircle } from 'lucide-react'; // Assuming lucide-react is not used
