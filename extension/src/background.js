@@ -12,12 +12,11 @@ import { HistoryCollector } from "./modules/HistoryCollector.js";
 
 console.log("🔧 Background script 시작");
 
-// 모듈 초기화
 const dataSender = new DataSender();
 const userSession = new UserSession();
 const historyCollector = new HistoryCollector(userSession);
 
-// 사용자 세션 즉시 초기화 (Service Worker 재시작시에도 실행)
+// Service Worker 재시작시 세션 자동 복원
 (async () => {
   try {
     const sessionInfo = await userSession.tryAutoLogin();
@@ -123,9 +122,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       return;
     }
 
-    // 자동 로그인 시도
+    // 자동 로그인 시도 (이미 인증된 상태라면 건너뛰기)
     (async () => {
       try {
+        // 현재 인증 상태 또는 로그인 진행 상태 확인
+        if (userSession.isAuthenticated) {
+          console.log("🎯 이미 인증된 상태 - 자동 로그인 건너뛰기");
+          sendResponse({ success: true, sessionInfo: { success: true, source: "existing" } });
+          return;
+        }
+
+        if (userSession.isLoginInProgress) {
+          console.log("🎯 로그인 진행 중 - 자동 로그인 건너뛰기");
+          sendResponse({ success: false, reason: "login_in_progress" });
+          return;
+        }
+
         const sessionInfo = await userSession.tryAutoLogin();
         console.log("🎯 Content Script 트리거 자동 로그인 결과:", sessionInfo);
 
@@ -191,25 +203,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     return;
   }
 
-  // 로그아웃 처리 (popup에서)
-  if (message.type === "LOGOUT") {
-    console.log("🔐 로그아웃 요청 받음");
-
-    userSession.logout()
-      .then((result) => {
-        console.log("🔐 로그아웃 결과:", result);
-        sendResponse(result);
-      })
-      .catch((error) => {
-        console.error("❌ 로그아웃 실패:", error);
-        sendResponse({
-          success: false,
-          error: error.message,
-        });
-      });
-
-    return true; // 비동기 응답을 위해 true 반환
-  }
 
   // Offscreen 콘텐츠 추출 요청 (HistoryContentExtractor에서 사용)
   if (message.type === "EXTRACT_CONTENT_OFFSCREEN") {
@@ -230,12 +223,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     console.log("🎉 확장프로그램 최초 설치 완료");
 
-    // 기존 인증 관련 데이터 모두 초기화
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
     console.log("🧹 기존 Chrome Storage 데이터 모두 초기화 완료");
-
-    // 새로운 설치 상태로 초기화
     await chrome.storage.local.set({
       installed: true,
       historyCollected: false,

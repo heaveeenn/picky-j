@@ -23,6 +23,7 @@ export default defineManifest({
     "history",
     "offscreen",
     "scripting",
+    "identity",
   ],
 
   host_permissions: ["<all_urls>"],
@@ -39,6 +40,12 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["<all_urls>"],
+      exclude_matches: [
+        "*://accounts.google.com/*",
+        "*://*.google.com/oauth/*",
+        "*://*.googleusercontent.com/*",
+        "*://oauth.googleusercontent.com/*"
+      ],
       js: ["src/content.jsx"],
     },
   ],
