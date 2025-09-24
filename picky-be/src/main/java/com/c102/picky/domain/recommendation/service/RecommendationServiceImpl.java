@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -296,5 +297,39 @@ public class RecommendationServiceImpl implements RecommendationService {
     private void pushBack(UserRecommendationSlot slot) {
         slot.setPriority(slot.getPriority() + 1);
         slot.setStatus(SlotStatus.SCHEDULED);
+    }
+
+    private RecommendationPayloadResponseDto buildRecommendationPayload(UserRecommendationSlot slot) {
+        var builder = RecommendationPayloadResponseDto.builder()
+                .slotId(slot.getId())
+                .contentType(slot.getContentType())
+                .contentId(slot.getContentId())
+                .slotAt(slot.getSlotAt());
+
+        switch (slot.getContentType()) {
+            case NEWS -> {
+                var news = contentQueryService.getNewsPayload(slot.getNewsId());
+                builder
+                        .title(news.getTitle())
+                        .url(news.getUrl());
+                builder.extras(Map.of(
+                        "summary", news.getSummary(),
+                        "published_at", news.getPublishedAt(),
+                        "categoryId", news.getCategoryId(),
+                        "categoryName", news.getCategoryName()
+                ));
+            }
+            case QUIZ -> {
+                var quiz = contentQueryService.getQuizPayload(slot.getQuizId(), false, false);
+                builder
+                        .question(quiz.getQuestion())
+                        .extras(Map.of(
+                                "title", quiz.getTitle(),
+                                "url", quiz.getUrl(),
+                                "rule", quiz.getRule()
+                        ));
+            }
+        }
+        return builder.build();
     }
 }

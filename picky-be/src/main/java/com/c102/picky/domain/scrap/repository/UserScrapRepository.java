@@ -11,9 +11,11 @@ import java.util.Optional;
 
 public interface UserScrapRepository extends JpaRepository<UserScrap, Long> {
 
+    // 사용자별 콘텐츠별 스크랩 조회 (활성/비활성 모두)
     Optional<UserScrap> findByUserIdAndContentTypeAndNewsId(Long userId, ContentType type, Long newsId);
     Optional<UserScrap> findByUserIdAndContentTypeAndQuizId(Long userId, ContentType type, Long quizId);
 
-    Page<UserScrap> findByUserIdAndContentTypeAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, ContentType type, Pageable pageable);
-    Page<UserScrap> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    // 활성 스크랩만 조회
+    Page<UserScrap> findByUserIdAndContentTypeAndIsActiveTrueOrderByUpdatedAtDesc(Long userId, ContentType type, Pageable pageable);
+    Page<UserScrap> findByUserIdAndIsActiveTrueOrderByUpdatedAtDesc(Long userId, Pageable pageable);
 }
