@@ -8,6 +8,14 @@ import api from '../lib/api';
 
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1', '#ec4899'];
 
+const trendingTopics = [
+  { rank: 1, topic: 'AI 및 머신러닝', growth: '+45%', category: '기술' },
+  { rank: 2, topic: 'React 19 업데이트', growth: '+38%', category: '개발' },
+  { rank: 3, topic: 'UI/UX 트렌드 2024', growth: '+32%', category: '디자인' },
+  { rank: 4, topic: 'TypeScript 베스트 프랙티스', growth: '+28%', category: '개발' },
+  { rank: 5, topic: '웹 접근성 가이드라인', growth: '+25%', category: '웹표준' }
+];
+
 const CommunityTrends = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [allCategoriesTopDomains, setAllCategoriesTopDomains] = useState([]); // Stores API response
@@ -235,6 +243,29 @@ const CommunityTrends = () => {
       </Box>
 
 
+
+      <Box>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <TrendingUp className="w-5 h-5 mr-2 text-purple-600" />
+          이번 주 트렌딩 토픽
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {trendingTopics.map((topic, index) => (
+            <div key={index} className="text-center p-5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mx-auto mb-4">
+                {topic.rank}
+              </div>
+              <h4 className="text-gray-800 mb-3 text-sm leading-tight">
+                {topic.topic}
+              </h4>
+              <Badge variant="default" className="mb-3"> {/* Using default badge for now */}
+                {topic.category}
+              </Badge>
+              <p className="text-sm text-purple-600">{topic.growth}</p>
+            </div>
+          ))}
+        </div>
+      </Box>
 
       <Box>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">추천 커뮤니티</h3>
