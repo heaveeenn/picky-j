@@ -1,6 +1,9 @@
 package com.c102.picky.domain.dashboard.news.controller;
 
 import com.c102.picky.domain.dashboard.news.dto.NewsStatsResponseDto;
+import com.c102.picky.domain.dashboard.news.dto.TrendingNewsResponseDto;
+
+import java.util.List;
 import com.c102.picky.domain.dashboard.news.service.DashboardNewsService;
 import com.c102.picky.global.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,5 +36,15 @@ public class DashboardNewsController {
         dashboardNewsService.recordNewsView(userId, newsId);
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponse.of(HttpStatus.OK, "뉴스 조회 기록 성공", null, request.getRequestURI()));
+    }
+
+    @GetMapping("/trending")
+    public ResponseEntity<ApiResponse<List<TrendingNewsResponseDto>>> getTrendingNews(
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        List<TrendingNewsResponseDto> trendingNews = dashboardNewsService.getTrendingNews(limit);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.of(HttpStatus.OK, "트렌드 뉴스 조회 성공", trendingNews, request.getRequestURI()));
     }
 }
