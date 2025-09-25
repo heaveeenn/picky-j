@@ -79,7 +79,7 @@ public interface UserRecommendationSlotRepository extends JpaRepository<UserReco
               and s.status = com.c102.picky.domain.recommendation.model.SlotStatus.SCHEDULED
               and s.quizId is not null
             group by s
-            order by case when count(qa.id) > 0 then 1 else 0 end,  -- 미시도(0) 먼저, 시도(1) 뒤로
+            order by case when count(qa.id) > 0 then 1 else 0 end,
                      s.priority asc,
                      s.slotAt asc,
                      s.id desc

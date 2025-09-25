@@ -119,7 +119,7 @@ public class ScrapServiceImpl implements ScrapService {
             }
             case QUIZ -> {
                 var quiz = contentQueryService.getQuizPayload(s.getQuizId(), false, false);
-                dto.setTitle(quiz.getTitle());
+                dto.setTitle(quiz.getQuestion());
                 dto.setUrl(quiz.getUrl());
             }
         }
