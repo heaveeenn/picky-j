@@ -1,0 +1,19 @@
+# OS Generated Files (Global)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Files (Global)
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Markdown Files
+*.md
+
+# Project-specific gitignore files handle their own patterns
