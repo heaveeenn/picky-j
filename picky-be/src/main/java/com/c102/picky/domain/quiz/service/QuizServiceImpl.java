@@ -7,6 +7,7 @@ import com.c102.picky.domain.quiz.repository.QuizRepository;
 import com.c102.picky.domain.recommendation.entity.UserRecommendationSlot;
 import com.c102.picky.domain.recommendation.model.ContentType;
 import com.c102.picky.domain.recommendation.repository.UserRecommendationSlotRepository;
+import com.c102.picky.domain.recommendation.service.RecommendationSlotConsumptionService;
 import com.c102.picky.domain.scrap.repository.UserScrapRepository;
 import com.c102.picky.global.dto.PageResponse;
 import com.c102.picky.global.exception.ApiException;
@@ -35,6 +36,8 @@ public class QuizServiceImpl implements QuizService {
     private final QuizAttemptRepository quizAttemptRepository;
     private final UserScrapRepository userScrapRepository;
 
+    private final RecommendationSlotConsumptionService recommendationSlotConsumptionService;
+
     @Override
     @Transactional(readOnly = true)
     public PageResponse<QuizListItemDto> getQuizPage(Long userId, Integer page, Integer size) {
@@ -61,37 +64,75 @@ public class QuizServiceImpl implements QuizService {
         Map<Long, Quiz> quizMap = quizRepository.findAllById(quizIds).stream()
                 .collect(Collectors.toMap(Quiz::getId, Function.identity()));
 
-        // 4) 스크랩/시도 상태 배치 로드 (Set)
         Set<Long> scrappedIds = quizIds.isEmpty()
                 ? Set.of() : userScrapRepository.findActiveScrappedQuizIds(userId, ContentType.QUIZ, quizIds);
 
         Set<Long> attemptedIds = quizIds.isEmpty()
                 ? Set.of() : quizAttemptRepository.findAttemptedQuizIds(userId, quizIds);
 
-        // 5) DTO 매핑 (order는 페이지 내 1...size)
+        // 4) 미시도 우선 + 중복 제거 + 5개 채우기
+        final int target = s;
         AtomicInteger order = new AtomicInteger(1);
-        List<QuizListItemDto> items = new ArrayList<>(slotPage.getNumberOfElements());
+        List<QuizListItemDto> items = new ArrayList<>(target);
+        Set<Long> seenQuiz = new HashSet<>();
 
+        // 4-1) 미시도만 먼저 담기
         for (UserRecommendationSlot slot : slotPage.getContent()) {
-            Quiz q = quizMap.get(slot.getQuizId());
+            Long quizId = slot.getQuizId();
+            if (quizId == null) continue;
+            if (seenQuiz.contains(quizId)) continue;
+            if (attemptedIds.contains(quizId)) continue;
+
+            Quiz q = quizMap.get(quizId);
             if (q == null) continue;
 
-            items.add(QuizListItemDto.builder()
-                    .slotId(slot.getId())
-                    .quizId(q.getId())
-                    .title(q.getTitle())
-                    .question(q.getQuestion())
-                    .url(q.getUrl())
-                    .rule(q.getRule())
-                    .isScrapped(scrappedIds.contains(q.getId()))
-                    .isAttempted(attemptedIds.contains(q.getId()))
-                    .order(order.getAndIncrement())
-                    .build());
+            items.add(toDto(slot, q, scrappedIds, attemptedIds, order.getAndIncrement()));
+            seenQuiz.add(quizId);
+            if (items.size() == target) break;
         }
 
-        // 6) Page<DTO>로 감싸서 PageResponse 반환
-        Page<QuizListItemDto> dtoPage = new PageImpl<>(items, pageable, slotPage.getTotalElements());
+        // 4-2) 부족하면 ‘시도한 것’에서 중복 없이 백필
+        if (items.size() < target) {
+            for (UserRecommendationSlot slot : slotPage.getContent()) {
+                Long qid = slot.getQuizId();
+                if (qid == null) continue;
+                if (seenQuiz.contains(qid)) continue;
 
+                Quiz q = quizMap.get(qid);
+                if (q == null) continue;
+
+                items.add(toDto(slot, q, scrappedIds, attemptedIds, order.getAndIncrement()));
+                seenQuiz.add(qid);
+                if (items.size() == target) break;
+            }
+        }
+
+        List<Long> deliveredSlotIds = items.stream()
+                .map(QuizListItemDto::getSlotId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (!deliveredSlotIds.isEmpty()) {
+            recommendationSlotConsumptionService.consumeAsDelivered(userId, deliveredSlotIds);
+        }
+
+        // 5) Page 래핑 (total은 slotPage 기준 유지)
+        Page<QuizListItemDto> dtoPage = new PageImpl<>(items, pageable, slotPage.getTotalElements());
         return PageResponse.from(dtoPage);
+    }
+
+    private QuizListItemDto toDto(UserRecommendationSlot slot, Quiz q,
+                                  Set<Long> scrappedIds, Set<Long> attemptedIds, int order) {
+        return QuizListItemDto.builder()
+                .slotId(slot.getId())
+                .quizId(q.getId())
+                .title(q.getTitle())
+                .question(q.getQuestion())
+                .url(q.getUrl())
+                .rule(q.getRule())
+                .isScrapped(scrappedIds.contains(q.getId()))
+                .isAttempted(attemptedIds.contains(q.getId()))
+                .order(order)
+                .build();
     }
 }

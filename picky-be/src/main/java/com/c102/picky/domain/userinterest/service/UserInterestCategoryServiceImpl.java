@@ -24,20 +24,37 @@ public class UserInterestCategoryServiceImpl implements UserInterestCategoryServ
 
     @Override
     public List<UserInterestResponseDto> addUserInterests(Long userId, UserInterestAddRequestDto request) {
-        for (Long categoryId : request.getCategoryIds()) {
-            final Long cid = categoryId;
+        // 현재 사용자의 관심 카테고리 조회
+        List<UserInterestCategory> currentInterests = uiRepository.findByIdUserId(userId);
+        List<Long> currentCategoryIds = currentInterests.stream()
+                .map(uic -> uic.getId().getCategoryId())
+                .toList();
 
-            Category category = categoryRepository.findById(cid)
-                    .orElseThrow(() -> new ApiException(ErrorCode.CATEGORY_NOT_FOUND));
+        // null 처리 및 빈 리스트 허용 -> 관심 카테고리 없음
+        List<Long> requestCategoryIds = request.getCategoryIds() != null ?
+                request.getCategoryIds() : List.of();
 
-            if (category.getLevel() != Category.Level.L1) {
-                throw new ApiException(ErrorCode.INVALID_CATEGORY_LEVEL);
+        // 1. 요청에 없는 기존 카테고리들 삭제
+        for (Long currentCategoryId : currentCategoryIds) {
+            if (!requestCategoryIds.contains(currentCategoryId)) {
+                uiRepository.deleteByIdUserIdAndIdCategoryId(userId, currentCategoryId);
             }
+        }
 
-            if(!uiRepository.existsByIdUserIdAndIdCategoryId(userId, cid)) {
+        // 2. 요청에 있는 새로운 카테고리들 추가
+        for (Long categoryId : requestCategoryIds) {
+            if (!currentCategoryIds.contains(categoryId)) {
+                Category category = categoryRepository.findById(categoryId)
+                        .orElseThrow(() -> new ApiException(ErrorCode.CATEGORY_NOT_FOUND));
+
+                if (category.getLevel() != Category.Level.L1) {
+                    throw new ApiException(ErrorCode.INVALID_CATEGORY_LEVEL);
+                }
+
                 uiRepository.save(UserInterestCategory.of(userId, category));
             }
         }
+
         return findUserInterests(userId);
     }
 
