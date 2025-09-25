@@ -87,3 +87,4 @@ volumes:
 
 networks:
   picky-network:
+    external: true
