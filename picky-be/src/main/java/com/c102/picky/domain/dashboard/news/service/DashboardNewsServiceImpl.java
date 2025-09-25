@@ -1,10 +1,13 @@
 package com.c102.picky.domain.dashboard.news.service;
 
 import com.c102.picky.domain.dashboard.news.dto.NewsStatsResponseDto;
+import com.c102.picky.domain.dashboard.news.dto.TrendingNewsResponseDto;
+import com.c102.picky.domain.content.service.ContentQueryService;
 import com.c102.picky.domain.dashboard.news.entity.NewsView;
 import com.c102.picky.domain.dashboard.news.repository.NewsViewRepository;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class DashboardNewsServiceImpl implements DashboardNewsService {
 
     private final NewsViewRepository newsViewRepository;
+    private final ContentQueryService contentQueryService;
 
     @Override
     public NewsStatsResponseDto getNewsStats(Long userId) {
@@ -84,5 +88,86 @@ public class DashboardNewsServiceImpl implements DashboardNewsService {
                     .build();
             newsViewRepository.save(newsView);
         }
+    }
+
+    @Override
+    public List<TrendingNewsResponseDto> getTrendingNews(int limit) {
+        // 이번 주 시작 (월요일 00:00:00)
+        LocalDateTime weekStart = LocalDateTime.now()
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .truncatedTo(ChronoUnit.DAYS);
+
+        // 다음 주 월요일 00:00:00
+        LocalDateTime weekEnd = weekStart.plusWeeks(1);
+
+        Object[][] results = newsViewRepository.findTrendingNewsByWeek(weekStart, weekEnd, limit);
+
+        List<TrendingNewsResponseDto> trendingNews = new ArrayList<>();
+        for (Object[] result : results) {
+            Long newsId = (Long) result[0];
+            Long viewerCount = (Long) result[1];
+
+            try {
+                var newsPayload = contentQueryService.getNewsPayload(newsId);
+
+                TrendingNewsResponseDto dto = TrendingNewsResponseDto.builder()
+                        .newsId(newsId)
+                        .title(newsPayload.getTitle())
+                        .url(newsPayload.getUrl())
+                        .summary(newsPayload.getSummary())
+                        .viewerCount(viewerCount)
+                        .publishedAt(newsPayload.getPublishedAt() != null ?
+                                newsPayload.getPublishedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null)
+                        .categoryId(newsPayload.getCategoryId())
+                        .categoryName(newsPayload.getCategoryName())
+                        .build();
+
+                trendingNews.add(dto);
+            } catch (Exception e) {
+                // 뉴스 데이터를 가져올 수 없는 경우 스킵
+                continue;
+            }
+        }
+
+        return trendingNews;
+    }
+
+    @Override
+    public List<TrendingNewsResponseDto> getTodayTrendingNews(int limit) {
+        // 오늘 시작 (00:00:00)
+        LocalDateTime dayStart = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS);
+        // 내일 시작 (00:00:00)
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+
+        Object[][] results = newsViewRepository.findTrendingNewsByDay(dayStart, dayEnd, limit);
+
+        List<TrendingNewsResponseDto> trendingNews = new ArrayList<>();
+        for (Object[] result : results) {
+            Long newsId = (Long) result[0];
+            Long viewerCount = (Long) result[1];
+
+            try {
+                var newsPayload = contentQueryService.getNewsPayload(newsId);
+
+                TrendingNewsResponseDto dto = TrendingNewsResponseDto.builder()
+                        .newsId(newsId)
+                        .title(newsPayload.getTitle())
+                        .url(newsPayload.getUrl())
+                        .summary(newsPayload.getSummary())
+                        .viewerCount(viewerCount)
+                        .publishedAt(newsPayload.getPublishedAt() != null ?
+                                newsPayload.getPublishedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null)
+                        .categoryId(newsPayload.getCategoryId())
+                        .categoryName(newsPayload.getCategoryName())
+                        .build();
+
+                trendingNews.add(dto);
+            } catch (Exception e) {
+                // 뉴스 데이터를 가져올 수 없는 경우 스킵
+                continue;
+            }
+        }
+
+        return trendingNews;
     }
 }
