@@ -12,4 +12,6 @@ public interface DashboardNewsService {
     void recordNewsView(Long userId, Long newsId);
 
     List<TrendingNewsResponseDto> getTrendingNews(int limit);
+
+    List<TrendingNewsResponseDto> getTodayTrendingNews(int limit);
 }

@@ -45,4 +45,18 @@ public interface NewsViewRepository extends JpaRepository<NewsView, Long> {
     Object[][] findTrendingNewsByWeek(@Param("weekStart") LocalDateTime weekStart,
                                     @Param("weekEnd") LocalDateTime weekEnd,
                                     @Param("limit") int limit);
+
+    // 오늘 인기 뉴스 TOP5 조회 (순 조회자 수 기준)
+    @Query("""
+        SELECT nv.newsId, COUNT(DISTINCT nv.userId) as viewerCount
+        FROM NewsView nv
+        WHERE nv.viewedAt >= :dayStart
+        AND nv.viewedAt < :dayEnd
+        GROUP BY nv.newsId
+        ORDER BY viewerCount DESC
+        LIMIT :limit
+        """)
+    Object[][] findTrendingNewsByDay(@Param("dayStart") LocalDateTime dayStart,
+                                   @Param("dayEnd") LocalDateTime dayEnd,
+                                   @Param("limit") int limit);
 }

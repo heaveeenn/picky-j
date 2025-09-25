@@ -47,4 +47,14 @@ public class DashboardNewsController {
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponse.of(HttpStatus.OK, "트렌드 뉴스 조회 성공", trendingNews, request.getRequestURI()));
     }
+
+    @GetMapping("/trending/today")
+    public ResponseEntity<ApiResponse<List<TrendingNewsResponseDto>>> getTodayTrendingNews(
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        List<TrendingNewsResponseDto> trendingNews = dashboardNewsService.getTodayTrendingNews(limit);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.of(HttpStatus.OK, "오늘 트렌드 뉴스 조회 성공", trendingNews, request.getRequestURI()));
+    }
 }

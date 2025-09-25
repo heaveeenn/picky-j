@@ -131,4 +131,43 @@ public class DashboardNewsServiceImpl implements DashboardNewsService {
 
         return trendingNews;
     }
+
+    @Override
+    public List<TrendingNewsResponseDto> getTodayTrendingNews(int limit) {
+        // 오늘 시작 (00:00:00)
+        LocalDateTime dayStart = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS);
+        // 내일 시작 (00:00:00)
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+
+        Object[][] results = newsViewRepository.findTrendingNewsByDay(dayStart, dayEnd, limit);
+
+        List<TrendingNewsResponseDto> trendingNews = new ArrayList<>();
+        for (Object[] result : results) {
+            Long newsId = (Long) result[0];
+            Long viewerCount = (Long) result[1];
+
+            try {
+                var newsPayload = contentQueryService.getNewsPayload(newsId);
+
+                TrendingNewsResponseDto dto = TrendingNewsResponseDto.builder()
+                        .newsId(newsId)
+                        .title(newsPayload.getTitle())
+                        .url(newsPayload.getUrl())
+                        .summary(newsPayload.getSummary())
+                        .viewerCount(viewerCount)
+                        .publishedAt(newsPayload.getPublishedAt() != null ?
+                                newsPayload.getPublishedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null)
+                        .categoryId(newsPayload.getCategoryId())
+                        .categoryName(newsPayload.getCategoryName())
+                        .build();
+
+                trendingNews.add(dto);
+            } catch (Exception e) {
+                // 뉴스 데이터를 가져올 수 없는 경우 스킵
+                continue;
+            }
+        }
+
+        return trendingNews;
+    }
 }
