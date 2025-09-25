@@ -34,24 +34,24 @@ export class DataCollector {
    */
   async initializeWithToggleCheck() {
     await this.checkTrackingStatus();
-    
+
     // 스토리지 변경 감지 - 실시간 토글 반영
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (changes.trackingEnabled && namespace === 'sync') {
-          this.isTrackingEnabled = changes.trackingEnabled.newValue !== false;
+        if (changes.isExtensionOn && namespace === 'sync') {
+          this.isTrackingEnabled = changes.isExtensionOn.newValue !== false;
           console.log('🔄 토글 상태 변경:', this.isTrackingEnabled);
         }
       });
     }
-    
+
     // 토글이 ON인 경우에만 이벤트 리스너 등록
     if (this.isTrackingEnabled) {
       this.setupEventListeners();
     } else {
       console.log('❌ 데이터 수집 비활성화 - 이벤트 리스너 스킵');
     }
-    
+
     // 초기화 완료
     this.isInitialized = true;
     console.log('✅ DataCollector 초기화 완료');
@@ -63,8 +63,8 @@ export class DataCollector {
   async checkTrackingStatus() {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage) {
-        const result = await chrome.storage.sync.get(['trackingEnabled']);
-        this.isTrackingEnabled = result.trackingEnabled !== false;
+        const result = await chrome.storage.sync.get(['isExtensionOn']);
+        this.isTrackingEnabled = result.isExtensionOn !== false;
         console.log('📊 토글 상태:', this.isTrackingEnabled);
       }
     } catch (error) {
@@ -72,6 +72,8 @@ export class DataCollector {
       this.isTrackingEnabled = true; // fallback
     }
   }
+
+
 
   /**
    * 이벤트 리스너 설정
@@ -91,10 +93,6 @@ export class DataCollector {
       this.isActive = false;
     });
 
-    // 페이지 떠날 때 최종 데이터 수집
-    window.addEventListener("beforeunload", () => {
-      this.collectData();
-    });
   }
 
   /**
@@ -267,11 +265,12 @@ export class DataCollector {
   /**
    * 수집된 데이터 반환
    */
-  collectData() {
+  async collectData() {
     if (!this.isTrackingEnabled) {
       console.log('❌ 데이터 수집 비활성화 - 수집 중단');
       return null;
     }
+
 
     const kstTime = this.getKSTTimestamp();
     const contentData = this.extractCleanContent();
