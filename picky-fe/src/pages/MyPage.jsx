@@ -159,18 +159,16 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
   };
 
   const filteredNews = scrapedNews.filter(news => {
-    const content = news.content || {};
-    const matchesSearch = (content.title && content.title.toLowerCase().includes(newsSearchQuery.toLowerCase())) ||
-                          (content.categoryName && content.categoryName.toLowerCase().includes(newsSearchQuery.toLowerCase()));
-    const matchesCategory = selectedNewsCategory === 'all' || (content.categoryName && content.categoryName.toLowerCase() === selectedNewsCategory.toLowerCase());
+    const matchesSearch = (news.title && news.title.toLowerCase().includes(newsSearchQuery.toLowerCase())) ||
+                          (news.contentType && news.contentType.toLowerCase().includes(newsSearchQuery.toLowerCase()));
+    const matchesCategory = selectedNewsCategory === 'all' || (news.contentType && news.contentType.toLowerCase() === selectedNewsCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 
   const filteredQuizzes = scrapedQuizzes.filter(quiz => {
-    const content = quiz.content || {};
-    const matchesSearch = (content.question && content.question.toLowerCase().includes(quizSearchQuery.toLowerCase())) ||
-                          (content.categoryName && content.categoryName.toLowerCase().includes(quizSearchQuery.toLowerCase()));
-    const matchesCategory = selectedQuizCategory === 'all' || (content.categoryName && content.categoryName.toLowerCase() === selectedQuizCategory.toLowerCase());
+    const matchesSearch = (quiz.title && quiz.title.toLowerCase().includes(quizSearchQuery.toLowerCase())) ||
+                          (quiz.contentType && quiz.contentType.toLowerCase().includes(quizSearchQuery.toLowerCase()));
+    const matchesCategory = selectedQuizCategory === 'all' || (quiz.contentType && quiz.contentType.toLowerCase() === selectedQuizCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 
@@ -195,16 +193,13 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
   };
 
   const handleDeleteScrap = async (scrapId, type) => {
-    if (!window.confirm("정말로 이 스크랩을 삭제하시겠습니까?")) return;
-
     try {
       await api.delete(`/api/scraps/${scrapId}`);
       if (type === 'NEWS') {
-        setScrapedNews(prev => prev.filter(item => item.id !== scrapId));
+        setScrapedNews(prev => prev.filter(item => item.scrapId !== scrapId));
       } else if (type === 'QUIZ') {
-        setScrapedQuizzes(prev => prev.filter(item => item.id !== scrapId));
+        setScrapedQuizzes(prev => prev.filter(item => item.scrapId !== scrapId));
       }
-      alert("스크랩이 삭제되었습니다.");
     } catch (error) {
       console.error('Failed to delete scrap', error);
       alert("스크랩 삭제에 실패했습니다.");
@@ -365,12 +360,14 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
                   <div className="space-y-3">
                     {filteredNews.length > 0 ? (
                       filteredNews.map(news => (
-                        <div key={news.id} className="p-3 border rounded-lg flex justify-between items-start">
+                        <div key={news.scrapId} className="p-3 border rounded-lg flex justify-between items-start">
                           <div>
-                            <h4 className="font-semibold">{news.content.title}</h4>
-                            <p className="text-sm text-gray-500">{news.content.categoryName}</p>
+                            <h4 className="font-semibold">{news.title}</h4>
+                            <p className="text-sm text-gray-500">{news.contentType}</p>
                           </div>
-                          <Button onClick={() => handleDeleteScrap(news.id, 'NEWS')} variant="ghost" size="sm"><X className="w-4 h-4 text-red-500" /></Button>
+                          <Button onClick={() => handleDeleteScrap(news.scrapId, 'NEWS')} variant="ghost" size="sm">
+                            <Bookmark className="w-4 h-4 text-yellow-500 fill-current" />
+                          </Button>
                         </div>
                       ))
                     ) : (
@@ -397,12 +394,14 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
                   <div className="space-y-3">
                     {filteredQuizzes.length > 0 ? (
                       filteredQuizzes.map(quiz => (
-                        <div key={quiz.id} className="p-3 border rounded-lg flex justify-between items-start">
-                          <div>
-                            <p className="text-sm">{quiz.content.question}</p>
-                            <p className="text-xs text-gray-500">{quiz.content.categoryName}</p>
+                        <div key={quiz.scrapId} className="p-3 border rounded-lg flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                                                        <h4 className="font-semibold truncate" title={quiz.title}>문제 내용: {quiz.title}</h4>
+                                                        {quiz.url && <p className="text-xs text-blue-600 hover:underline cursor-pointer" onClick={() => window.open(quiz.url, '_blank')}>출처: {quiz.url}</p>}                            <p className="text-xs text-gray-500">{quiz.contentType}</p>
                           </div>
-                          <Button onClick={() => handleDeleteScrap(quiz.id, 'QUIZ')} variant="ghost" size="sm"><X className="w-4 h-4 text-red-500" /></Button>
+                          <Button onClick={() => handleDeleteScrap(quiz.scrapId, 'QUIZ')} variant="ghost" size="sm">
+                            <Bookmark className="w-4 h-4 text-yellow-500 fill-current" />
+                          </Button>
                         </div>
                       ))
                     ) : (
