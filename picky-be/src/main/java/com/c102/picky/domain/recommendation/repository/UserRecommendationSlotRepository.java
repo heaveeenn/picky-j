@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -96,4 +97,18 @@ public interface UserRecommendationSlotRepository extends JpaRepository<UserReco
             @Param("userId") Long userId,
             Pageable pageable
     );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+                update UserRecommendationSlot s
+                   set s.status = :to, s.updatedAt = current_timestamp
+                 where s.userId = :userId
+                   and s.id in :slotIds
+                   and s.status = :from
+                   and s.contentType = com.c102.picky.domain.recommendation.model.ContentType.QUIZ
+            """)
+    int bulkUpdateStatus(@Param("userId") Long userId,
+                         @Param("slotIds") List<Long> slotIds,
+                         @Param("from") com.c102.picky.domain.recommendation.model.SlotStatus from,
+                         @Param("to") com.c102.picky.domain.recommendation.model.SlotStatus to);
 }
