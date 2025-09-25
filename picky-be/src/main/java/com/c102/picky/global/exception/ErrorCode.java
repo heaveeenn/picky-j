@@ -15,7 +15,7 @@ public enum ErrorCode {
     VALIDATION_FAILED("VALIDATION_FAILED", HttpStatus.BAD_REQUEST, "입력값 검증에 실패했습니다."),
     INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
     ACCESS_DENIED("ACCESS_DENIED", HttpStatus.FORBIDDEN, "권한이 없습니다."),
-    
+
     // Google OAuth2 관련 에러
     INVALID_GOOGLE_TOKEN("INVALID_GOOGLE_TOKEN", HttpStatus.UNAUTHORIZED, "유효하지 않은 구글 토큰입니다."),
     GOOGLE_TOKEN_VERIFICATION_FAILED("GOOGLE_TOKEN_VERIFICATION_FAILED", HttpStatus.UNAUTHORIZED, "구글 토큰 검증에 실패했습니다."),
@@ -32,6 +32,7 @@ public enum ErrorCode {
     // Recommendation 관련 에러
     SLOT_NOT_FOUND("SLOT_NOT_FOUND", HttpStatus.NOT_FOUND, "추천 슬롯을 찾을 수 없습니다."),
     INVALID_CONTENT_BINDING("INVALID_CONTENT_BINDING", HttpStatus.BAD_REQUEST, "콘텐츠 타입과 ID 바인딩이 올바르지 않습니다."),
+    RESOURCE_NOT_FOUND("RESOURCE_NOT_FOUND", HttpStatus.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다."),
 
     // Content 관련 에러
     NEWS_NOT_FOUND("NEWS_NOT_FOUND", HttpStatus.NOT_FOUND, "뉴스를 찾을 수 없습니다."),

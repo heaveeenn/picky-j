@@ -48,6 +48,17 @@ public class ScrapController {
             @RequestParam(defaultValue = "20") int size) {
         Long userId = (Long) request.getAttribute("userId");
         var result = scrapService.getScraps(userId, type, page, size);
-        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "스크랩 목록 조히 성공", result, request.getRequestURI()));
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "스크랩 목록 조회 성공", result, request.getRequestURI()));
+    }
+
+    @PostMapping("/toggle")
+    public ResponseEntity<ApiResponse<ScrapResponseDto>> toggleScrap(
+            HttpServletRequest request,
+            @RequestBody ScrapCreateRequestDto dto
+    ) {
+        Long userId = (Long) request.getAttribute("userId");
+        var result = scrapService.toggleScrap(userId, dto);
+        String message = result != null ? "스크랩 저장 성공" : "스크랩 취소 성공";
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, message, result, request.getRequestURI()));
     }
 }

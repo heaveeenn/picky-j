@@ -7,12 +7,22 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class RecommendationUpsertRequestDto {
-    @NotNull private Long userId;
-    @NotNull private ContentType contentType;
+    @NotNull
+    private Long userId;
+    @NotNull
+    private ContentType contentType;
     private Long newsId;
     private Long quizId;
-    @Min(1) @Max(10) @Builder.Default private Integer priority = 5;
+    private Long factId;
+    @Min(1)
+    @Max(10)
+    @Builder.Default
+    private Integer priority = 5;
     private String reason;
 }

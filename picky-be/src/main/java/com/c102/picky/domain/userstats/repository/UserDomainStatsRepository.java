@@ -12,4 +12,6 @@ public interface UserDomainStatsRepository extends JpaRepository<UserDomainStats
     Optional<UserDomainStats> findByUserAndDomain(User user, String dom);
 
     List<UserDomainStats> findByUserIdOrderByTimeSpentDesc(Long userId);
+
+    List<UserDomainStats> findByUserId(Long userId);
 }

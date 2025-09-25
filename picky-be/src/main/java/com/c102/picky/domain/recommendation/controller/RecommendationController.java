@@ -25,7 +25,7 @@ class RecommendationController {
      * 다음 팝업용 추천 1건 가져오기
      *
      * @param request
-     * @param type        NEWS | QUIZ
+     * @param type        NEWS | QUIZ | FACT
      * @param windowStart 기본 : 정시
      * @param windowEnd   기본 : 정시 + 5분
      * @return
@@ -55,7 +55,7 @@ class RecommendationController {
 
 
     /**
-     * 노출 / 클릭 / 닫기 등 사용자 상호작용 수집
+     * 클릭 / 닫기 등 사용자 상호작용 시 상태 업데이트
      */
     @PatchMapping("/{slotId}/ack")
     public ResponseEntity<ApiResponse<Void>> acknowledgeRecommendation(
