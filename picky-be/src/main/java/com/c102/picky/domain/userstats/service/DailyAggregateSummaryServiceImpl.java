@@ -79,7 +79,7 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
             List<DomainSummaryDto> topDomains = domainCountMap.entrySet().stream()
                     .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                     .limit(5)
-                    .map(e -> new DomainSummaryDto(e.getKey(), e.getValue()))
+                    .map(e -> DomainSummaryDto.of(e.getKey(), e.getValue()))
                     .toList();
 
             result.add(new CategorySummaryDto(category.getName(), topDomains));
