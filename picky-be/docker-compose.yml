@@ -83,7 +83,9 @@ services:
 
 volumes:
   db_data:
+    name: picky-mysql-data
   mongo_data:
+    name: picky-mongo-data
 
 networks:
   picky-network:
