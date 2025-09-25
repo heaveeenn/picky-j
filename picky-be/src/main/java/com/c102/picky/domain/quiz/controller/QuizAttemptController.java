@@ -7,6 +7,9 @@ import com.c102.picky.domain.quiz.dto.QuizAnswerResponseDto;
 import com.c102.picky.domain.quiz.dto.QuizAttemptCreateRequestDto;
 import com.c102.picky.domain.quiz.entity.QuizAttempt;
 import com.c102.picky.domain.quiz.repository.QuizAttemptRepository;
+import com.c102.picky.domain.recommendation.entity.UserRecommendationSlot;
+import com.c102.picky.domain.recommendation.model.SlotStatus;
+import com.c102.picky.domain.recommendation.repository.UserRecommendationSlotRepository;
 import com.c102.picky.global.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ public class QuizAttemptController {
     private final ContentQueryService contentQueryService;
     private final QuizAttemptRepository quizAttemptRepository;
     private final DashboardQuizService dashboardQuizService;
+    private final UserRecommendationSlotRepository slotRepository;
 
     @GetMapping("/{quizId}")
     public ResponseEntity<ApiResponse<QuizPayloadDto>> getQuiz(
@@ -52,6 +56,17 @@ public class QuizAttemptController {
                 .build());
 
         dashboardQuizService.recordQuizView(userId, quizId, dto.getUserAnswer(), isCorrect);
+
+        // 추천 슬롯 상태를 DELIVERED로 업데이트
+        if (dto.getSlotId() != null) {
+            slotRepository.findByIdAndUserId(dto.getSlotId(), userId)
+                    .ifPresent(slot -> {
+                        if (slot.getStatus() == SlotStatus.SCHEDULED) {
+                            slot.setStatus(SlotStatus.DELIVERED);
+                            slotRepository.save(slot);
+                        }
+                    });
+        }
 
         var response = QuizAnswerResponseDto.builder()
                 .quizId(quizId)
