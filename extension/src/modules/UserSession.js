@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UserSession.js
  * Google OAuth + JWT 인증 시스템
  */
@@ -12,14 +12,15 @@ export class UserSession {
     this.userInfo = null;
     this.jwt = null;
     this.refreshToken = null;
-    this.BACKEND_URL = BACKEND_URL; // BACKEND_URL을 인스턴스 변수로 설정
+    this.isLoginInProgress = false;
+    this.BACKEND_URL = BACKEND_URL;
 
     console.log("👤 UserSession 인스턴스 생성");
   }
 
 
   /**
-   * JWT 유효성 검증 (단순히 JWT 존재 여부만 확인)
+   * JWT 유효성 검증
    */
   async validateJwt() {
     return !!this.jwt;
@@ -80,66 +81,9 @@ export class UserSession {
     return false;
   }
 
-  /**
-   * Chrome 확장프로그램 Access Token을 백엔드로 전달해서 JWT 발급받기
-   */
-  async exchangeForJwt(accessToken, userInfo) {
-    try {
-      console.log("🔗 JWT 발급 요청 시작:", `${BACKEND_URL}/api/auth/google/login`);
-      console.log("🎫 Google Access Token:", accessToken.substring(0, 20) + "...");
-
-      // 기존 엔드포인트 사용하되, Chrome Extension에서 온 토큰임을 표시
-      const requestBody = {
-        accessToken: accessToken,  // Access Token으로 변경 (기존 idToken 대신)
-        userInfo: userInfo,
-        source: "chrome_extension"  // 출처 표시
-      };
-
-      const response = await fetch(`${BACKEND_URL}/api/auth/google/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("📡 응답 상태:", response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ HTTP 오류 응답:", errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log("📦 응답 데이터:", data);
-
-      if (data.success) {
-        this.jwt = data.data.accessToken;      // ApiResponse.data 구조에 맞게 수정
-        this.refreshToken = data.data.refreshToken; // ApiResponse.data 구조에 맞게 수정
-
-        // Google 이메일을 userId로 사용
-        this.userId = userInfo.email;
-        console.log("🔍 Google 이메일을 userId로 사용:", this.userId);
-
-        await chrome.storage.local.set({
-          jwt: this.jwt,
-          refreshToken: this.refreshToken,
-          userInfo: userInfo,
-          loginSuccess: true,  // popup 알림용 플래그 추가
-        });
-
-        console.log("✅ JWT 발급 성공 - Access Token:", this.jwt?.substring(0, 20) + "...");
-        return { success: true };
-      }
-
-      return { success: false, error: data.message || "JWT 발급 실패" };
-    } catch (error) {
-      console.error("JWT 발급 실패:", error);
-      return { success: false, error: error.message };
-    }
-  }
 
   /**
-   * 개선된 자동 로그인 (저장된 세션 → Refresh Token 순서)
+   * 자동 로그인 시도
    */
   async tryAutoLogin() {
     console.log("🔄 자동 로그인 시도 시작");
@@ -183,21 +127,27 @@ export class UserSession {
   }
 
   /**
-   * Google 수동 로그인 (팝업에서 호출) - 백엔드 OAuth2 Flow 활용
+   * Google 로그인
    */
   async loginWithGoogle() {
     try {
-      console.log("🔐 백엔드 OAuth2 Flow를 사용한 Google 로그인 시작");
+      // 로그인 진행 중 플래그 설정
+      this.isLoginInProgress = true;
 
-      // 1. 백엔드 OAuth2 엔드포인트로 새 탭에서 로그인 진행
-      const authResult = await this.performBackendOAuth2Login();
+      const authResult = await this.performIdentityLogin();
 
       if (authResult.success) {
-        // 2. JWT 토큰 저장 및 사용자 정보 설정
+        console.log("🔍 authResult 전체:", authResult);
+        console.log("🔍 authResult.userInfo:", authResult.userInfo);
         await this.saveSession(authResult.accessToken, authResult.refreshToken, authResult.userInfo);
         this.setGoogleUser(authResult.userInfo);
 
-        console.log("✅ 백엔드 OAuth2 로그인 성공:", authResult.userInfo.email);
+        console.log("✅ Chrome Identity 로그인 성공:", authResult.userInfo?.email || "email 없음");
+
+        // Popup UI 업데이트를 위한 로그인 성공 플래그 설정
+        await chrome.storage.local.set({ loginSuccess: true });
+        console.log("📢 Popup UI 업데이트를 위한 loginSuccess 플래그 설정");
+
         return { success: true, user: authResult.userInfo };
       }
 
@@ -211,52 +161,12 @@ export class UserSession {
       }
 
       return { success: false, error: error.message || "로그인 중 오류가 발생했습니다." };
+    } finally {
+      this.isLoginInProgress = false;
     }
   }
 
-  /**
-   * Google API에서 사용자 정보 가져오기
-   */
-  async fetchUserInfo(token) {
-    const response = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
 
-    if (!response.ok) {
-      throw new Error("사용자 정보 가져오기 실패");
-    }
-
-    return await response.json();
-  }
-
-  /**
-   * Access Token으로 ID Token 변환
-   */
-  async convertToIdToken(accessToken) {
-    try {
-      // Google OAuth2 토큰 정보 API 호출
-      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`);
-
-      if (!response.ok) {
-        throw new Error("토큰 정보 조회 실패");
-      }
-
-      const tokenInfo = await response.json();
-      console.log("🔍 토큰 정보:", tokenInfo);
-
-      // 임시 방법: Access Token을 그대로 사용 (백엔드 수정 대안)
-      // 실제로는 이 방법보다는 백엔드에서 Access Token도 처리하는 것이 더 좋습니다.
-      return accessToken;
-
-    } catch (error) {
-      console.error("❌ ID Token 변환 실패:", error);
-      // 실패 시 Access Token 그대로 반환
-      return accessToken;
-    }
-  }
 
   /**
    * Google 사용자 정보 설정 (userId는 JWT에서 설정됨)
@@ -265,65 +175,6 @@ export class UserSession {
     this.isAuthenticated = true;
     this.userInfo = userInfo;
     // userId는 exchangeForJwt에서 JWT를 통해 설정됨
-  }
-
-  // clearMemorySession 제거됨 - async clearSession()으로 통합
-
-  /**
-   * 완전한 로그아웃 (백엔드 API + 로컬 Storage)
-   */
-  async logout() {
-    console.log("🔐 UserSession.logout() 시작");
-    try {
-      // 1. 백엔드 로그아웃 API 호출 (Refresh Token 블랙리스트 추가)
-      try {
-        console.log("1️⃣ 백엔드 로그아웃 API 호출 중...");
-        // JWT가 있는 경우에만 Authorization 헤더 추가
-        const headers = {
-          'Content-Type': 'application/json'
-        };
-        if (this.jwt) {
-          headers['Authorization'] = `Bearer ${this.jwt}`;
-          console.log("🎫 JWT 토큰으로 인증된 로그아웃");
-        } else {
-          console.log("⚠️ JWT 토큰 없음 - 쿠키만으로 로그아웃");
-        }
-
-        const response = await fetch(`${this.BACKEND_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: headers,
-          credentials: 'include' // 쿠키 포함
-        });
-
-        if (response.ok) {
-          console.log("✅ 백엔드 로그아웃 성공 - Refresh Token 무효화됨");
-        } else {
-          console.warn("⚠️ 백엔드 로그아웃 실패 (계속 진행):", response.status);
-        }
-      } catch (backendError) {
-        console.warn("⚠️ 백엔드 로그아웃 요청 실패 (계속 진행):", backendError);
-      }
-
-      // 2. 확장프로그램 로컬 Storage 클리어 (히스토리 수집 플래그도 함께 제거)
-      console.log("2️⃣ Chrome Storage 클리어 중...");
-      await chrome.storage.local.remove(["jwt", "refreshToken", "userInfo", "userId", "historyCollected"]);
-      console.log("✅ Chrome Storage 클리어 완료");
-
-      // 3. 메모리 세션 클리어
-      console.log("3️⃣ 메모리 세션 클리어 중...");
-      this.userId = null;
-      this.isAuthenticated = false;
-      this.userInfo = null;
-      this.jwt = null;
-      this.refreshToken = null;
-      console.log("✅ 메모리 세션 클리어 완료");
-
-      console.log("👋 완전 로그아웃 완료");
-      return { success: true, message: "로그아웃 완료" };
-    } catch (error) {
-      console.error("❌ 로그아웃 실패:", error);
-      return { success: false, message: error.message || "알 수 없는 오류" };
-    }
   }
 
   /**
@@ -401,176 +252,184 @@ export class UserSession {
     }
   }
 
+
+
   /**
-   * 백엔드 OAuth2 Flow를 통한 로그인 (새 탭 사용)
+   * Chrome Identity API를 사용한 Google OAuth2 로그인
    */
-  async performBackendOAuth2Login() {
+  async performIdentityLogin() {
     return new Promise((resolve, reject) => {
-      console.log("🌐 새 탭에서 백엔드 OAuth2 로그인 시작");
+      console.log("🔐 Chrome Identity API로 Google OAuth2 시작");
+      chrome.identity.getAuthToken({
+        interactive: true,
+        scopes: ['openid', 'email', 'profile']
+      }, async (token) => {
+        console.log("📥 Chrome Identity API Interactive 응답");
 
-      // 1. 백엔드 OAuth2 엔드포인트 URL 생성 (매번 계정 선택 강제)
-      const timestamp = Date.now();
-      const backendOAuthUrl = `${this.BACKEND_URL}/oauth2/authorization/google?prompt=select_account&state=${timestamp}`;
-      console.log("🔗 OAuth2 URL:", backendOAuthUrl);
-
-      let isCompleted = false;
-
-      // 2. Content Script와의 통신을 위한 메시지 리스너 등록
-      const messageListener = (message, sender, sendResponse) => {
-        if (message.type === 'OAUTH2_SUCCESS' && !isCompleted) {
-          console.log("✅ OAuth2 성공 메시지 수신:", message);
-          isCompleted = true;
-
-          // 리스너 제거
-          chrome.runtime.onMessage.removeListener(messageListener);
-
-          // 토큰으로 사용자 정보 조회 후 resolve
-          this.getUserInfoFromJwt(message.accessToken)
-            .then(userInfo => {
-              resolve({
-                success: true,
-                accessToken: message.accessToken,
-                refreshToken: message.refreshToken,
-                userInfo: userInfo
-              });
-            })
-            .catch(error => {
-              console.error("❌ 사용자 정보 조회 실패:", error);
-              reject(error);
-            });
+        if (chrome.runtime.lastError) {
+          console.warn("⚠️ getAuthToken Interactive 오류:", chrome.runtime.lastError);
+          resolve({ success: false, error: chrome.runtime.lastError.message });
+          return;
         }
-      };
 
-      chrome.runtime.onMessage.addListener(messageListener);
+        if (!token) {
+          console.error("❌ Interactive 모드에서 토큰을 받지 못함");
+          resolve({ success: false, error: "Google 로그인에서 토큰을 받지 못했습니다." });
+          return;
+        }
 
-      // 3. 새 탭에서 OAuth2 로그인 진행
-      chrome.tabs.create({ url: backendOAuthUrl }, (tab) => {
-        const tabId = tab.id;
+        try {
+          console.log("✅ Google access token 수신 (Interactive):", token.substring(0, 10) + "...");
 
-        // 4. 탭 닫힘 리스너 등록 - 사용자가 탭을 닫은 경우
-        const tabRemovedListener = (removedTabId) => {
-          if (removedTabId === tabId && !isCompleted) {
-            console.log("⚠️ 사용자가 OAuth2 탭을 닫음");
-            isCompleted = true;
-            chrome.runtime.onMessage.removeListener(messageListener);
-            chrome.tabs.onRemoved.removeListener(tabRemovedListener);
-            reject(new Error("사용자가 로그인을 취소했습니다."));
-          }
-        };
+          const result = await this.exchangeAccessTokenForJWT(token);
+          resolve(result);
 
-        chrome.tabs.onRemoved.addListener(tabRemovedListener);
-
-        // 5. 탭 업데이트 리스너로 OAuth2 완료 감지
-        const tabUpdateListener = (updatedTabId, changeInfo, updatedTab) => {
-          if (updatedTabId === tabId && changeInfo.url && !isCompleted) {
-            console.log("🔄 탭 URL 변경:", changeInfo.url);
-
-            // OAuth2 성공 페이지로 이동했는지 확인 (백엔드 성공 핸들러의 Extension 전용 페이지)
-            if (changeInfo.url.includes('/login/oauth2/code/google') &&
-                !changeInfo.url.includes('localhost:5173')) {
-              console.log("✅ OAuth2 성공 페이지 감지");
-              isCompleted = true;
-
-              // 리스너 정리
-              chrome.tabs.onUpdated.removeListener(tabUpdateListener);
-              chrome.tabs.onRemoved.removeListener(tabRemovedListener);
-              chrome.runtime.onMessage.removeListener(messageListener);
-
-              // 백엔드에서 토큰 조회
-              this.getTokensFromBackend()
-                .then(result => {
-                  chrome.tabs.remove(tabId);
-                  resolve(result);
-                })
-                .catch(error => {
-                  console.error("❌ 백엔드 토큰 조회 실패:", error);
-                  chrome.tabs.remove(tabId);
-                  reject(error);
-                });
-            }
-          }
-        };
-
-        chrome.tabs.onUpdated.addListener(tabUpdateListener);
-
-        // 6. 타임아웃 설정 (2분)
-        setTimeout(() => {
-          if (!isCompleted) {
-            console.log("⏰ OAuth2 로그인 타임아웃");
-            isCompleted = true;
-            chrome.runtime.onMessage.removeListener(messageListener);
-            chrome.tabs.remove(tabId);
-            chrome.tabs.onRemoved.removeListener(tabRemovedListener);
-            reject(new Error("로그인 타임아웃이 발생했습니다."));
-          }
-        }, 120000); // 2분
+        } catch (error) {
+          console.error("❌ OAuth2 처리 실패:", error);
+          resolve({ success: false, error: error?.message || "OAuth2 처리 실패" });
+        }
       });
     });
   }
 
   /**
-   * OAuth2 성공 URL인지 확인
+   * Chrome 로그인이 안된 경우 대체 방법: 웹 방식 OAuth2 (새 탭)
    */
-  isOAuth2SuccessUrl(url) {
-    // 백엔드에서 OAuth2 성공 후 리디렉션되는 URL 패턴들
-    const successPatterns = [
-      '/auth/oauth2/success',
-      '/login/oauth2/code/google',
-      // 백엔드에서 설정한 성공 페이지 패턴 추가
-    ];
+  async performWebOAuth2() {
+    return new Promise((resolve, reject) => {
+      console.log("🔐 Chrome 로그인 안됨 - 웹 방식 OAuth2 시작 (새 탭)");
 
-    return successPatterns.some(pattern => url.includes(pattern));
+      // 웹용 백엔드 OAuth2 엔드포인트 사용
+      const oauthUrl = `${this.BACKEND_URL}/oauth2/authorization/google`;
+
+      console.log("🔗 웹 OAuth2 URL:", oauthUrl);
+
+      // 새 탭에서 웹 방식 OAuth2 실행
+      chrome.tabs.create({ url: oauthUrl }, (tab) => {
+        console.log("📱 새 탭에서 웹 OAuth2 실행:", tab.id);
+
+        // 탭 업데이트 리스너로 토큰 수신 대기
+        const tabListener = (tabId, changeInfo, updatedTab) => {
+          if (tabId !== tab.id) return;
+
+          // 백엔드에서 성공 처리된 URL 감지
+          if (changeInfo.url && changeInfo.url.includes('oauth2/success')) {
+            console.log("✅ 웹 OAuth2 성공 감지:", changeInfo.url);
+
+            // URL에서 토큰 추출 시도
+            try {
+              const url = new URL(changeInfo.url);
+              const accessToken = url.searchParams.get('access_token') ||
+                                url.hash.match(/access_token=([^&]+)/)?.[1];
+
+              if (accessToken) {
+                console.log("✅ 웹 OAuth2 access token 수신:", accessToken.substring(0, 10) + "...");
+
+                // 리스너 제거 및 탭 닫기
+                chrome.tabs.onUpdated.removeListener(tabListener);
+                chrome.tabs.remove(tab.id);
+
+                // JWT 교환
+                this.exchangeAccessTokenForJWT(accessToken)
+                  .then(resolve)
+                  .catch(reject);
+              } else {
+                console.log("⚠️ 성공 URL에서 토큰을 찾을 수 없음");
+                resolve({ success: false, error: "토큰을 찾을 수 없습니다" });
+              }
+            } catch (error) {
+              console.error("❌ 웹 OAuth2 토큰 추출 실패:", error);
+              reject(error);
+            }
+          }
+        };
+
+        // 탭 업데이트 리스너 등록
+        chrome.tabs.onUpdated.addListener(tabListener);
+
+        // 타임아웃 설정 (2분)
+        setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(tabListener);
+          chrome.tabs.remove(tab.id).catch(() => {}); // 이미 닫혔을 수 있음
+          reject(new Error("웹 OAuth2 로그인 시간 초과"));
+        }, 120000);
+      });
+    });
   }
 
   /**
-   * OAuth2 성공 페이지에서 postMessage로 토큰 수신
+   * Google access token을 백엔드에서 JWT 토큰으로 교환
    */
-  async extractTokensFromSuccessUrl(url) {
-    return new Promise((resolve, reject) => {
-      console.log("🎫 OAuth2 성공 페이지에서 postMessage 대기 중:", url);
+  async exchangeAccessTokenForJWT(accessToken) {
+    console.log("🔄 백엔드에 Google access token 전달하여 JWT로 교환");
 
-      // postMessage 리스너 등록
-      const messageListener = async (event) => {
-        // 보안: 백엔드 도메인에서 온 메시지만 처리
-        if (!event.origin.includes(this.BACKEND_URL.replace('http://localhost:8080', 'localhost'))) {
-          console.log("⚠️ 신뢰할 수 없는 origin에서 온 메시지:", event.origin);
-          return;
-        }
+    try {
+      // 기존 /api/auth/google/login 엔드포인트 사용 (AccessToken 지원)
+      const response = await fetch(`${this.BACKEND_URL}/api/auth/google/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: accessToken,
+          source: "chrome_extension"
+        })
+      });
 
-        if (event.data && event.data.type === 'OAUTH2_SUCCESS') {
-          console.log("✅ OAuth2 성공 메시지 수신:", event.data);
+      console.log("📡 access token 교환 응답 상태:", response.status, response.statusText);
 
-          try {
-            // 사용자 정보 조회
-            const userInfo = await this.getUserInfoFromJwt(event.data.accessToken);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ access token 교환 HTTP 오류:", errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
 
-            // 리스너 제거
-            window.removeEventListener('message', messageListener);
+      const result = await response.json();
+      console.log("✅ access token → JWT 교환 성공:", result);
 
-            resolve({
-              success: true,
-              accessToken: event.data.accessToken,
-              refreshToken: event.data.refreshToken,
-              userInfo: userInfo
-            });
-          } catch (error) {
-            console.error("❌ 사용자 정보 조회 실패:", error);
-            window.removeEventListener('message', messageListener);
-            reject(error);
-          }
-        }
+      // 사용자 정보도 함께 조회
+      const userInfo = await this.fetchBackendUserInfo(result.data.accessToken);
+
+      return {
+        success: true,
+        accessToken: result.data.accessToken,
+        refreshToken: result.data.refreshToken,
+        userInfo: userInfo
       };
 
-      // 메시지 리스너 등록
-      window.addEventListener('message', messageListener);
-
-      // 타임아웃 설정 (30초)
-      setTimeout(() => {
-        window.removeEventListener('message', messageListener);
-        reject(new Error("OAuth2 메시지 수신 타임아웃"));
-      }, 30000);
-    });
+    } catch (error) {
+      console.error("❌ access token → JWT 교환 실패:", error);
+      throw error;
+    }
   }
+
+
+  /**
+   * JWT 토큰으로 백엔드에서 사용자 정보 가져오기
+   */
+  async fetchBackendUserInfo(accessToken) {
+    console.log("📤 백엔드에서 사용자 정보 조회 요청");
+
+    const response = await fetch(`${this.BACKEND_URL}/api/users/me`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    console.log("📡 사용자 정보 응답 상태:", response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ 사용자 정보 조회 오류:", errorText);
+      throw new Error(`사용자 정보 조회 실패: HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ 백엔드에서 사용자 정보 조회 성공:", result);
+
+    return result.data; // ApiResponse.data 구조
+  }
+
 
   /**
    * JWT 토큰으로부터 사용자 정보 조회
@@ -674,6 +533,8 @@ export class UserSession {
     }
   }
 
+  
+
   /**
    * 세션 완전 초기화
    */
@@ -689,7 +550,7 @@ export class UserSession {
       this.refreshToken = null;
 
       // 저장소 초기화
-      await chrome.storage.local.remove(['jwt', 'refreshToken', 'userInfo', 'userId']);
+      await chrome.storage.local.remove(['jwt', 'refreshToken', 'userInfo', 'userId', 'loginSuccess']);
 
       console.log("✅ 세션 초기화 완료");
     } catch (error) {
@@ -697,42 +558,4 @@ export class UserSession {
     }
   }
 
-  /**
-   * 백엔드에서 OAuth2 완료 후 쿠키로 토큰 조회
-   */
-  async getTokensFromBackend() {
-    try {
-      console.log("🔍 백엔드 쿠키에서 refresh token으로 JWT 조회 중...");
-
-      // 백엔드의 쿠키에 저장된 refresh token으로 새 JWT 발급
-      const response = await fetch(`${this.BACKEND_URL}/api/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include', // 쿠키 포함 (refresh token이 쿠키에 있음)
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const { accessToken, refreshToken } = result.data;
-
-        // 사용자 정보 조회
-        const userInfo = await this.getUserInfoFromJwt(accessToken);
-
-        console.log("✅ 쿠키 refresh token으로 JWT 조회 성공");
-        return {
-          success: true,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-          userInfo: userInfo
-        };
-      } else {
-        throw new Error(`HTTP ${response.status}: 쿠키 refresh token 조회 실패`);
-      }
-    } catch (error) {
-      console.error("❌ 백엔드 쿠키 토큰 조회 실패:", error);
-      throw error;
-    }
-  }
 }

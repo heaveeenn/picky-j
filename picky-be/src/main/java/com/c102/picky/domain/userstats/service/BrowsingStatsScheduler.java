@@ -26,6 +26,7 @@ public class BrowsingStatsScheduler {
     /**
      * 매일 자정에 통계 테이블 초기화
      */
+//    @Scheduled(cron = "0 45 9 * * *")
     @Scheduled(cron = "0 30 0 * * *") // 매일 00:30 실행
     @Transactional
     public void resetDailyStats() {
@@ -37,7 +38,6 @@ public class BrowsingStatsScheduler {
         log.info("==== 사용자 통계 테이블 초기화 완료 ====");
     }
 
-//    @Scheduled(cron = "0 */3 * * * *")
     @Scheduled(cron = "0 0 * * * *") //매 정각 실행
     public void runHourlyAggregation(){
         LocalDateTime now = LocalDateTime.now();
@@ -50,7 +50,7 @@ public class BrowsingStatsScheduler {
     /**
      * 매일 23:30에 전날 통계 집계 → DailyAggregateSummary 에 저장
      */
-//    @Scheduled(cron = "0 */5 * * * *")
+//    @Scheduled(cron = "0 43 9 * * *")
     @Scheduled(cron = "0 30 23 * * *") // 매일 23:30 실행
     @Transactional
     public void aggregateDailySummary() {

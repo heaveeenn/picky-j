@@ -79,12 +79,16 @@ const ActivityReport = () => {
         }
         
         if (categoryStatsData && categoryStatsData.length > 0) {
-          const sortedCategories = [...categoryStatsData].sort((a, b) => b.visitCount - a.visitCount);
+          const processedCategories = categoryStatsData.map(cat => ({
+            ...cat,
+            timeSpentSeconds: parseTimeToSeconds(cat.timeSpent)
+          }));
+          const sortedCategories = [...processedCategories].sort((a, b) => b.timeSpentSeconds - a.timeSpentSeconds);
           const top5Categories = sortedCategories.slice(0, 5);
           setCategoryStats(top5Categories);
 
-          const mostVisitedCat = sortedCategories[0] || { categoryName: '-' };
-          setMostActiveCategory(mostVisitedCat.categoryName);
+          const longestStayedCat = sortedCategories[0] || { categoryName: '-' };
+          setMostActiveCategory(longestStayedCat.categoryName);
         } else {
           setCategoryStats(mockData.categoryData);
           setMostActiveCategory(mockData.todayStats[3].value);
@@ -140,12 +144,12 @@ const ActivityReport = () => {
   const todayStats = [
     { title: '방문한 사이트 수', value: userStats?.totalSites || mockData.todayStats[0].value, icon: Globe },
     { title: '총 브라우징 시간', value: userStats?.totalTimeSpent ? formatTime(Math.round(parseTimeToSeconds(userStats.totalTimeSpent) / 60)) : '-', icon: Clock },
-    { title: '가장 오래 머문 사이트', value: mostVisitedSite, icon: Globe },
-    { title: '가장 많이 방문한 카테고리', value: mostActiveCategory, icon: TrendingUp }
+    { title: '가장 많이 방문한 사이트', value: mostVisitedSite, icon: Globe },
+    { title: '가장 오래 머문 카테고리', value: mostActiveCategory, icon: TrendingUp }
   ];
 
   const hasHourlyData = hourlyStats.some(stat => stat.timeSpentMinutes > 0);
-  const totalBrowsingTimeForMessage = userStats?.totalTimeSpent ? formatTime(Math.round(userStats.totalTimeSpent / 60)) : '데이터 없음';
+  const totalBrowsingTimeForMessage = userStats?.totalTimeSpent ? formatTime(Math.round(parseTimeToSeconds(userStats.totalTimeSpent) / 60)) : '데이터 없음';
 
   return (
     <div className="space-y-8">
@@ -196,15 +200,15 @@ const ActivityReport = () => {
         </Box>
 
         <Box>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">카테고리별 분포</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">카테고리별 머문 시간</h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={categoryStats} cx="50%" cy="50%" outerRadius={80} dataKey="visitCount" nameKey="categoryName" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={categoryStats} cx="50%" cy="50%" outerRadius={80} dataKey="timeSpentSeconds" nameKey="categoryName" label={({ name, value, percent }) => `${name} (${formatTime(Math.round(value / 60))}) ${(percent * 100).toFixed(0)}%`}>
                 {categoryStats.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value) => formatTime(Math.round(value / 60))} />
             </PieChart>
           </ResponsiveContainer>
         </Box>

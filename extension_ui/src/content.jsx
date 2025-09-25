@@ -95,85 +95,109 @@ function ensureAppContainer(shadowOrHost) {
 
 /**
  * SPA 라우팅 변화 감지
- * - popstate: 뒤로가기/앞으로가기
- * - pushState/replaceState: 프레임워크 라우팅
- * - MutationObserver: 극단적 상황 보조
  */
-function setupSpaObservers(onRouteChanged) {
-  // popstate
-  window.addEventListener('popstate', onRouteChanged);
-
-  // pushState/replaceState 래핑
-  const wrap = (type) => {
-    const orig = history[type];
-    if (typeof orig !== 'function') return;
-    history[type] = function wrappedState() {
-      const ret = orig.apply(this, arguments);
-      try { onRouteChanged(); } catch { /* empty */ }
-      return ret;
-    };
-  };
-  wrap('pushState');
-  wrap('replaceState');
-
-  // DOM 대규모 변경 보조 감시자
-  const mo = new MutationObserver(() => {
-    // 라우팅에 따라 최상단 컨테이너가 사라지는 경우 재보정 포인트로 사용 가능
-    // 필요 시 onRouteChanged 내부에서 상태 싱크를 수행한다.
-  });
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  return () => {
-    window.removeEventListener('popstate', onRouteChanged);
-    mo.disconnect();
-  };
-}
-
-/**
- * 오버레이 마운트
- */
-function mountOverlay() {
-  const host = ensureHost();
-
-  // 중복 마운트 방지: 이미 루트가 있으면 재마운트하지 않는다.
-  if (host.__PICKY_ROOT__) return;
-
-  const shadow = USE_SHADOW ? ensureShadowRoot(host) : null;
-  if (shadow) linkStylesToShadow(shadow);
-
-  const container = ensureAppContainer(shadow || host);
-  if (!container) return;
-
-  const root = ReactDOM.createRoot(container);
-  host.__PICKY_ROOT__ = root;
-
-  root.render(
-    <React.StrictMode>
-      <Overlay />
-    </React.StrictMode>
-  );
-
-  // 라우팅 변화 시 오버레이가 자체적으로 상태를 갱신할 수 있도록 커스텀 이벤트를 보낸다.
-  const teardownSpa = setupSpaObservers(() => {
+function setupSpaObservers(container) {
+  const onRouteChanged = () => {
     try {
       container.dispatchEvent(new CustomEvent('picky:route-changed', { bubbles: true }));
     } catch { /* empty */ }
+  };
+
+  window.addEventListener('popstate', onRouteChanged);
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function (...args) {
+    originalPushState.apply(this, args);
+    onRouteChanged();
+  };
+
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(this, args);
+    onRouteChanged();
+  };
+
+  // 정리 함수 반환
+  return () => {
+    window.removeEventListener('popstate', onRouteChanged);
+    history.pushState = originalPushState;
+    history.replaceState = originalReplaceState;
+  };
+}
+
+
+/**
+ * 오버레이를 마운트하거나 언마운트하는 함수
+ */
+function toggleOverlay(shouldMount) {
+  const host = ensureHost();
+  if (!host) return;
+
+  if (shouldMount) {
+    // 중복 마운트 방지
+    if (host.__PICKY_ROOT__) return;
+
+    const shadow = USE_SHADOW ? ensureShadowRoot(host) : null;
+    if (shadow) linkStylesToShadow(shadow);
+
+    const container = ensureAppContainer(shadow || host);
+    if (!container) return;
+
+    const root = ReactDOM.createRoot(container);
+    host.__PICKY_ROOT__ = root;
+    
+    // 라우팅 감지 시작 및 정리 함수 저장
+    host.__TEARDOWN_SPA__ = setupSpaObservers(container);
+
+    root.render(
+      <React.StrictMode>
+        <Overlay />
+      </React.StrictMode>
+    );
+    console.log('[Picky] Overlay mounted', { shadow: !!shadow });
+  } else {
+    // 언마운트
+    if (host.__PICKY_ROOT__) {
+      host.__PICKY_ROOT__.unmount();
+      host.__PICKY_ROOT__ = null;
+      // 라우팅 감지 정리
+      if (host.__TEARDOWN_SPA__) {
+        host.__TEARDOWN_SPA__();
+        host.__TEARDOWN_SPA__ = null;
+      }
+      console.log('[Picky] Overlay unmounted');
+    }
+  }
+}
+
+/**
+ * 스토리지 상태를 확인하고 오버레이 표시 여부를 결정하는 메인 함수
+ */
+function initialize() {
+  const hasChromeStorage = typeof chrome !== 'undefined' && chrome?.storage?.sync;
+  if (!hasChromeStorage) {
+    // 개발 환경 등에서는 항상 표시
+    toggleOverlay(true);
+    return;
+  }
+
+  // 초기 상태 확인
+  chrome.storage.sync.get(['isExtensionOn', 'isCharacterOn'], (settings) => {
+    const shouldShow = settings.isExtensionOn !== false && settings.isCharacterOn !== false;
+    toggleOverlay(shouldShow);
   });
 
-  // 확장 리로드 또는 탭 종료 시 정리
-  const cleanup = () => {
-    try {
-      teardownSpa?.();
-      root.unmount();
-      host.__PICKY_ROOT__ = null;
-    } catch { /* empty */ }
-  };
-  window.addEventListener('beforeunload', cleanup);
-
-  // 디버그 로그
-  // eslint-disable-next-line no-console
-  console.log('[Picky] Overlay mounted', { shadow: !!shadow });
+  // 스토리지 변경 감지
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync') {
+      // 현재 상태를 다시 읽어서 결정
+      chrome.storage.sync.get(['isExtensionOn', 'isCharacterOn'], (settings) => {
+        const shouldShow = settings.isExtensionOn !== false && settings.isCharacterOn !== false;
+        toggleOverlay(shouldShow);
+      });
+    }
+  });
 }
 
 // 실행
-onDomReady(mountOverlay);
+onDomReady(initialize);
