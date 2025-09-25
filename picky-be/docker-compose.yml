@@ -83,8 +83,10 @@ services:
 
 volumes:
   db_data:
+    external: true
     name: picky-be_db_data
   mongo_data:
+    external: true
     name: picky-be_mongo_data
 
 networks:
