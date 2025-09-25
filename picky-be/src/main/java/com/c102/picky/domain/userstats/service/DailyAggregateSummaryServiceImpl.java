@@ -27,6 +27,7 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
     private final DailyAggregateSummaryRepository dailyAggregateSummaryRepository;
     private final UserDomainStatsRepository userDomainStatsRepository;
     private final UserCategoryStatsRepository userCategoryStatsRepository;
+    private final CategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
     @Override
@@ -41,10 +42,13 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
     @Transactional(readOnly = true)
     @Override
     public List<CategorySummaryDto> getCategorySummary() {
-        // 1. 모든 사용자-카테고리 통계 불러오기
+        // 1. 모든 카테고리 가져오기
+        List<Category> allCategories = categoryRepository.findAll();
+
+        // 2. 모든 사용자-카테고리 통계 불러오기
         List<UserCategoryStats> allStats = userCategoryStatsRepository.findAll();
 
-        // 2. 사용자별 대표 카테고리(timeSpent 기준)
+        // 3. 사용자별 대표 카테고리(timeSpent 기준)
         Map<Long, UserCategoryStats> topCategoriesByUser = allStats.stream()
                 .collect(Collectors.groupingBy(
                         s -> s.getUser().getId(),
@@ -54,7 +58,7 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
                         )
                 ));
 
-        // 3. 대표 카테고리별 사용자 id 묶기 (Category 자체를 key로)
+        // 4. 대표 카테고리별 사용자 id 묶기
         Map<Category, List<Long>> usersByCategory = new HashMap<>();
         for (UserCategoryStats stat : topCategoriesByUser.values()) {
             usersByCategory
@@ -62,11 +66,10 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
                     .add(stat.getUser().getId());
         }
 
-        // 4. 카테고리별 도메인 방문 합산 후 Top 5 추출
+        // 5. 카테고리별 도메인 방문 합산 후 Top 5 추출
         List<CategorySummaryDto> result = new ArrayList<>();
-        for (Map.Entry<Category, List<Long>> entry : usersByCategory.entrySet()) {
-            Category category = entry.getKey();
-            List<Long> userIds = entry.getValue();
+        for (Category category : allCategories) {
+            List<Long> userIds = usersByCategory.getOrDefault(category, Collections.emptyList());
 
             Map<String, Long> domainCountMap = new HashMap<>();
             for (Long userId : userIds) {
@@ -82,6 +85,7 @@ public class DailyAggregateSummaryServiceImpl implements DailyAggregateSummarySe
                     .map(e -> DomainSummaryDto.of(e.getKey(), e.getValue()))
                     .toList();
 
+            // 도메인 데이터가 없어도 빈 리스트 반환
             result.add(new CategorySummaryDto(category.getName(), topDomains));
         }
 
