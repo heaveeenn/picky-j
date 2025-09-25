@@ -180,10 +180,13 @@ function App() {
     const response = await sendMessage({ type: "GOOGLE_LOGIN" });
     if (response && response.success) {
       await checkAuthStatus(); // 로그인 성공 후 상태 즉시 갱신
-    } else {
+      setIsLoggingIn(false);
+    } else if (response) {
+      // 실제 응답이 왔을 때만 실패 처리
       setLoginError(response?.error || "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      setIsLoggingIn(false);
     }
-    setIsLoggingIn(false);
+    // response가 null이면 아무것도 안 함 (로딩 유지)
   }, [isLoggingIn]);
 
   const handleGoToDashboard = useCallback(() => {
