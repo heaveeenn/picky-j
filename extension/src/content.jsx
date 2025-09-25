@@ -19,14 +19,27 @@ const USE_SHADOW = true; // Shadow DOM 사용 여부
 // --- [기존] Service Worker 활성화 로직 ---
 let autoLoginTriggered = false;
 async function triggerServiceWorkerAndCheckSession() {
-  if (autoLoginTriggered) return;
+  if (autoLoginTriggered) {
+    console.log("🔄 자동 로그인 이미 트리거됨 - 스킵");
+    return;
+  }
+
   try {
+    console.log("🔄 Service Worker 활성화 및 세션 체크 시작");
     autoLoginTriggered = true;
-    await chrome.runtime.sendMessage({
+
+    const response = await chrome.runtime.sendMessage({
       type: 'TRIGGER_AUTO_LOGIN',
       source: 'content_script',
       url: window.location.href
     });
+
+    if (response && response.success) {
+      console.log("✅ Service Worker 활성화 및 자동 로그인 완료");
+    } else {
+      console.log("ℹ️ Service Worker 활성화됨, 자동 로그인 상태:", response);
+    }
+
   } catch (error) {
     console.log("ℹ️ Service Worker 통신 실패 (정상일 수 있음):", error.message);
   }
@@ -161,11 +174,15 @@ function initialize() {
 
   // 2. 데이터 수집기 생성 및 이벤트 리스너 등록 (기존 로직)
   dataCollector = new DataCollector();
-  const waitForInitialization = () => {
+
+  const waitForInitialization = async () => {
     if (dataCollector && dataCollector.isInitialized) {
-      window.addEventListener("beforeunload", () => {
-        const data = dataCollector.collectData();
+      // beforeunload 이벤트 등록
+      window.addEventListener("beforeunload", async () => {
+        console.log('📊 데이터 수집 시작');
+        const data = await dataCollector.collectData();
         if (data) {
+          console.log('📤 데이터 전송');
           sendMessageToBackground({ type: "BROWSING_DATA", data: data });
         }
       });
@@ -197,10 +214,12 @@ function initialize() {
   });
 }
 
+
 // --- 실행 ---
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
   console.log("🚀 통합 Content script 시작:", window.location.href);
   onDomReady(initialize);
+
 } else {
   console.warn("⚠️ Extension context 없음 - Content script 초기화 중단");
 }

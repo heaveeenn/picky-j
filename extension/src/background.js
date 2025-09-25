@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = {
  */
 async function ensureDefaults() {
   try {
+    // 기본값 설정
     const keys = Object.keys(DEFAULT_SETTINGS);
     const current = await chrome.storage.sync.get(keys);
 
@@ -53,7 +54,6 @@ async function ensureDefaults() {
 }
 // --- [추가] UI 설정 관련 끝 ---
 
-
 import { DataSender } from "./modules/DataSender.js";
 import { UserSession } from "./modules/UserSession.js";
 import { HistoryCollector } from "./modules/HistoryCollector.js";
@@ -65,6 +65,38 @@ const dataSender = new DataSender();
 const userSession = new UserSession();
 initApi(userSession); // 인증 API 모듈 초기화
 const historyCollector = new HistoryCollector(userSession);
+
+/**
+ * 사용자 설정 조회 함수
+ */
+async function fetchUserSettings() {
+  try {
+    const response = await fetch('http://localhost:8080/api/users/me/settings', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userSession.jwt}`
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const apiResponse = await response.json();
+
+    // ApiResponse 형태: { success: boolean, message: string, data: UserSettingsResponseDto }
+    if (apiResponse.success && apiResponse.data) {
+      return apiResponse.data;
+    } else {
+      throw new Error(apiResponse.message || 'Invalid response format');
+    }
+  } catch (error) {
+    console.error('사용자 설정 조회 실패:', error);
+    return null;
+  }
+}
 
 // Service Worker 재시작시 세션 자동 복원
 (async () => {
@@ -122,7 +154,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     }
 
     // 2. 토글 상태 확인 (Chrome Storage에서)
-    // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
     const settings = await chrome.storage.sync.get(["isExtensionOn"]);
     const isTrackingEnabled = settings.isExtensionOn !== false;
 
@@ -132,7 +163,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       return;
     }
 
-    // 3. 사용자 ID와 함께 데이터를 큐에 추가
+    // 3. 도메인 차단 상태 확인
+    const userSettings = await fetchUserSettings();
+    if (userSettings && userSettings.blockedDomains) {
+      const currentDomain = new URL(message.data.url).hostname;
+      const isBlocked = userSettings.blockedDomains.some(blockedDomain => {
+        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+      });
+
+      if (isBlocked) {
+        console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
+        sendResponse({ success: false, reason: "Domain blocked" });
+        return;
+      }
+    }
+
+    // 4. 사용자 ID와 함께 데이터를 큐에 추가
     dataSender.addToQueue(message.data, userId);
     console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
 
@@ -260,6 +306,32 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     // 이 메시지는 offscreen.js에서 처리됨
     // background.js에서는 단순히 전달만
     return false;
+  }
+
+  // 차단된 도메인 확인 (DataCollector에서)
+  if (message.type === "CHECK_BLOCKED_DOMAIN") {
+    try {
+      // 사용자 설정 조회
+      const userSettings = await fetchUserSettings();
+      if (!userSettings || !userSettings.blockedDomains) {
+        sendResponse({ success: true, blocked: false });
+        return;
+      }
+
+      // 도메인 체크
+      const currentDomain = new URL(message.url).hostname;
+      const isBlocked = userSettings.blockedDomains.some(blockedDomain => {
+        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+      });
+
+      console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
+      sendResponse({ success: true, blocked: isBlocked });
+
+    } catch (error) {
+      console.error("❌ 도메인 체크 실패:", error);
+      sendResponse({ success: false, blocked: false, error: error.message });
+    }
+    return true; // async 처리를 위해 true 반환
   }
 
   // --- [추가] UI 관련 메시지 핸들러 ---

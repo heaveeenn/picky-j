@@ -136,8 +136,26 @@ function App() {
 
     // Storage 변경사항 실시간 감지
     const handleStorageChange = (changes, area) => {
-      if (area === "local" && changes.userInfo) {
-        checkAuthStatus();
+      if (area === "local") {
+        // 로그인 성공 감지
+        if (changes.loginSuccess && changes.loginSuccess.newValue) {
+          console.log("🔔 Storage에서 로그인 성공 감지!");
+          checkAuthStatus();
+          // loginSuccess 플래그 제거
+          chrome.storage.local.remove(["loginSuccess"]);
+
+          // 로그인 대기 중인 콜백 실행
+          if (window.loginSuccessCallback) {
+            window.loginSuccessCallback();
+            window.loginSuccessCallback = null;
+          }
+        }
+
+        // 사용자 정보 변경 감지
+        if (changes.userInfo) {
+          console.log("🔔 사용자 정보 변경 감지");
+          checkAuthStatus();
+        }
       }
       if (area === "sync") {
         if (changes.isExtensionOn) setIsExtensionOn(changes.isExtensionOn.newValue);
@@ -175,30 +193,71 @@ function App() {
   // --- [추가] Google 로그인 핸들러 (from extension) ---
   const handleGoogleLogin = useCallback(async () => {
     if (isLoggingIn) return;
+
     setIsLoggingIn(true);
     setLoginError("");
-    const response = await sendMessage({ type: "GOOGLE_LOGIN" });
-    if (response && response.success) {
-      await checkAuthStatus(); // 로그인 성공 후 상태 즉시 갱신
-      setIsLoggingIn(false);
-    } else if (response) {
-      // 실제 응답이 왔을 때만 실패 처리
-      setLoginError(response?.error || "로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
-      setIsLoggingIn(false);
+
+    try {
+      const response = await sendMessage({ type: "GOOGLE_LOGIN" });
+
+      if (response && response.success) {
+        console.log("✅ 즉시 로그인 응답 성공");
+        setIsAuthenticated(true);
+        setUserInfo(response.userInfo);
+        setLoginError("");
+        // loadToggleState()는 src2에서 isExtensionOn으로 대체되므로 호출하지 않음
+        setIsLoggingIn(false);
+        return;
+      }
+
+      if (response && response.error) {
+        console.log("❌ 즉시 로그인 응답 실패:", response.error);
+        setLoginError(response.error);
+        setIsLoggingIn(false);
+        return;
+      }
+
+      console.log("ℹ️ 로그인 응답 없음, Storage 이벤트 대기 중...");
+
+      const loginTimeout = setTimeout(() => {
+        console.log("⏰ 로그인 타임아웃");
+        setLoginError("로그인 시간이 초과되었습니다. 다시 시도해주세요.");
+        setIsLoggingIn(false);
+      }, 10000);
+
+      const originalLoginSuccess = window.loginSuccessCallback;
+      window.loginSuccessCallback = () => {
+        console.log("✅ Storage 이벤트로 로그인 성공 감지");
+        clearTimeout(loginTimeout);
+        setIsLoggingIn(false);
+        if (originalLoginSuccess) originalLoginSuccess();
+      };
+    } catch (error) {
+      if (error?.message?.includes("message port closed")) {
+        console.log("ℹ️ Message port closed - Storage 이벤트 대기 중...");
+
+        const loginTimeout = setTimeout(() => {
+          console.log("⏰ 로그인 타임아웃 (port closed)");
+          setLoginError("로그인 시간이 초과되었습니다. 다시 시도해주세요.");
+          setIsLoggingIn(false);
+        }, 10000);
+
+        window.loginSuccessCallback = () => {
+          console.log("✅ Storage 이벤트로 로그인 성공 감지 (port closed 후)");
+          clearTimeout(loginTimeout);
+          setIsLoggingIn(false);
+        };
+      } else {
+        console.error("로그인 요청 실패:", error);
+        setLoginError("로그인 중 오류가 발생했습니다.");
+        setIsLoggingIn(false);
+      }
     }
-    // response가 null이면 아무것도 안 함 (로딩 유지)
-  }, [isLoggingIn]);
+  }, [isLoggingIn, sendMessage, checkAuthStatus]);
 
   const handleGoToDashboard = useCallback(() => {
     if (chrome?.tabs) chrome.tabs.create({ url: 'http://localhost:5173/' });
   }, []);
-
-  // --- [추가] 프로필 이미지 경로 처리 ---
-  const getProfileImageUrl = (path) => {
-    if (!path) return ''; // 경로가 없으면 빈 문자열 반환
-    if (path.startsWith('http')) return path; // 이미 절대 경로이면 그대로 반환
-    return `${BACKEND_URL}${path}`; // 상대 경로이면 BACKEND_URL과 조합
-  };
 
   /* ---------------------------------------------------------------------------
    * [통합] 렌더링
@@ -228,12 +287,11 @@ function App() {
         {isAuthenticated ? (
           <Fragment>
             {/* 로그인됨 UI */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-2">
-                <img src={getProfileImageUrl(userInfo?.profileImage)} alt="profile" className="w-8 h-8 rounded-full" />
+                <img src={userInfo?.profileImage} alt="profile" className="w-8 h-8 rounded-full" />
                 <span className="text-sm font-medium">{userInfo?.nickname}님</span>
               </div>
-              <Badge className="bg-green-100 text-green-700">로그인됨</Badge>
             </div>
 
             {/* 확장프로그램 토글 */}
