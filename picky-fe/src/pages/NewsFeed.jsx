@@ -144,7 +144,7 @@ const NewsFeed = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-600">총 읽은 뉴스</p>
-                <p className="text-lg font-semibold text-purple-700">{newsStats.totalNewsViewed}개</p>
+                <p className="text-lg font-semibold text-primary">{newsStats.totalNewsViewed}개</p>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={120}>

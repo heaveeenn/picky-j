@@ -28,6 +28,7 @@ const ActivityReport = () => {
   const [domainStats, setDomainStats] = useState(mockData.domainStats);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCollecting, setIsCollecting] = useState(false);
   const [mostActiveCategory, setMostActiveCategory] = useState(mockData.todayStats[3].value);
   const [mostVisitedSite, setMostVisitedSite] = useState(mockData.todayStats[2].value);
   const [userVsAverageStats, setUserVsAverageStats] = useState(null); // New state variable
@@ -45,28 +46,31 @@ const ActivityReport = () => {
     const fetchAllStats = async () => {
       try {
         setLoading(true);
+        setError(null);
+        setIsCollecting(false);
+
         const [
           userStatsRes,
           hourlyStatsRes,
           categoryStatsRes,
           domainStatsRes,
-          userVsAverageRes // New API call
+          userVsAverageRes
         ] = await Promise.all([
           api.get('/api/dashboard/userstats'),
           api.get('/api/dashboard/userstats/hourly'),
           api.get('/api/dashboard/userstats/categories'),
           api.get('/api/dashboard/userstats/domains'),
-          api.get('/api/dashboard/userstats/summary') // New API call
+          api.get('/api/dashboard/userstats/summary')
         ]);
 
         const userStatsData = userStatsRes.data;
         const hourlyStatsData = hourlyStatsRes.data;
         const categoryStatsData = categoryStatsRes.data;
         const domainStatsData = domainStatsRes.data;
-        const userVsAverageData = userVsAverageRes.data; // New: Get data from response
+        const userVsAverageData = userVsAverageRes.data;
 
         setUserStats(userStatsData);
-        setUserVsAverageStats(userVsAverageData); // New: Set userVsAverageStats
+        setUserVsAverageStats(userVsAverageData);
         
         if (hourlyStatsData && hourlyStatsData.length > 0) {
           const processedHourlyStats = hourlyStatsData.map(stat => ({
@@ -104,10 +108,13 @@ const ActivityReport = () => {
           setMostVisitedSite(mockData.todayStats[2].value);
         }
         
-        setError(null);
       } catch (err) {
-        console.error("Failed to fetch stats:", err);
-        setError("데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+        if (err.response && err.response.status === 404) {
+          setIsCollecting(true);
+        } else {
+          console.error("Failed to fetch stats:", err);
+          setError("데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
       } finally {
         setLoading(false);
       }
@@ -119,7 +126,17 @@ const ActivityReport = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
-        <Loader className="w-12 h-12 animate-spin text-purple-600" />
+        <Loader className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isCollecting) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 bg-blue-50 p-4 rounded-lg">
+        <Clock className="w-12 h-12 text-blue-500 mb-4" />
+        <h3 className="text-xl font-semibold text-blue-700">데이터 집계 중</h3>
+        <p className="text-blue-600">오늘의 활동 리포트를 준비하고 있습니다. 잠시 후 다시 확인해주세요.</p>
       </div>
     );
   }
@@ -193,7 +210,7 @@ const ActivityReport = () => {
               <p className="text-center">
                 아직 시간대별 활동 데이터가 충분히 수집되지 않았습니다.<br/>
                 활동을 시작하면 여기에 패턴이 표시됩니다.<br/>
-                현재까지의 총 브라우징 시간은 <span className="font-bold text-purple-600">{totalBrowsingTimeForMessage}</span>입니다.
+                현재까지의 총 브라우징 시간은 <span className="font-bold text-primary">{totalBrowsingTimeForMessage}</span>입니다.
               </p>
             </div>
           )}
@@ -219,12 +236,16 @@ const ActivityReport = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">상위 방문 사이트</h3>
           <div className="space-y-3">
             {domainStats.slice(0, 5).map((site, index) => (
-              <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
-                <div>
-                  <div className="font-semibold">{site.domain}</div>
-                  <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
+              <div key={site.domain} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <div className="font-semibold">{site.domain}</div>
+                    <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
+                  </div>
                 </div>
-                <div className="text-lg font-bold text-purple-600">#{index + 1}</div>
               </div>
             ))}
           </div>
@@ -234,35 +255,35 @@ const ActivityReport = () => {
 
       <Box>
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          <Users className="w-5 h-5 mr-2 text-purple-600" />
+          <Users className="w-5 h-5 mr-2 text-primary" />
           평균 대비 내 활동
         </h3>
         <div className="space-y-6">
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 브라우징 시간</span>
-              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
+              <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+              <div className="bg-primary h-2 rounded-full" style={{ width: '65%' }}></div>
             </div>
           </div>
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">일일 방문 사이트</span>
-              <span className="text-gray-600"><span className="text-purple-600">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
+              <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>
+              <div className="bg-primary h-2 rounded-full" style={{ width: '62%' }}></div>
             </div>
           </div>
           <div>
             <div className="flex justify-between text-sm mb-3">
               <span className="text-gray-600">스크랩 활동</span>
-              <span className="text-gray-600">평균보다 <span className="text-purple-600">23% 많음</span></span>
+              <span className="text-gray-600">평균보다 <span className="text-primary">23% 많음</span></span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '73%' }}></div>
+              <div className="bg-primary h-2 rounded-full" style={{ width: '73%' }}></div>
             </div>
           </div>
         </div>

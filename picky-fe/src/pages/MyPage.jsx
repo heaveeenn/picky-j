@@ -219,12 +219,10 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
             <Button
               onClick={() => setActiveTab('profile')}
               variant="ghost"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'profile'
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
+                            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                              activeTab === 'profile' ? 'border-primary text-primary'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                              }`}            >
               <User className="w-4 h-4 mr-2" />프로필
             </Button>
             <Button
@@ -232,7 +230,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
               variant="ghost"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'scraps'
-                  ? 'border-purple-500 text-purple-600'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -249,7 +247,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
                 {profileImage ? (
                   <img src={profileImage} alt="Profile" className="w-20 h-20 rounded-full" />
                 ) : (
-                  <div className="w-20 h-20 bg-purple-500 rounded-full flex items-center justify-center text-white text-3xl font-bold">{nickname.charAt(0)}</div>
+                  <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold">{nickname.charAt(0)}</div>
                 )}
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
@@ -259,10 +257,10 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
             </Box>
 
             <Box>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Palette className="w-5 h-5 mr-2 text-purple-600" />캐릭터 선택</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Palette className="w-5 h-5 mr-2 text-primary" />캐릭터 선택</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {characterOptions.map(char => (
-                  <div key={char.id} onClick={() => setSelectedCharacter(char.id)} className={`p-4 border-2 rounded-lg cursor-pointer text-center transition-all ${selectedCharacter === char.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-200'}`}>
+                  <div key={char.id} onClick={() => setSelectedCharacter(char.id)} className={`p-4 border-2 rounded-lg cursor-pointer text-center transition-all ${selectedCharacter === char.id ? 'border-primary bg-primary' : 'border-gray-200 hover:border-primary'}`}>
                     <div className="text-3xl mb-2">{char.emoji}</div>
                     <div className="text-sm font-medium">{char.name}</div>
                   </div>
@@ -273,7 +271,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
             <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bell className="w-5 h-5 mr-2 text-blue-600" />알림 설정</h3>
               <div className="flex items-center mb-4">
-                  <input type="checkbox" id="notifyEnabled" checked={notifyEnabled} onChange={() => setNotifyEnabled(prev => !prev)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <input type="checkbox" id="notifyEnabled" checked={notifyEnabled} onChange={() => setNotifyEnabled(prev => !prev)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
                   <label htmlFor="notifyEnabled" className="ml-2 block text-sm text-gray-900">알림 활성화</label>
               </div>
               <label className="block text-sm font-medium text-gray-700 mb-2">알림 간격: {notificationInterval}분</label>
@@ -284,15 +282,15 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bell className="w-5 h-5 mr-2 text-blue-600" />팝업 설정</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="flex items-center">
-                  <input type="checkbox" id="popupNews" checked={popupSettings.news} onChange={() => setPopupSettings(prev => ({ ...prev, news: !prev.news }))} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <input type="checkbox" id="popupNews" checked={popupSettings.news} onChange={() => setPopupSettings(prev => ({ ...prev, news: !prev.news }))} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
                   <label htmlFor="popupNews" className="ml-2 block text-sm text-gray-900">뉴스</label>
                 </div>
                 <div className="flex items-center">
-                  <input type="checkbox" id="popupQuiz" checked={popupSettings.quiz} onChange={() => setPopupSettings(prev => ({ ...prev, quiz: !prev.quiz }))} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <input type="checkbox" id="popupQuiz" checked={popupSettings.quiz} onChange={() => setPopupSettings(prev => ({ ...prev, quiz: !prev.quiz }))} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
                   <label htmlFor="popupQuiz" className="ml-2 block text-sm text-gray-900">퀴즈</label>
                 </div>
                 <div className="flex items-center">
-                  <input type="checkbox" id="popupKnowledge" checked={popupSettings.fact} onChange={() => setPopupSettings(prev => ({ ...prev, fact: !prev.fact }))} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <input type="checkbox" id="popupKnowledge" checked={popupSettings.fact} onChange={() => setPopupSettings(prev => ({ ...prev, fact: !prev.fact }))} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
                   <label htmlFor="popupKnowledge" className="ml-2 block text-sm text-gray-900">지식</label>
                 </div>
               </div>
@@ -303,7 +301,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center">
-                    <input type="checkbox" id={`cat-${cat.id}`} checked={cat.checked} onChange={() => handleCategoryChange(cat.id)} className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                    <input type="checkbox" id={`cat-${cat.id}`} checked={cat.checked} onChange={() => handleCategoryChange(cat.id)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
                     <label htmlFor={`cat-${cat.id}`} className="ml-2 block text-sm text-gray-900">{cat.label}</label>
                   </div>
                 ))}
@@ -334,20 +332,19 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
 
         {activeTab === 'scraps' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {scrapsLoading && (newsPage === 0 && quizPage === 0) ? (
-              <div className="col-span-2 flex justify-center items-center h-64">
-                <Loader className="w-12 h-12 animate-spin text-purple-600" />
-              </div>
-            ) : scrapsError ? (
-              <div className="col-span-2 flex flex-col justify-center items-center h-64 bg-red-50 p-4 rounded-lg">
-                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                <h3 className="text-xl font-semibold text-red-700">오류 발생</h3>
-                <p className="text-red-600">{scrapsError}</p>
-              </div>
-            ) : (
-              <>
+    {scrapsLoading && newsPage === 0 && quizPage === 0 ? (
+  <div className="flex justify-center items-center h-96">
+    <Loader className="w-12 h-12 animate-spin text-primary" />
+  </div>
+) : scrapsError ? (
+  <div className="col-span-2 flex flex-col justify-center items-center h-64 bg-red-50 p-4 rounded-lg">
+    <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+    <h3 className="text-xl font-semibold text-red-700">오류 발생</h3>
+  </div>
+) : (
+  <>
                 <Box>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Bookmark className="w-5 h-5 mr-2 text-purple-600" />스크랩한 뉴스</h3>
+          <Bookmark className="w-5 h-5 mr-2 text-primary" />스크랩한 뉴스
                   <div className="flex space-x-2 mb-4">
                     <input
                       type="text"
