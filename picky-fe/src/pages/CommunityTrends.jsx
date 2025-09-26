@@ -8,42 +8,69 @@ import api from '../lib/api';
 
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1', '#ec4899'];
 
-const trendingTopics = [
-  { rank: 1, topic: 'AI 및 머신러닝', growth: '+45%', category: '기술' },
-  { rank: 2, topic: 'React 19 업데이트', growth: '+38%', category: '개발' },
-  { rank: 3, topic: 'UI/UX 트렌드 2024', growth: '+32%', category: '디자인' },
-  { rank: 4, topic: 'TypeScript 베스트 프랙티스', growth: '+28%', category: '개발' },
-  { rank: 5, topic: '웹 접근성 가이드라인', growth: '+25%', category: '웹표준' }
-];
-
 const CommunityTrends = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [allCategoriesTopDomains, setAllCategoriesTopDomains] = useState([]); // Stores API response
   const [displayedTopSites, setDisplayedTopSites] = useState([]); // Top 5 sites to display
   const [categoryDistributionData, setCategoryDistributionData] = useState([]);
   const [summaryData, setSummaryData] = useState(null);
+  const [trendingNews, setTrendingNews] = useState([]); // New state for trending news
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCollecting, setIsCollecting] = useState(false); // 데이터 수집 중 상태
 
-  const getChangeColor = (change) => {
-    if (change.startsWith('+')) return 'text-green-600';
-    if (change.startsWith('-')) return 'text-red-600';
-    return 'text-gray-500';
+  const handleViewNews = async (newsId, newsUrl) => {
+    try {
+      await api.post(`/api/dashboard/news/${newsId}/view`);
+      window.open(newsUrl, '_blank');
+    } catch (error) {
+      console.error(`뉴스 조회 기록에 실패했습니다: ${newsId}`, error);
+      window.open(newsUrl, '_blank'); // 에러 발생 시에도 뉴스 링크는 열어줍니다.
+    }
+  };
+
+  const parseTimeToSeconds = (timeString) => {
+    if (!timeString || typeof timeString !== 'string') return 0;
+    const parts = timeString.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    return 0;
+  };
+
+  const formatTime = (minutes) => {
+    if (minutes < 60) return `${minutes}분`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}시간 ${mins}분`;
+  };
+
+  const formatActiveHourRange = (activeHourString) => {
+    if (!activeHourString || typeof activeHourString !== 'string') return 'N/A';
+    const hour = parseInt(activeHourString.substring(0, 2), 10);
+    const startHour = (hour === 0) ? 23 : hour - 1;
+    const endHour = hour;
+    return `${startHour}시~${endHour}시`;
   };
 
   const fetchAllStats = async () => {
     try {
       setLoading(true);
+      setError(null);
+      setIsCollecting(false);
+      
       const [
         visitShareRes,
         summaryRes,
-        categoriesSummaryRes // New API call
+        categoriesSummaryRes,
+        trendingNewsRes
       ] = await Promise.all([
         api.get('/api/dashboard/userstats/categories/visit-share'),
         api.get('/api/dashboard/summary'),
-        api.get('/api/dashboard/categories/summary') // New API call
+        api.get('/api/dashboard/categories/summary'),
+        api.get('/api/dashboard/news/trending')
       ]);
-
+      
       // Process category distribution data
       const visitShareData = visitShareRes.data;
       if (visitShareData && visitShareData.length > 0) {
@@ -53,19 +80,18 @@ const CommunityTrends = () => {
       } else {
         setCategoryDistributionData([]);
       }
-
+      
       // Process aggregate summary data
       if (summaryRes.data) {
         setSummaryData(summaryRes.data);
       } else {
         setSummaryData(null);
       }
-
+      
       // Process categories summary data
       const categoriesSummaryData = categoriesSummaryRes.data;
       if (categoriesSummaryData && categoriesSummaryData.length > 0) {
         setAllCategoriesTopDomains(categoriesSummaryData);
-        // Initialize displayedTopSites with '전체' (aggregated) data
         const allDomainsMap = new Map();
         categoriesSummaryData.forEach(category => {
           category.topDomains.forEach(domain => {
@@ -81,10 +107,20 @@ const CommunityTrends = () => {
         setAllCategoriesTopDomains([]);
         setDisplayedTopSites([]);
       }
-
+      
+      // Process trending news data
+      if (trendingNewsRes.data && trendingNewsRes.data.data) {
+        setTrendingNews(trendingNewsRes.data.data);
+      } else {
+        setTrendingNews([]);
+      }
     } catch (err) {
-      console.error("Failed to fetch community data:", err);
-      setError("커뮤니티 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+      if (err.response && err.response.status === 404) {
+        setIsCollecting(true);
+      } else {
+        console.error("Failed to fetch community data:", err);
+        setError("커뮤니티 데이터를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.");
+      }
     } finally {
       setLoading(false);
     }
@@ -118,7 +154,17 @@ const CommunityTrends = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
-        <Loader className="w-12 h-12 animate-spin text-purple-600" />
+        <Loader className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isCollecting) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 bg-blue-50 p-4 rounded-lg">
+        <Clock className="w-12 h-12 text-blue-500 mb-4" />
+        <h3 className="text-xl font-semibold text-blue-700">데이터 집계 중</h3>
+        <p className="text-blue-600">오늘의 커뮤니티 트렌드를 열심히 분석하고 있습니다. 잠시 후 다시 확인해주세요.</p>
       </div>
     );
   }
@@ -136,13 +182,13 @@ const CommunityTrends = () => {
   const communityInsights = [
     {
       title: '가장 활발한 시간대',
-      value: summaryData ? summaryData.activeHour.substring(0, 5) : 'N/A',
+      value: summaryData ? formatActiveHourRange(summaryData.activeHour) : 'N/A',
       description: '',
       icon: Users,
     },
     {
       title: '평균 브라우징 시간',
-      value: summaryData ? summaryData.avgBrowsingTime.substring(0, 5) : 'N/A',
+      value: summaryData ? formatTime(Math.round(parseTimeToSeconds(summaryData.avgBrowsingTime) / 60)) : 'N/A',
       description: '',
       icon: TrendingUp,
     },
@@ -161,8 +207,6 @@ const CommunityTrends = () => {
   })) : [
     { name: '데이터 없음', value: 100, color: '#d1d5db' },
   ];
-
-
 
   return (
     <div className="space-y-8">
@@ -187,12 +231,12 @@ const CommunityTrends = () => {
       </div>
 
       <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-purple-600" />카테고리별 인기 사이트 TOP 5</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-primary" />카테고리별 인기 사이트 TOP 5</h3>
         <div className="flex justify-end mb-4">
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md"
+            className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
           >
             <option value="전체">전체</option>
             {allCategoriesTopDomains.map(cat => (
@@ -205,17 +249,16 @@ const CommunityTrends = () => {
             displayedTopSites.map((site, index) => (
               <div key={site.domain} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white bg-purple-500 font-bold">{index + 1}</div>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white bg-primary font-bold">{index + 1}</div>
                   <div>
                     <h4 className="font-semibold">{site.domain}</h4>
                     <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
                   </div>
                 </div>
-                <div className="text-lg font-bold text-purple-600">#{index + 1}</div>
               </div>
             ))
           ) : (
-            <div className="text-center p-4 text-gray-500">데이터가 없습니다.</div>
+            <div className="text-center p-4 text-gray-500">데이터를 수집 중 입니다. 잠시만 기다려 주세요</div>
           )}
         </div>
       </Box>
@@ -242,28 +285,35 @@ const CommunityTrends = () => {
         </div>
       </Box>
 
-
-
       <Box>
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          <TrendingUp className="w-5 h-5 mr-2 text-purple-600" />
+          <TrendingUp className="w-5 h-5 mr-2 text-primary" />
           이번 주 트렌딩 토픽
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {trendingTopics.map((topic, index) => (
-            <div key={index} className="text-center p-5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-              <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mx-auto mb-4">
-                {topic.rank}
+        <div className="space-y-3">
+          {trendingNews.length > 0 ? (
+            trendingNews.map((news, index) => (
+              <div key={news.newsId} className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors flex items-start space-x-3">
+                <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
+                  {index + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-bold text-gray-900 text-base">{news.title}</h4>
+                    <Badge variant="default" className="ml-2">{news.categoryName}</Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">{news.summary}</p>
+                  <div className="flex items-center justify-end">
+                    <Button variant="outline" size="sm" onClick={() => handleViewNews(news.newsId, news.url)}>
+                      <ExternalLink className="w-3 h-3 mr-1" />자세히 보기
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <h4 className="text-gray-800 mb-3 text-sm leading-tight">
-                {topic.topic}
-              </h4>
-              <Badge variant="default" className="mb-3"> {/* Using default badge for now */}
-                {topic.category}
-              </Badge>
-              <p className="text-sm text-purple-600">{topic.growth}</p>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-center p-4 text-gray-500">트렌딩 뉴스를 불러오는 중이거나, 데이터가 없습니다.</div>
+          )}
         </div>
       </Box>
 

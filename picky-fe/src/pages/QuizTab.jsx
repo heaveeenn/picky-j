@@ -243,9 +243,9 @@ const QuizTab = () => {
       {/* 퀴즈 통계 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Box className="text-center p-4">
-          <Trophy className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-purple-700">{quizStats.totalQuizzes}</p>
-          <p className="text-sm text-purple-600">총 참여 퀴즈</p>
+          <Trophy className="w-8 h-8 text-primary mx-auto mb-2" />
+          <p className="text-2xl font-bold text-primary">{quizStats.totalQuizzes}</p>
+          <p className="text-sm text-primary">총 참여 퀴즈</p>
         </Box>
         
         <Box className="text-center p-4">
@@ -340,9 +340,9 @@ const QuizTab = () => {
 
       {currentQuizIndex === quizData.length - 1 && showExplanation && (
         <Box className="text-center">
-          <Trophy className="w-12 h-12 text-purple-600 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-purple-900 mb-2">오늘의 퀴즈 완료!</h3>
-          <p className="text-purple-700 mb-4">수고하셨습니다. 내일도 새로운 퀴즈로 찾아뵙겠습니다.</p>
+          <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-primary mb-2">오늘의 퀴즈 완료!</h3>
+          <p className="text-primary mb-4">수고하셨습니다. 내일도 새로운 퀴즈로 찾아뵙겠습니다.</p>
         </Box>
       )}
     </div>
