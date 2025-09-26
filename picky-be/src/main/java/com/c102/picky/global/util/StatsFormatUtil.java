@@ -10,9 +10,8 @@ public class StatsFormatUtil {
     }
 
     // 초 단위를 "HH:mm:ss" 포맷으로 변환
-    public static String formatDuration(Long millis) {
-        if (millis == null) return "00:00:00";
-        long seconds = millis / 1000;
+    public static String formatDuration(Long seconds) {
+        if (seconds == null) return "00:00:00";
         long h = seconds / 3600;
         long m = (seconds % 3600) / 60;
         long s = seconds % 60;
