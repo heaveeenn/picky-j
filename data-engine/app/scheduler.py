@@ -25,7 +25,7 @@ def run_recommendation_job():
         traceback.print_exc()
 
 # 뉴스 추천: 10분 간격으로 실행 (0분, 10분, 20분, 30분, 40분, 50분)
-# scheduler.add_job(run_recommendation_job, "cron", minute="0,10,20,30,40,50", timezone="Asia/Seoul")
+scheduler.add_job(run_recommendation_job, "cron", minute="0,10,20,30,40,50", timezone="Asia/Seoul")
 
 # 퀴즈 추천
 def run_quiz_recommendation_job():
@@ -42,7 +42,7 @@ def run_quiz_recommendation_job():
         traceback.print_exc()
 
 # 퀴즈 추천: 10분 간격으로 실행 (5분, 15분, 25분, 35분, 45분, 55분) - 뉴스와 시간 겹치지 않게
-# scheduler.add_job(run_quiz_recommendation_job, "cron", minute="5,15,25,35,45,55", timezone="Asia/Seoul")
+scheduler.add_job(run_quiz_recommendation_job, "cron", minute="5,15,25,35,45,55", timezone="Asia/Seoul")
 
 
 # 스케줄러 로딩 확인
