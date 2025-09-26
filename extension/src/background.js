@@ -131,7 +131,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       return;
     }
 
-    // 3. 사용자 ID와 함께 데이터를 큐에 추가
+    // 3. 도메인 차단 상태 확인
+    const userSettings = await fetchUserSettings();
+    if (userSettings && userSettings.settings && userSettings.settings.blockedDomains) {
+      const currentDomain = new URL(message.data.url).hostname;
+      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+      });
+
+      if (isBlocked) {
+        console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
+        sendResponse({ success: false, reason: "Domain blocked" });
+        return;
+      }
+    }
+
+    // 4. 사용자 ID와 함께 데이터를 큐에 추가
     dataSender.addToQueue(message.data, userId);
     console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
 
@@ -352,6 +367,32 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     sendResponse({ success: true, data: 'PONG' });
     return; // 동기 응답
   }
+
+  // 차단된 도메인 확인 (DataCollector에서)
+  if (message.type === "CHECK_BLOCKED_DOMAIN") {
+    try {
+      // 사용자 설정 조회
+      const userSettings = await fetchUserSettings();
+      if (!userSettings || !userSettings.settings || !userSettings.settings.blockedDomains) {
+        sendResponse({ success: true, blocked: false });
+        return;
+      }
+
+      // 도메인 체크
+      const currentDomain = new URL(message.url).hostname;
+      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+      });
+
+      console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
+      sendResponse({ success: true, blocked: isBlocked });
+
+    } catch (error) {
+      console.error("❌ 도메인 체크 실패:", error);
+      sendResponse({ success: false, blocked: false, error: error.message });
+    }
+    return true; // async 처리를 위해 true 반환
+  }
 });
 
 // --- API 연동 함수 ---
@@ -474,7 +515,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
             type: 'SHOW_RECOMMENDATION',
             payload: result.data,
           });
-        } catch (e) {
+        } catch {
           // content script가 주입되지 않은 탭(예: chrome://)에서는 에러 발생. 정상임.
         }
       }
@@ -496,9 +537,9 @@ async function resetAlarm() {
   if (isOn) {
     chrome.alarms.create(ALARM_NAME, {
       delayInMinutes: 1, // 처음엔 1분 뒤에 시작
-      periodInMinutes: 1
+      periodInMinutes: interval
     });
-    console.log(`✨ 1분 간격으로 새 알람 설정 완료.`);
+    console.log(`✨ ${interval}분 간격으로 새 알람 설정 완료.`);
   } else {
     console.log('🚫 알림이 비활성화되어 알람을 설정하지 않습니다.');
   }
