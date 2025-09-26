@@ -46,18 +46,45 @@ const Slider = forwardRef(({ className, ...props }, ref) => (
 ));
 Slider.displayName = SliderPrimitives.Root.displayName;
 
-const Switch = forwardRef(({ className, ...props }, ref) => (
-  <SwitchPrimitives.Root
-    ref={ref}
-    className={cn('peer inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input', className)}
-    {...props}
-  >
-    <SwitchPrimitives.Thumb
-      className={cn('pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0')}
-    />
-  </SwitchPrimitives.Root>
-));
-Switch.displayName = SwitchPrimitives.Root.displayName;
+const OnOffToggleButton = ({ checked, onCheckedChange }) => {
+  const handleClick = () => {
+    if (onCheckedChange) {
+      onCheckedChange(!checked);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={handleClick}
+      className={cn(
+        'relative inline-flex h-7 w-[70px] flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-1 transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2',
+        checked ? 'bg-purple-400' : 'bg-gray-200'
+      )}
+    >
+      <span className="sr-only">Use setting</span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute h-full w-full rounded-full transition-all duration-300'
+        )}
+      />
+      <span
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute left-1 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform rounded-full bg-white shadow-lg ring-0 transition duration-300 ease-in-out',
+          checked ? 'translate-x-[38px]' : 'translate-x-0'
+        )}
+      />
+      <div className="relative z-20 flex w-full justify-around">
+        <span className={cn("text-xs font-bold", checked ? "text-white" : "text-transparent")}>ON</span>
+        <span className={cn("text-xs font-bold", !checked ? "text-gray-500" : "text-transparent")}>OFF</span>
+      </div>
+    </button>
+  );
+};
 
 const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }) => {
   const base = 'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background';
@@ -80,6 +107,12 @@ function App() {
   // --- [통합] 상태 관리: 기존 UI 상태 + 실제 인증 상태 ---
   const [isExtensionOn, setIsExtensionOn] = useState(true);
   const [isCharacterOn, setIsCharacterOn] = useState(true);
+  const [isNotificationsOn, setIsNotificationsOn] = useState(true);
+  const [notificationItems, setNotificationItems] = useState({
+    news: true,
+    quiz: true,
+    fact: true,
+  });
   const [notificationInterval, setNotificationInterval] = useState(30);
   
   // --- [추가] 인증 관련 상태 (from extension) ---
@@ -120,21 +153,37 @@ function App() {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      // 1. 인증 상태 확인
+      // 1. 인증 상태를 먼저 확인합니다.
       await checkAuthStatus();
 
-      // 2. UI 설정 로드
-      const settings = await chrome.storage.sync.get(['isExtensionOn', 'isCharacterOn', 'notificationInterval']);
-      if (settings) {
-        if (typeof settings.isExtensionOn === 'boolean') setIsExtensionOn(settings.isExtensionOn);
-        if (typeof settings.isCharacterOn === 'boolean') setIsCharacterOn(settings.isCharacterOn);
-        if (typeof settings.notificationInterval === 'number') setNotificationInterval(settings.notificationInterval);
+      // 2. chrome.storage.sync에서 직접 값을 읽어와 UI를 즉시 초기화합니다.
+      const localSettings = await chrome.storage.sync.get([
+        'isExtensionOn',
+        'isCharacterOn',
+        'isNotificationsOn',
+        'notificationItems',
+        'notificationInterval'
+      ]);
+
+      if (localSettings) {
+        if (typeof localSettings.isExtensionOn === 'boolean') setIsExtensionOn(localSettings.isExtensionOn);
+        if (typeof localSettings.isCharacterOn === 'boolean') setIsCharacterOn(localSettings.isCharacterOn);
+        if (typeof localSettings.isNotificationsOn === 'boolean') setIsNotificationsOn(localSettings.isNotificationsOn);
+        if (localSettings.notificationItems) setNotificationItems(localSettings.notificationItems);
+        if (typeof localSettings.notificationInterval === 'number') setNotificationInterval(localSettings.notificationInterval);
       }
+
+      // 3. 백그라운드에서 백엔드와 동기화를 시도합니다. (UI는 이미 로드됨)
+      // 이 결과는 onChanged 리스너에 의해 처리되어 UI가 최신 상태로 유지됩니다.
+      sendMessage({ type: "GET_USER_SETTINGS" });
+
       setIsLoading(false);
     };
     init();
 
-    // Storage 변경사항 실시간 감지
+    // background.js가 백엔드 통신 후 chrome.storage.sync를 업데이트하면,
+    // 이 리스너가 변경을 감지하여 UI를 실시간으로 다시 렌더링합니다.
+    // 이를 통해 UI와 데이터의 일관성을 유지합니다.
     const handleStorageChange = (changes, area) => {
       if (area === "local") {
         // 로그인 성공 감지
@@ -160,6 +209,8 @@ function App() {
       if (area === "sync") {
         if (changes.isExtensionOn) setIsExtensionOn(changes.isExtensionOn.newValue);
         if (changes.isCharacterOn) setIsCharacterOn(changes.isCharacterOn.newValue);
+        if (changes.isNotificationsOn) setIsNotificationsOn(changes.isNotificationsOn.newValue);
+        if (changes.notificationItems) setNotificationItems(changes.notificationItems.newValue);
         if (changes.notificationInterval) setNotificationInterval(changes.notificationInterval.newValue);
       }
     };
@@ -170,25 +221,44 @@ function App() {
   /* ---------------------------------------------------------------------------
    * [통합] 이벤트 핸들러: 상태 변경 → storage 반영
    * -------------------------------------------------------------------------*/
-  const setSync = useCallback((obj) => {
-    if (chrome?.storage?.sync) chrome.storage.sync.set(obj);
-  }, []);
+  // [수정] 설정 변경 시 background.js에 메시지를 보내는 동시에 chrome.storage.sync에도 직접 저장합니다.
+  const handleSettingChange = (setting) => {
+    // 1. UI의 즉각적인 반응을 위해 chrome.storage.sync에 직접 저장
+    chrome.storage.sync.set(setting);
+    // 2. 백엔드 동기화를 위해 background.js에 메시지 전송
+    sendMessage({ type: "UPDATE_USER_SETTINGS", settings: setting });
+  };
 
   const handleToggleExtension = useCallback((checked) => {
+    // 확장 프로그램 전체 활성화/비활성화는 클라이언트(chrome.storage)에만 저장되는 설정입니다.
     setIsExtensionOn(checked);
-    setSync({ isExtensionOn: checked });
-  }, [setSync]);
+    if (chrome?.storage?.sync) chrome.storage.sync.set({ isExtensionOn: checked });
+  }, []);
 
   const handleToggleCharacter = useCallback((checked) => {
+    // UI 상태를 즉시 업데이트하여 사용자에게 빠른 피드백을 제공합니다.
     setIsCharacterOn(checked);
-    setSync({ isCharacterOn: checked });
-  }, [setSync]);
+    // background.js에 변경된 'isCharacterOn' 값만 전달합니다.
+    handleSettingChange({ isCharacterOn: checked });
+  }, []);
+
+  const handleToggleNotifications = useCallback((checked) => {
+    setIsNotificationsOn(checked);
+    handleSettingChange({ isNotificationsOn: checked });
+  }, []);
+
+  const handleToggleNotificationItem = useCallback((item) => {
+    const newItems = { ...notificationItems, [item]: !notificationItems[item] };
+    setNotificationItems(newItems);
+    handleSettingChange({ notificationItems: newItems });
+  }, [notificationItems]);
 
   const handleIntervalChange = useCallback((value) => {
     const clamped = Math.min(120, Math.max(10, Array.isArray(value) ? value[0] : Number(value)));
     setNotificationInterval(clamped);
-    setSync({ notificationInterval: clamped });
-  }, [setSync]);
+    // [수정] 슬라이더 값을 변경할 때 즉시 저장하도록 변경
+    handleSettingChange({ notificationInterval: clamped });
+  }, []);
 
   // --- [추가] Google 로그인 핸들러 (from extension) ---
   const handleGoogleLogin = useCallback(async () => {
@@ -298,9 +368,9 @@ function App() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Settings className="w-4 h-4 text-purple-600" />
-                <label className="text-sm font-medium">확장프로그램 활성화</label>
+                <label className="text-sm font-medium">확장프로그램</label>
               </div>
-              <Switch checked={isExtensionOn} onCheckedChange={handleToggleExtension} />
+              <OnOffToggleButton checked={isExtensionOn} onCheckedChange={handleToggleExtension} />
             </div>
 
             {isExtensionOn && (
@@ -309,33 +379,81 @@ function App() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full" />
-                    <label className="text-sm font-medium">캐릭터 표시</label>
+                    <label className="text-sm font-medium">캐릭터</label>
                   </div>
-                  <Switch checked={isCharacterOn} onCheckedChange={handleToggleCharacter} />
+                  <OnOffToggleButton checked={isCharacterOn} onCheckedChange={handleToggleCharacter} />
                 </div>
 
-                {/* 알림 간격 슬라이더 */}
-                <div className="space-y-3">
+                {/* 알림 토글 */}
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Bell className="w-4 h-4 text-blue-600" />
-                    <label className="text-sm font-medium">알림 간격</label>
+                    <label className="text-sm font-medium">알림</label>
                   </div>
-                  <div className="px-2">
-                    <Slider value={[notificationInterval]} onValueChange={handleIntervalChange} max={120} min={10} step={10} />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>10분</span>
-                      <span className="font-medium text-purple-600">{notificationInterval}분</span>
-                      <span>2시간</span>
+                  <OnOffToggleButton checked={isNotificationsOn} onCheckedChange={handleToggleNotifications} />
+                </div>
+
+                {/* 알림 항목 및 간격 */}
+                {isNotificationsOn && (
+                  <div className="pl-6 space-y-4 border-l-2 border-gray-100">
+                    <div className="flex rounded-md border border-gray-300">
+                      <Button
+                        onClick={() => handleToggleNotificationItem('news')}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "flex-1 h-8 rounded-none rounded-l-md focus:ring-0",
+                          "border-r border-gray-300",
+                          notificationItems.news ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        뉴스
+                      </Button>
+                      <Button
+                        onClick={() => handleToggleNotificationItem('quiz')}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "flex-1 h-8 rounded-none focus:ring-0",
+                          "border-r border-gray-300",
+                          notificationItems.quiz ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        퀴즈
+                      </Button>
+                      <Button
+                        onClick={() => handleToggleNotificationItem('fact')}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "flex-1 h-8 rounded-none rounded-r-md focus:ring-0",
+                          notificationItems.fact ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        상식
+                      </Button>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">알림 간격</label>
+                      <div className="px-1 pt-2">
+                        <Slider value={[notificationInterval]} onValueChange={handleIntervalChange} max={120} min={10} step={10} />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>10분</span>
+                          <span className="font-medium text-purple-600">{notificationInterval}분</span>
+                          <span>2시간</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </Fragment>
             )}
 
             {/* 대시보드 이동 버튼 */}
             <Button onClick={handleGoToDashboard} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
               <BarChart3 className="w-4 h-4 mr-2" />
-              대시보드 이동
+              대시보드
             </Button>
           </Fragment>
         ) : (

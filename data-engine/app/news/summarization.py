@@ -68,8 +68,8 @@ class NewsSummarizationService:
             self.pipe = None
             raise RuntimeError(f"요약 모델 로딩 실패: {self.model_name}. 원인: {e}")
 
-    def summarize_single(self, text: str, max_length: int = 100, min_length: int = 30) -> Optional[str]:
-        """단일 텍스트 요약"""
+    def summarize_single(self, text: str, max_length: int = 120, min_length: int = 60) -> Optional[str]:
+        """단일 텍스트 요약 (GPT 권장사항 적용)"""
         if not self.pipe:
             logger.error("모델이 로드되지 않았습니다.")
             return None
@@ -79,15 +79,29 @@ class NewsSummarizationService:
                 return text[:max_length]
 
             start_time = time.time()
+            # GPT 권장: 안정성/완결성 우선 설정
             generation_kwargs = {
-                "max_new_tokens": max(max_length, 1),
-                "do_sample": True,
-                "truncation": True,
+                "num_beams": 5,                    # beam search
+                "do_sample": False,                # 일관성 우선
+                "max_new_tokens": max_length,      # 3줄 요약용 120토큰
+                "no_repeat_ngram_size": 3,         # 반복 방지
+                "length_penalty": 1.0,             # 길이 페널티
+                "repetition_penalty": 1.07,        # 반복 방지 보정
+                "early_stopping": True,            # beam search에서 조기 종료
+                "eos_token_id": self.pipe.tokenizer.eos_token_id,
+                "pad_token_id": self.pipe.tokenizer.pad_token_id,
             }
 
-            # min_new_tokens는 0보다 커야 의미가 있으므로 조건부로 추가
-            if min_length and min_length > 0:
-                generation_kwargs["min_new_tokens"] = min(min_length, generation_kwargs["max_new_tokens"])
+            # min_new_tokens 지원 여부 체크
+            try:
+                generation_kwargs["min_new_tokens"] = min_length
+            except:
+                # 버전이 낮으면 min_length 사용
+                generation_kwargs["min_length"] = min_length
+
+            # 입력 텍스트 전처리 (truncation은 여기서만 사용)
+            if len(text) > 2000:  # 너무 긴 텍스트 제한
+                text = text[:2000]
 
             result = self.pipe(
                 text,
@@ -107,12 +121,55 @@ class NewsSummarizationService:
 
             summary = result[0]["summary_text"]
 
+            # 3줄 요약 사후 정제 (GPT 권장사항)
+            summary = self._post_process_summary(summary)
+
             logger.info(f"[요약 완료] {processing_time:.2f}초 소요")
             return summary.strip()
 
         except Exception as e:
             logger.error(f"[요약 실패] {e}")
             return None
+
+    def _post_process_summary(self, summary: str) -> str:
+        """3줄 요약 사후 정제 (GPT 권장사항)"""
+        if not summary:
+            return summary
+
+        # 불완전한 문장 마무리 처리
+        summary = summary.strip()
+
+        # 마침표로 끝나지 않는 경우 마침표 추가 (문장 완결성)
+        if not summary.endswith(('.', '!', '?', '다', '요')):
+            summary += '.'
+
+        # 3줄 형태로 정리 (줄바꿈 기준)
+        lines = summary.split('\n')
+        lines = [line.strip() for line in lines if line.strip()]
+
+        # 3줄 초과시 처리
+        if len(lines) > 3:
+            lines = lines[:3]
+
+        # 각 줄이 너무 짧으면 합치기
+        if len(lines) > 1:
+            combined_lines = []
+            current_line = ""
+
+            for line in lines:
+                if len(current_line + " " + line) < 80 and len(combined_lines) < 3:
+                    current_line = (current_line + " " + line).strip()
+                else:
+                    if current_line:
+                        combined_lines.append(current_line)
+                    current_line = line
+
+            if current_line:
+                combined_lines.append(current_line)
+
+            lines = combined_lines[:3]
+
+        return '\n'.join(lines)
 
     def _summarize_batch_sync(self, texts: List[str], max_length: int = 100) -> List[Optional[str]]:
         """동기 배치 요약 (내부용)"""
