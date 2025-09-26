@@ -168,14 +168,6 @@ export function IntroPage({ onLogin }) {
                 {typedText}
                 <span className="typed-cursor">|</span>
               </p>
-              <div className={`transition-all duration-1000 ease-out delay-300 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                <Button
-                  onClick={handleGoogleLogin}
-                  className="bg-primary text-white font-bold text-lg px-8 py-4 rounded-full hover:bg-primary transition-transform hover:scale-105"
-                >
-                  지금 바로 시작하기
-                </Button>
-              </div>
             </div>
             <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 transition-opacity duration-1000 delay-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-24 h-24 text-gray-400 animate-bounce">
@@ -205,8 +197,46 @@ export function IntroPage({ onLogin }) {
             </div>
           </section>
 
-          {/* Use Cases Section */}
+          {/* Extension Download Section */}
           <section className="py-20 bg-white">
+            <div className="container mx-auto px-6">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Picky 크롬 확장 프로그램 설치</h2>
+                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                  아래 버튼을 통해 확장 프로그램을 다운로드하고, 안내에 따라 수동으로 설치하여 Picky의 모든 기능을 활성화하세요.
+                </p>
+              </div>
+              <div className="max-w-4xl mx-auto bg-gray-50 p-8 rounded-xl border border-gray-200">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="text-center md:text-left">
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Picky_Extension_250926.zip</h3>
+                    <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
+                    <a
+                      href="https://github.com/user-attachments/files/22550278/Picky_Extension_250926.zip"
+                      download
+                      className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
+                    >
+                      다운로드
+                    </a>
+                  </div>
+                  <div className="w-full md:w-px bg-gray-300 h-px md:h-32"></div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-800 mb-3 text-center md:text-left">수동 설치 방법</h4>
+                    <ol className="list-decimal list-inside text-gray-700 space-y-2">
+                      <li>다운로드한 ZIP 파일의 압축을 풉니다.</li>
+                      <li>Chrome 브라우저에서 <code className="bg-gray-200 text-sm px-1.5 py-1 rounded">chrome://extensions</code> 주소로 이동합니다.</li>
+                      <li>우측 상단의 '개발자 모드'를 활성화합니다.</li>
+                      <li>'압축 해제된 확장 프로그램을 로드합니다' 버튼을 클릭합니다.</li>
+                      <li>압축 해제한 폴더를 선택하여 설치를 완료합니다.</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Use Cases Section */}
+          <section className="py-20 bg-gray-50">
             <div className="container mx-auto px-6">
               <div className="text-center mb-16">
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">이렇게 활용해보세요!</h2>
