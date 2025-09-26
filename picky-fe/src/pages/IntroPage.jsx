@@ -212,7 +212,7 @@ export function IntroPage({ onLogin }) {
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">Picky_Extension_250926.zip</h3>
                     <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
                     <a
-                      href="https://github.com/user-attachments/files/22550278/Picky_Extension_250926.zip"
+                      href="https://github.com/user-attachments/files/22555192/Picky_Extension_250926.zip"
                       download
                       className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
                     >
