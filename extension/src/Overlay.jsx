@@ -2,14 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle, XCircle, ExternalLink, Bookmark, X, Pin, PinOff } from 'lucide-react';
 import { shimejiData } from './shimeji-data.js';
 import { evaluateCondition, evaluateValue } from './condition-parser.js';
+// import { authFetch } from './modules/AuthenticatedApi.js'; // 주석 처리
+// import { BACKEND_URL } from './config/env.js'; // 주석 처리
 
-// 목업 데이터 (변경 없음)
-const mockNotificationsData = [
-  { id: 1, type: 'news', title: "AI 혁신이 가져올 미래 변화", summary: "생성형 AI 기술이 산업 전반에 미치는 영향과 앞으로의 전망을 분석합니다. 특히 창작, 교육, 의료 분야에서의 활용 사례가 주목받고 있습니다.", category: "기술", source: "TechDaily", isScraped: false },
-  { id: 2, type: 'quiz', question: "CSS Flexbox에서 justify-content: space-between은 아이템들 사이에 동일한 간격을 만든다.", answer: true, explanation: "맞습니다. justify-content: space-between은 첫 번째와 마지막 아이템을 컨테이너 끝에 배치하고, 나머지 아이템들 사이에 동일한 간격을 만듭니다.", category: "웹개발", difficulty: "중급", isScraped: false },
-  { id: 3, type: 'fact', fact: "펭귄은 무릎이 있습니다", description: "펭귄의 다리는 몸 안쪽에 숨겨져 있어서 보이지 않지만, 실제로는 인간과 마찬가지로 허벅지, 무릎, 정강이를 모두 가지고 있습니다. 짧은 다리처럼 보이는 것은 발목부터 발가락까지만 보이기 때문입니다.", source: "동물학 백과사전" },
-  { id: 4, type: 'fact', fact: "문어는 심장이 세 개입니다", description: "문어는 두 개의 아가미 심장과 하나의 전신 심장을 가지고 있습니다. 아가미 심장은 아가미로 피를 보내고, 전신 심장은 몸 전체로 피를 순환시킵니다.", source: "해양생물학 연구소" },
-];
 
 /**
  * @dev 자동 위치 조정 기능이 추가된 컨텍스트 메뉴
@@ -156,9 +151,8 @@ function Overlay() {
   // 상태 정의
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [hasNotification, setHasNotification] = useState(false);
-  const [currentContent, setCurrentContent] = useState(null);
-  const [notifications, setNotifications] = useState(mockNotificationsData);
-  const [quizAnswer, setQuizAnswer] = useState(null);
+  const [recommendation, setRecommendation] = useState(null); // [신규] 추천 데이터 상태
+  const [_selectedAnswer, setSelectedAnswer] = useState(null); // [신규] 사용자가 선택한 퀴즈 답변
   const [showQuizResult, setShowQuizResult] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [activeIE, setActiveIE] = useState(null); // 현재 선택된 웹페이지 요소를 저장합니다.
@@ -780,18 +774,75 @@ function Overlay() {
     };
   }, [isDragging, activeIE]);
 
-  // 5초마다 알림을 표시하는 테스트용 타이머
+  // [신규] background.js로부터 추천 메시지를 수신하는 리스너
   useEffect(() => {
-    const timer = setInterval(() => setHasNotification(true), 5000);
-    return () => clearInterval(timer);
+    const messageListener = (message, _sender, _sendResponse) => {
+      if (message.type === 'SHOW_RECOMMENDATION') {
+        console.log('📢 추천 수신:', message.payload);
+        setRecommendation(message.payload);
+        setHasNotification(true);
+        setIsPopupOpen(false); // 새 추천이 오면 기존 팝업은 닫음
+      }
+    };
+    chrome.runtime.onMessage.addListener(messageListener);
+    return () => chrome.runtime.onMessage.removeListener(messageListener);
   }, []);
 
-  // 기타 핸들러 (변경 없음)
-  const handleCharacterClick = () => { if (!hasNotification) return; const i = Math.floor(Math.random() * notifications.length); setCurrentContent(notifications[i]); setIsPopupOpen(true); setHasNotification(false); setQuizAnswer(null); setShowQuizResult(false); };
-  const handleScrap = (id) => { const n = notifications.map(notif => notif.id === id ? { ...notif, isScraped: !notif.isScraped } : notif); setNotifications(n); if (currentContent?.id === id) setCurrentContent(prev => ({ ...prev, isScraped: !prev.isScraped })); };
-  const handleQuizAnswer = (answer) => { setQuizAnswer(answer); setShowQuizResult(true); };
-  // [2025-09-16 Cline] getCategoryColor와 getDifficultyColor 함수는 현재 컴포넌트 내에서 사용되지 않아 제거되었습니다.
-  // 향후 카테고리/난이도별 스타일링이 필요할 경우 다시 구현할 수 있습니다.
+  // [신규] 백그라운드에 메시지를 보내는 헬퍼 함수
+  const sendMessageToBackground = (message) => {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        resolve(response);
+      });
+    });
+  };
+
+  // [수정] 캐릭터 클릭 핸들러
+  const handleCharacterClick = () => {
+    if (!hasNotification || !recommendation) return;
+    setIsPopupOpen(true);
+    setHasNotification(false);
+    setShowQuizResult(false);
+    // 팝업을 열었음을 백그라운드에 알림 (피드백)
+    sendMessageToBackground({
+      type: 'ACKNOWLEDGE_RECOMMENDATION',
+      payload: { slotId: recommendation.slotId, eventType: 'OPENED' },
+    });
+  };
+
+  // [수정] 팝업 닫기 핸들러
+  const handleClosePopup = () => {
+    setIsPopupOpen(false);
+    // 팝업을 사용자가 직접 닫았음을 백그라운드에 알림 (피드백)
+    if (recommendation) {
+      sendMessageToBackground({
+        type: 'ACKNOWLEDGE_RECOMMENDATION',
+        payload: { slotId: recommendation.slotId, eventType: 'DISMISS' },
+      });
+    }
+  };
+
+  // [신규] 퀴즈 답변 핸들러 (백엔드 직접 통신)
+  const handleQuizAnswer = async (answer) => {
+    if (!recommendation || recommendation.contentType !== 'QUIZ') return;
+    setSelectedAnswer(answer);
+    try {
+      // API 직접 호출 (authFetch 사용 필요)
+      // const response = await authFetch(`${BACKEND_URL}/api/quizzes/${recommendation.contentId}/answer`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ userAnswer: answer }),
+      // });
+      // const result = await response.json();
+      // setQuizResult(result.data);
+      setShowQuizResult(true);
+    } catch (error) {
+      console.error("퀴즈 답변 제출 실패:", error);
+    }
+  };
+  
+  // TODO: 스크랩 기능 연동 필요
+  const handleScrap = (id) => { console.log("Scrap clicked for:", id); };
 
   const [spritesheetUrl, setSpritesheetUrl] = useState('');
 
@@ -838,28 +889,28 @@ function Overlay() {
           )}
         </div>
 
-      {isPopupOpen && currentContent && (
+      {isPopupOpen && recommendation && (
         <div className="absolute bottom-full mb-2 z-50 w-80" style={{ left: '-80px', pointerEvents: 'auto' }}>
           <div className="bg-white rounded-lg shadow-xl p-4 border border-gray-200 font-sans text-sm text-gray-800">
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1">
-                {currentContent.type === 'news' && <div className="font-bold text-purple-700">{currentContent.title}</div>}
-                {currentContent.type === 'quiz' && <div className="font-bold text-blue-700">퀴즈 타임!</div>}
-                {currentContent.type === 'fact' && <div className="font-bold text-green-700">알고 계셨나요?</div>}
+                {recommendation.contentType === 'NEWS' && <div className="font-bold text-purple-700">{recommendation.title}</div>}
+                {recommendation.contentType === 'QUIZ' && <div className="font-bold text-blue-700">퀴즈 타임!</div>}
+                {recommendation.contentType === 'FACT' && <div className="font-bold text-green-700">알고 계셨나요?</div>}
               </div>
-              <button onClick={() => setIsPopupOpen(false)} className="p-1 hover:bg-gray-100 rounded-full"><X size={16} /></button>
+              <button onClick={handleClosePopup} className="p-1 hover:bg-gray-100 rounded-full"><X size={16} /></button>
             </div>
 
             {/* News Content */}
-            {currentContent.type === 'news' && (
+            {recommendation.contentType === 'NEWS' && (
               <div>
-                <p className="mb-2">{currentContent.summary}</p>
+                <p className="mb-2">{recommendation.extras.summary}</p>
                 <div className="flex justify-between items-center text-xs text-gray-500">
-                  <span>{currentContent.source}</span>
+                  <span>{recommendation.extras.categoryName}</span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => window.open('https://news.google.com', '_blank')} className="flex items-center gap-1 hover:text-purple-600"><ExternalLink size={12} /> 전문 보기</button>
-                    <button onClick={() => handleScrap(currentContent.id)} className="flex items-center gap-1 hover:text-purple-600">
-                      <Bookmark size={12} className={currentContent.isScraped ? 'fill-current text-yellow-400' : ''} /> 스크랩
+                    <button onClick={() => window.open(recommendation.url, '_blank')} className="flex items-center gap-1 hover:text-purple-600"><ExternalLink size={12} /> 전문 보기</button>
+                    <button onClick={() => handleScrap(recommendation.contentId)} className="flex items-center gap-1 hover:text-purple-600">
+                      <Bookmark size={12} /> 스크랩
                     </button>
                   </div>
                 </div>
@@ -867,24 +918,20 @@ function Overlay() {
             )}
 
             {/* Quiz Content */}
-            {currentContent.type === 'quiz' && (
+            {recommendation.contentType === 'QUIZ' && (
               <div>
-                <p className="mb-3">{currentContent.question}</p>
+                <p className="mb-3">{recommendation.question}</p>
                 {!showQuizResult ? (
                   <div className="flex gap-2">
                     <button onClick={() => handleQuizAnswer(true)} className="flex-1 bg-green-100 text-green-700 hover:bg-green-200 p-2 rounded-md">O (맞음)</button>
                     <button onClick={() => handleQuizAnswer(false)} className="flex-1 bg-red-100 text-red-700 hover:bg-red-200 p-2 rounded-md">X (틀림)</button>
                   </div>
                 ) : (
-                  <div className={`p-2 rounded-md ${quizAnswer === currentContent.answer ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {quizAnswer === currentContent.answer ? <CheckCircle size={16} className="text-green-600" /> : <XCircle size={16} className="text-red-600" />}
-                      <span className="font-bold">{quizAnswer === currentContent.answer ? '정답입니다!' : '오답입니다!'}</span>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2">{currentContent.explanation}</p>
+                  <div className={`p-2 rounded-md bg-gray-100`}>
+                    <p className="text-xs text-gray-600 mb-2">답변이 제출되었습니다. 결과는 대시보드에서 확인해주세요.</p>
                     <div className="flex justify-end items-center text-xs text-gray-500">
-                      <button onClick={() => handleScrap(currentContent.id)} className="flex items-center gap-1 hover:text-purple-600">
-                        <Bookmark size={12} className={currentContent.isScraped ? 'fill-current text-yellow-400' : ''} /> 스크랩
+                      <button onClick={() => handleScrap(recommendation.contentId)} className="flex items-center gap-1 hover:text-purple-600">
+                        <Bookmark size={12} /> 스크랩
                       </button>
                     </div>
                   </div>
@@ -893,10 +940,10 @@ function Overlay() {
             )}
 
             {/* Fact Content */}
-            {currentContent.type === 'fact' && (
+            {recommendation.contentType === 'FACT' && (
               <div>
-                <p className="font-semibold mb-1">{currentContent.fact}</p>
-                <p className="text-xs text-gray-600">{currentContent.description}</p>
+                <p className="font-semibold mb-1">{recommendation.title}</p>
+                <p className="text-xs text-gray-600">{recommendation.extras.content}</p>
               </div>
             )}
           </div>
