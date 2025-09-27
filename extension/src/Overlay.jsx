@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle, XCircle, ExternalLink, Bookmark, X, Pin, PinOff } from 'lucide-react';
 import { shimejiData } from './shimeji-data.js';
 import { evaluateCondition, evaluateValue } from './condition-parser.js';
-import { authFetch } from './modules/AuthenticatedApi.js';
-import { BACKEND_URL } from './config/env.js';
 
 
 /**
@@ -823,25 +821,26 @@ function Overlay() {
     }
   };
 
-  // [신규] 퀴즈 답변 핸들러 (백엔드 직접 통신)
+  // [신규] 퀴즈 답변 핸들러 (background script 경유)
   const handleQuizAnswer = async (answer) => {
     if (!recommendation || recommendation.contentType !== 'QUIZ') return;
     setShowQuizResult(true); // 먼저 UI를 결과 화면으로 전환
 
     try {
-      const response = await authFetch(`${BACKEND_URL}/api/quizzes/${recommendation.contentId}/answer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userAnswer: answer }),
+      const result = await sendMessageToBackground({
+        type: 'SUBMIT_QUIZ_ANSWER',
+        payload: {
+          quizId: recommendation.contentId,
+          userAnswer: answer,
+          slotId: recommendation.slotId,
+        },
       });
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+
+      if (result && result.success) {
+        setQuizResult(result.data); // API 결과를 상태에 저장
+      } else {
+        throw new Error(result?.error || '백그라운드 스크립트에서 알 수 없는 오류 발생');
       }
-
-      const result = await response.json();
-      setQuizResult(result.data); // API 결과를 상태에 저장
-
     } catch (error) {
       console.error("퀴즈 답변 제출 실패:", error);
       // 에러 발생 시 간단한 결과 객체 생성

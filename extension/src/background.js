@@ -107,51 +107,53 @@ async function checkAndCollectHistory() {
 }
 
 // content.js와 popup에서 온 메시지 처리
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📨 메시지 받음:", message);
 
   // 브라우징 데이터 처리 (content.js에서)
   if (message.type === "BROWSING_DATA") {
-    // 1. 로그인 상태 확인
-    const userId = userSession.getUserId();
-    if (!userId || !userSession.isUserAuthenticated()) {
-      console.log("⚠️ 로그인되지 않음 - 데이터 수집 건너뛰기");
-      sendResponse({ success: false, reason: "User not authenticated" });
-      return;
-    }
-
-    // 2. 토글 상태 확인 (Chrome Storage에서)
-    // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
-    const settings = await chrome.storage.sync.get(["isExtensionOn"]);
-    const isTrackingEnabled = settings.isExtensionOn !== false;
-
-    if (!isTrackingEnabled) {
-      console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
-      sendResponse({ success: false, reason: "Tracking disabled" });
-      return;
-    }
-
-    // 3. 도메인 차단 상태 확인
-    const userSettings = await fetchUserSettings();
-    if (userSettings && userSettings.settings && userSettings.settings.blockedDomains) {
-      const currentDomain = new URL(message.data.url).hostname;
-      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
-        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
-      });
-
-      if (isBlocked) {
-        console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
-        sendResponse({ success: false, reason: "Domain blocked" });
+    (async () => {
+      // 1. 로그인 상태 확인
+      const userId = userSession.getUserId();
+      if (!userId || !userSession.isUserAuthenticated()) {
+        console.log("⚠️ 로그인되지 않음 - 데이터 수집 건너뛰기");
+        sendResponse({ success: false, reason: "User not authenticated" });
         return;
       }
-    }
 
-    // 4. 사용자 ID와 함께 데이터를 큐에 추가
-    dataSender.addToQueue(message.data, userId);
-    console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
+      // 2. 토글 상태 확인 (Chrome Storage에서)
+      // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
+      const settings = await chrome.storage.sync.get(["isExtensionOn"]);
+      const isTrackingEnabled = settings.isExtensionOn !== false;
 
-    sendResponse({ success: true });
-    return;
+      if (!isTrackingEnabled) {
+        console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
+        sendResponse({ success: false, reason: "Tracking disabled" });
+        return;
+      }
+
+      // 3. 도메인 차단 상태 확인
+      const userSettings = await fetchUserSettings();
+      if (userSettings && userSettings.settings && userSettings.settings.blockedDomains) {
+        const currentDomain = new URL(message.data.url).hostname;
+        const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+          return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+        });
+
+        if (isBlocked) {
+          console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
+          sendResponse({ success: false, reason: "Domain blocked" });
+          return;
+        }
+      }
+
+      // 4. 사용자 ID와 함께 데이터를 큐에 추가
+      dataSender.addToQueue(message.data, userId);
+      console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
+
+      sendResponse({ success: true });
+    })();
+    return true; // 비동기 응답을 위해 true 반환
   }
 
   // 사용자 세션 정보 조회 (popup에서)
@@ -276,6 +278,31 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     return false;
   }
 
+  // [추가] 퀴즈 답변 제출 (Overlay.jsx에서)
+  if (message.type === 'SUBMIT_QUIZ_ANSWER') {
+    (async () => {
+      try {
+        const { quizId, userAnswer, slotId } = message.payload;
+        const response = await authFetch(`${BACKEND_URL}/api/quizzes/${quizId}/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userAnswer, slotId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        sendResponse({ success: true, data: result.data });
+      } catch (error) {
+        console.error("퀴즈 답변 제출 API 호출 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 비동기 응답
+  }
+
 // --- [추가] 추천 콘텐츠 관련 메시지 핸들러 ---
   if (message.type === 'ACKNOWLEDGE_RECOMMENDATION') {
     (async () => {
@@ -370,27 +397,29 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // 차단된 도메인 확인 (DataCollector에서)
   if (message.type === "CHECK_BLOCKED_DOMAIN") {
-    try {
-      // 사용자 설정 조회
-      const userSettings = await fetchUserSettings();
-      if (!userSettings || !userSettings.settings || !userSettings.settings.blockedDomains) {
-        sendResponse({ success: true, blocked: false });
-        return;
+    (async () => {
+      try {
+        // 사용자 설정 조회
+        const userSettings = await fetchUserSettings();
+        if (!userSettings || !userSettings.settings || !userSettings.settings.blockedDomains) {
+          sendResponse({ success: true, blocked: false });
+          return;
+        }
+
+        // 도메인 체크
+        const currentDomain = new URL(message.url).hostname;
+        const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+          return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+        });
+
+        console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
+        sendResponse({ success: true, blocked: isBlocked });
+
+      } catch (error) {
+        console.error("❌ 도메인 체크 실패:", error);
+        sendResponse({ success: false, blocked: false, error: error.message });
       }
-
-      // 도메인 체크
-      const currentDomain = new URL(message.url).hostname;
-      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
-        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
-      });
-
-      console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
-      sendResponse({ success: true, blocked: isBlocked });
-
-    } catch (error) {
-      console.error("❌ 도메인 체크 실패:", error);
-      sendResponse({ success: false, blocked: false, error: error.message });
-    }
+    })();
     return true; // async 처리를 위해 true 반환
   }
 });
