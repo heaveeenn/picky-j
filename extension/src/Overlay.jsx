@@ -152,6 +152,7 @@ function Overlay() {
   const [recommendation, setRecommendation] = useState(null); // [신규] 추천 데이터 상태
   const [showQuizResult, setShowQuizResult] = useState(false);
   const [quizResult, setQuizResult] = useState(null); // 퀴즈 채점 결과
+  const [isScrapped, setIsScrapped] = useState(false); // [추가] 현재 콘텐츠 스크랩 여부
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [activeIE, setActiveIE] = useState(null); // 현재 선택된 웹페이지 요소를 저장합니다.
   const [thrownIEs, setThrownIEs] = useState([]); // [2025-09-16 Cline] 던져진 요소들을 관리합니다.
@@ -778,6 +779,7 @@ function Overlay() {
       if (message.type === 'SHOW_RECOMMENDATION') {
         console.log('📢 추천 수신:', message.payload);
         setRecommendation(message.payload);
+        setIsScrapped(message.payload.isScrapped || false); // 스크랩 상태 초기화
         setHasNotification(true);
         setIsPopupOpen(false); // 새 추천이 오면 기존 팝업은 닫음
       }
@@ -788,10 +790,17 @@ function Overlay() {
 
   // [신규] 백그라운드에 메시지를 보내는 헬퍼 함수
   const sendMessageToBackground = (message) => {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, (response) => {
-        resolve(response);
-      });
+    return new Promise((resolve, reject) => {
+      if (chrome.runtime?.id) {
+        chrome.runtime.sendMessage(message, (response) => {
+          if (chrome.runtime.lastError) {
+            return reject(new Error(chrome.runtime.lastError.message || "Extension context invalidated."));
+          }
+          resolve(response);
+        });
+      } else {
+        reject(new Error("Extension context invalidated."));
+      }
     });
   };
 
@@ -848,8 +857,27 @@ function Overlay() {
     }
   };
   
-  // TODO: 스크랩 기능 연동 필요
-  const handleScrap = (id) => { console.log("Scrap clicked for:", id); };
+  // [수정] 스크랩 토글 핸들러
+  const handleScrapToggle = async () => {
+    if (!recommendation) return;
+    try {
+      const result = await sendMessageToBackground({
+        type: 'TOGGLE_SCRAP',
+        payload: {
+          contentType: recommendation.contentType,
+          contentId: recommendation.contentId,
+        },
+      });
+
+      if (result && result.success) {
+        setIsScrapped(result.isScrapped); // UI 상태 업데이트
+      } else {
+        console.error("스크랩 토글 실패:", result?.error);
+      }
+    } catch (error) {
+      console.error("스크랩 토글 메시지 전송 실패:", error);
+    }
+  };
 
   const [spritesheetUrl, setSpritesheetUrl] = useState('');
 
@@ -916,8 +944,8 @@ function Overlay() {
                   <span>{recommendation.extras.categoryName}</span>
                   <div className="flex items-center gap-2">
                     <button onClick={() => window.open(recommendation.url, '_blank')} className="flex items-center gap-1 hover:text-purple-600"><ExternalLink size={12} /> 전문 보기</button>
-                    <button onClick={() => handleScrap(recommendation.contentId)} className="flex items-center gap-1 hover:text-purple-600">
-                      <Bookmark size={12} /> 스크랩
+                    <button onClick={handleScrapToggle} className="flex items-center gap-1 hover:text-purple-600">
+                      <Bookmark size={12} className={isScrapped ? 'fill-current text-yellow-500' : ''} /> 스크랩
                     </button>
                   </div>
                 </div>
@@ -927,6 +955,7 @@ function Overlay() {
             {/* Quiz Content */}
             {recommendation.contentType === 'QUIZ' && (
               <div>
+                <div className="text-xs text-gray-500 mb-2 font-semibold bg-gray-100 px-2 py-1 rounded-md inline-block">{recommendation.extras.title}</div>
                 <p className="mb-3">{recommendation.question}</p>
                 {!showQuizResult ? (
                   <div className="flex gap-2">
@@ -944,8 +973,8 @@ function Overlay() {
                         <p className="text-xs text-gray-600 mb-2">{quizResult.explanation}</p>
                       )}
                       <div className="flex justify-end items-center text-xs text-gray-500">
-                        <button onClick={() => handleScrap(recommendation.contentId)} className="flex items-center gap-1 hover:text-purple-600">
-                          <Bookmark size={12} /> 스크랩
+                        <button onClick={handleScrapToggle} className="flex items-center gap-1 hover:text-purple-600">
+                          <Bookmark size={12} className={isScrapped ? 'fill-current text-yellow-500' : ''} /> 스크랩
                         </button>
                       </div>
                     </div>

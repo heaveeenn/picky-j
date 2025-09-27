@@ -66,15 +66,48 @@ const userSession = new UserSession();
 initApi(userSession); // 인증 API 모듈 초기화
 const historyCollector = new HistoryCollector(userSession);
 
+// --- [추가] 스크랩 상태 캐시 ---
+let userScrapsCache = {
+  NEWS: new Set(),
+  QUIZ: new Set(),
+};
+
+async function fetchAndCacheUserScraps() {
+  if (!userSession.isUserAuthenticated()) {
+    userScrapsCache = { NEWS: new Set(), QUIZ: new Set() }; // 로그아웃 시 캐시 초기화
+    return;
+  }
+  try {
+    console.log("🔄 사용자 스크랩 목록 캐싱 시작");
+    const response = await authFetch(`${BACKEND_URL}/api/scraps?size=1000`); // 충분히 큰 사이즈로 모든 스크랩 가져오기
+    if (!response.ok) throw new Error('스크랩 목록 조회 실패');
+    
+    const result = await response.json();
+    const scraps = result.data.content;
+
+    const newCache = { NEWS: new Set(), QUIZ: new Set() };
+    for (const scrap of scraps) {
+      if (scrap.contentType === 'NEWS') newCache.NEWS.add(scrap.contentId);
+      else if (scrap.contentType === 'QUIZ') newCache.QUIZ.add(scrap.contentId);
+    }
+    userScrapsCache = newCache;
+    console.log(`✅ 사용자 스크랩 캐싱 완료: NEWS ${userScrapsCache.NEWS.size}개, QUIZ ${userScrapsCache.QUIZ.size}개`);
+  } catch (error) {
+    console.error("❌ 사용자 스크랩 캐싱 실패:", error);
+  }
+}
+
+
 // Service Worker 재시작시 세션 자동 복원
 (async () => {
   try {
     const sessionInfo = await userSession.tryAutoLogin();
     console.log("👤 사용자 세션 초기화 완료:", sessionInfo);
 
-    // 자동 로그인 성공시 히스토리 수집 체크
+    // 자동 로그인 성공시 히스토리 수집 및 스크랩 캐싱
     if (sessionInfo.success) {
       await checkAndCollectHistory();
+      await fetchAndCacheUserScraps(); // 스크랩 캐시
     }
   } catch (error) {
     console.error("❌ 사용자 세션 초기화 실패:", error);
@@ -234,12 +267,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then(async (result) => {
         console.log("🔐 Google 로그인 결과:", result);
 
-        // 로그인 성공시 히스토리 수집 체크
+        // 로그인 성공시 히스토리 수집 및 스크랩 캐싱
         if (result.success) {
           try {
             await checkAndCollectHistory();
-          } catch (historyError) {
-            console.error("히스토리 수집 실패:", historyError);
+            await fetchAndCacheUserScraps(); // 스크랩 캐시
+          } catch (initError) {
+            console.error("로그인 후 초기화 작업 실패:", initError);
           }
         }
 
@@ -297,6 +331,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, data: result.data });
       } catch (error) {
         console.error("퀴즈 답변 제출 API 호출 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 비동기 응답
+  }
+
+  // [추가] 스크랩 토글 (Overlay.jsx에서)
+  if (message.type === 'TOGGLE_SCRAP') {
+    (async () => {
+      try {
+        const { contentType, contentId } = message.payload;
+        const response = await authFetch(`${BACKEND_URL}/api/scraps/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentType, contentId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const isScrapped = result.data !== null;
+
+        // 캐시 업데이트
+        if (isScrapped) {
+          userScrapsCache[contentType].add(contentId);
+        } else {
+          userScrapsCache[contentType].delete(contentId);
+        }
+        console.log(`🔄 스크랩 캐시 업데이트: ${contentType} ${contentId} -> ${isScrapped}`);
+
+        sendResponse({ success: true, isScrapped });
+      } catch (error) {
+        console.error("스크랩 토글 API 호출 실패:", error);
         sendResponse({ success: false, error: error.message });
       }
     })();
@@ -536,13 +605,19 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
     // 4. 성공 시 모든 탭의 content script로 추천 내용 브로드캐스트
     if (result.success && result.data) {
-      console.log(`📢 [${randomType}] 추천 콘텐츠를 모든 탭에 전송합니다:`, result.data);
+      const recommendation = result.data;
+      // 스크랩 여부 확인 및 추가
+      const contentType = recommendation.contentType;
+      const contentId = recommendation.contentId;
+      recommendation.isScrapped = userScrapsCache[contentType]?.has(contentId) || false;
+
+      console.log(`📢 [${contentType}] 추천 콘텐츠(스크랩: ${recommendation.isScrapped})를 모든 탭에 전송합니다:`, recommendation);
       const tabs = await chrome.tabs.query({});
       for (const tab of tabs) {
         try {
           await chrome.tabs.sendMessage(tab.id, {
             type: 'SHOW_RECOMMENDATION',
-            payload: result.data,
+            payload: recommendation,
           });
         } catch {
           // content script가 주입되지 않은 탭(예: chrome://)에서는 에러 발생. 정상임.
