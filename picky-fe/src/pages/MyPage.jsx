@@ -3,13 +3,13 @@ import api from '../lib/api';
 import Box from '../components/Box';
 import { User, Bookmark, Palette, Bell, Tag, Shield, Plus, X, Brain, ArrowLeft, Loader, AlertCircle } from 'lucide-react';
 import Button from '../components/Button';
+import { availableCharacters, commonSprites } from '../lib/characterData.js';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-const characterOptions = [
-  { id: 'robot', emoji: '🤖', name: '로봇 친구' },
-  { id: 'cat', emoji: '🐱', name: '고양이' },
-  { id: 'owl', emoji: '🦉', name: '부엉이' },
-  { id: 'bear', emoji: '🐻', name: '곰돌이' }
-];
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 const MyPage = ({ onClose, nickname, profileImage }) => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -206,6 +206,17 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
     }
   };
 
+  // 썸네일 이미지 스타일 계산
+  const shime1SpritePosition = commonSprites['/shime1.png'];
+  const SPRITESHEET_WIDTH = 896; // 스프라이트 시트 전체 너비
+  const SPRITESHEET_HEIGHT = 896; // 스프라이트 시트 전체 높이
+  const FRAME_SIZE = 128; // 각 프레임(이미지)의 크기
+  const DISPLAY_SIZE = 64; // 마이페이지에서는 썸네일을 조금 더 크게 표시
+  const SCALE = DISPLAY_SIZE / FRAME_SIZE; // 축소 비율
+  const bgSize = `${SPRITESHEET_WIDTH * SCALE}px ${SPRITESHEET_HEIGHT * SCALE}px`;
+  const bgPosX = `-${shime1SpritePosition.x * SCALE}px`;
+  const bgPosY = `-${shime1SpritePosition.y * SCALE}px`;
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-4xl mx-auto">
@@ -259,12 +270,25 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
             <Box>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Palette className="w-5 h-5 mr-2 text-primary" />캐릭터 선택</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {characterOptions.map(char => (
-                  <div key={char.id} onClick={() => setSelectedCharacter(char.id)} className={`p-4 border-2 rounded-lg cursor-pointer text-center transition-all ${selectedCharacter === char.id ? 'border-primary bg-primary' : 'border-gray-200 hover:border-primary'}`}>
-                    <div className="text-3xl mb-2">{char.emoji}</div>
-                    <div className="text-sm font-medium">{char.name}</div>
-                  </div>
-                ))}
+                {Object.values(availableCharacters).map(char => {
+                  return (
+                    <div 
+                      key={char.id} 
+                      onClick={() => setSelectedCharacter(char.id)} 
+                      className={`p-4 border-2 rounded-lg cursor-pointer text-center transition-all flex flex-col items-center justify-center space-y-2 ${selectedCharacter === char.id ? 'border-primary bg-primary/10' : 'border-gray-200 hover:border-primary'}`}
+                    >
+                      <div
+                        className="w-16 h-16 bg-no-repeat" // w-16 h-16 for 64px
+                        style={{
+                          backgroundImage: `url(${char.spritesheet})`,
+                          backgroundSize: bgSize,
+                          backgroundPosition: `${bgPosX} ${bgPosY}`,
+                        }}
+                      />
+                      <div className="text-sm font-medium">{char.metadata.shimejiName}</div>
+                    </div>
+                  );
+                })}
               </div>
             </Box>
 
