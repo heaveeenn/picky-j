@@ -4,7 +4,7 @@ export const ghostData = {
   spritesheet: "/images/characters/ghost.png",
   metadata: {
     shimeji: "ghost",
-    shimejiName: "Ghost",
+    shimejiName: "유령",
     artistName: "Unknown", // 필요시 수정
   },
 };

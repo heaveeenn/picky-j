@@ -57,14 +57,14 @@ const getCategoryColorClass = (categoryName) => {
   return CATEGORY_COLOR_MAP[categoryName] || DEFAULT_CATEGORY_COLOR;
 };
 
-const renderCommunityTrendsPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, value, fill }) => {
+const renderCommunityTrendsPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, fill }) => {
   const RADIAN = Math.PI / 180;
   const radius = outerRadius * 1.2; // Extend label further out
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
   return (
-    <text x={x} y={y} fill={fill} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px">
+    <text x={x} y={y} fill={fill} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="16px">
       {`${name} ${(percent * 100).toFixed(0)}%`}
     </text>
   );
@@ -292,69 +292,70 @@ const CommunityTrends = () => {
         })}
       </div>
 
-      <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-primary" />카테고리별 인기 사이트 TOP 5</h3>
-        <div className="flex justify-end mb-4">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
-          >
-            <option value="전체">전체</option>
-            {allCategoriesTopDomains.map(cat => (
-              <option key={cat.categoryName} value={cat.categoryName}>{cat.categoryName}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-3">
-          {displayedTopSites.length > 0 ? (
-            displayedTopSites.map((site, index) => (
-              <div key={site.domain} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-4">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${RANK_COLORS[index]} font-bold`}>{index + 1}</div>
-                  <div>
-                    <h4 className="font-semibold">{site.domain}</h4>
-                    <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Box>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-primary" />카테고리별 인기 사이트 TOP 5</h3>
+          <div className="flex justify-end mb-4">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+            >
+              <option value="전체">전체</option>
+              {allCategoriesTopDomains.map(cat => (
+                <option key={cat.categoryName} value={cat.categoryName}>{cat.categoryName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-3">
+            {displayedTopSites.length > 0 ? (
+              displayedTopSites.map((site, index) => (
+                <div key={site.domain} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${RANK_COLORS[index]} font-bold`}>{index + 1}</div>
+                    <div>
+                      <h4 className="font-semibold text-base">{site.domain}</h4>
+                      <div className="text-base text-gray-500">{site.visitCount}회 방문</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center p-4 text-gray-500">데이터를 수집 중 입니다. 잠시만 기다려 주세요</div>
-          )}
-        </div>
-      </Box>
-
-      <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">카테고리별 관심사 분포</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={categoryDistribution}
-                cx="50%"
-                cy="50%"
-                outerRadius={70}
-                dataKey="value"
-                nameKey="name"
-                labelLine={true}
-                label={renderCommunityTrendsPieLabel}
-              >
-                {categoryDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2">
-            {categoryDistribution.map((category, index) => (
-              <div key={index} className="flex items-center">
-                <span style={{ backgroundColor: category.color, color: 'white' }} className="rounded-full px-2 py-1 text-xs text-white">
-                  {category.name}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-center p-4 text-gray-500">데이터를 수집 중 입니다. 잠시만 기다려 주세요</div>
+            )}
           </div>
-        </div>
-      </Box>
+        </Box>
+        <Box>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">카테고리별 관심사 분포</h3>
+          <div>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryDistribution}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={110}
+                  dataKey="value"
+                  nameKey="name"
+                  labelLine={true}
+                  label={renderCommunityTrendsPieLabel}
+                >
+                  {categoryDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap justify-center gap-4 pt-20">
+              {categoryDistribution.map((category, index) => (
+                <div key={index} className="flex items-center">
+                  <span style={{ backgroundColor: category.color }} className="rounded-full px-4 py-2 text-base text-white">
+                    {category.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Box>
+      </div>
 
       <Box>
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
