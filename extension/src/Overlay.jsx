@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { CheckCircle, XCircle, ExternalLink, Bookmark, X, Pin, PinOff } from 'lucide-react';
 import { getShimejiData } from './shimeji-data.js';
 import { evaluateCondition, evaluateValue } from './condition-parser.js';
@@ -76,9 +76,8 @@ function CustomContextMenu({ x, y, onSelect, isPinned, onTogglePin, characterDat
  * @dev [신규] '요소 선택 모드'에서 마우스 아래의 요소를 시각적으로 표시하는 컴포넌트
  * @param {object} elementRect - 하이라이트할 요소의 getBoundingClientRect() 결과
  * @param {string} selectionMode - 'jump' 또는 'throw' 모드
- * @param {object} mousePosition - 현재 마우스의 x, y 좌표
  */
-function HighlightComponent({ elementRect, selectionMode, mousePosition }) {
+function HighlightComponent({ elementRect, selectionMode }) {
   if (!elementRect) return null;
 
   const baseStyle = {
@@ -104,38 +103,13 @@ function HighlightComponent({ elementRect, selectionMode, mousePosition }) {
   }
 
   if (selectionMode === 'jump') {
-    // 'jump' 모드에서는 마우스 위치에 가장 가까운 모서리에만 테두리를 표시합니다.
-    const { x, y } = mousePosition;
-    const { left, right, top, bottom } = elementRect;
-    const distTop = Math.abs(y - top);
-    const distBottom = Math.abs(y - bottom);
-    const distLeft = Math.abs(x - left);
-    const distRight = Math.abs(x - right);
-    const min = Math.min(distTop, distBottom, distLeft, distRight);
-
-    let edgeStyle = {};
-    switch (min) {
-      case distTop:
-        edgeStyle = { borderWidth: '2px 0 0 0' };
-        break;
-      case distBottom:
-        edgeStyle = { borderWidth: '0 0 2px 0' };
-        break;
-      case distLeft:
-        edgeStyle = { borderWidth: '0 0 0 2px' };
-        break;
-      case distRight:
-        edgeStyle = { borderWidth: '0 2px 0 0' };
-        break;
-    }
-    
     const style = {
       ...baseStyle,
       left: `${elementRect.left}px`,
       top: `${elementRect.top}px`,
       width: `${elementRect.width}px`,
       height: `${elementRect.height}px`,
-      ...edgeStyle,
+      borderWidth: '2px',
     };
     return <div style={style} />;
   }
@@ -181,6 +155,7 @@ function Overlay() {
     sprite: '/shime4.png', // 현재 표시할 스프라이트 이미지
     actionContext: {}, // [2025-09-16 Cline] 현재 액션의 동적 속성을 저장합니다.
     carriedIE: null, // [2025-09-16 Cline] 캐릭터가 들고 있는 요소를 저장합니다.
+    wasJustDragged: false, // [Cline] 드래그 직후인지 확인하는 플래그
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragInfo = useRef({ lastX: 0, lastY: 0, vx: 0, vy: 0 });
@@ -189,12 +164,13 @@ function Overlay() {
   const animationFrameRef = useRef(null);
   const contextMenuWrapperRef = useRef(null);
   const animationSpeedCounter = useRef(0);
+  const prevIsPopupOpenRef = useRef();
 
   /**
    * @dev 사용자가 컨텍스트 메뉴를 통해 특정 행동을 강제로 실행시키는 함수
    * @param {string} actionName - 실행할 행동의 이름
    */
-  const forceCharacterAction = (actionName) => {
+  const forceCharacterAction = useCallback((actionName) => {
     // [수정됨] 'SelectIE'나 'SelectEdge'가 호출되면, 실제 행동 대신 '요소 선택 모드'로 진입합니다.
     if (actionName === 'SelectIE') {
       setSelectionMode('throw');
@@ -212,19 +188,19 @@ function Overlay() {
       setCharacterState(prev => {
         const newActionContext = {};
         // [개선] '걷기', '달리기', '기어가기'에 임의의 목표 지점을 설정하여 더 자연스럽게 만듭니다.
-        if (actionName === 'Walk' || actionName === 'Run' || actionName === 'Creep') {
+        if (actionName === 'Walk' || actionName === 'Run' || actionName === 'Creep' || actionName === 'WalkAlongWorkAreaFloor') {
           const distance = 200 + Math.random() * 300;
           const direction = Math.random() < 0.5 ? 1 : -1; // 1: right, -1: left
           let targetX = prev.x + distance * direction;
           // 화면 경계 내로 목표 지점 조정
-          targetX = Math.max(0, Math.min(window.innerWidth - 128, targetX));
+          targetX = Math.max(-64, Math.min(window.innerWidth - 64, targetX));
           newActionContext.evaluatedTargetX = targetX;
         }
 
         return {
           ...prev,
           behaviorName: actionName,
-          actionName,
+          actionName: actionName === 'WalkAlongWorkAreaFloor' ? 'Walk' : actionName,
           actionFrame: 0,
           sequenceFrame: 0,
           actionContext: newActionContext,
@@ -233,7 +209,7 @@ function Overlay() {
     } else {
       console.warn(`[Picky] Action "${actionName}" not found.`);
     }
-  };
+  }, [shimejiData]);
 
   /**
    * @dev 캐릭터의 다음 행동 패턴(Behavior)을 결정하는 AI 로직
@@ -282,7 +258,7 @@ function Overlay() {
       return;
     }
 
-    if (isDragging || isPinned) {
+    if (isDragging || isPinned || isPopupOpen) {
       animationFrameRef.current = requestAnimationFrame(animate);
       return;
     }
@@ -337,8 +313,8 @@ function Overlay() {
                     bottom: window.innerHeight,
                     width: window.innerWidth,
                     height: window.innerHeight,
-                    leftBorder: { isOn: (anchor) => anchor.x <= 0 },
-                    rightBorder: { isOn: (anchor) => anchor.x >= window.innerWidth - 128 },
+                    leftBorder: { isOn: (anchor) => anchor.x <= -64 },
+                    rightBorder: { isOn: (anchor) => anchor.x >= window.innerWidth - 64 },
                   },
                   ceiling: { isOn: (anchor) => anchor.y <= 0 },
                   cursor: { x: mousePosition.x, y: mousePosition.y, dx: 0, dy: 0 },
@@ -346,10 +322,10 @@ function Overlay() {
                     ? {
                         ...plainActiveIE,
                         visible: true,
-                        topBorder: { isOn: (anchor) => anchor.y === plainActiveIE.top },
-                        bottomBorder: { isOn: (anchor) => anchor.y === plainActiveIE.bottom },
-                        leftBorder: { isOn: (anchor) => anchor.x === plainActiveIE.left },
-                        rightBorder: { isOn: (anchor) => anchor.x === plainActiveIE.right },
+                        topBorder: { isOn: (anchor) => Math.abs((anchor.y + 128) - plainActiveIE.top) < 5 },
+                        bottomBorder: { isOn: (anchor) => Math.abs(anchor.y - plainActiveIE.bottom) < 5 },
+                        leftBorder: { isOn: (anchor) => Math.abs((anchor.x + 128) - plainActiveIE.left) < 5 },
+                        rightBorder: { isOn: (anchor) => Math.abs(anchor.x - plainActiveIE.right) < 5 },
                       }
                     : {
                         visible: false,
@@ -398,7 +374,7 @@ function Overlay() {
         if ((currentAction?.embedType === 'WalkWithIE' || currentAction?.embedType === 'FallWithIE') && activeIE) {
           const ieOffsetX = evaluateValue(currentAction.ieOffsetX || '0', valueContext);
           const ieOffsetY = evaluateValue(currentAction.ieOffsetY || '0', valueContext);
-          const mutableRect = { x: activeIE.x, y: activeIE.y, width: activeIE.width, height: activeIE.height, top: activeIE.top, left: activeIE.left, right: activeIE.right, bottom: activeIE.bottom };
+          const mutableRect = { x: activeIE.left, y: activeIE.top, width: activeIE.width, height: activeIE.height, top: activeIE.top, left: activeIE.left, right: activeIE.right, bottom: activeIE.bottom };
           
           if (carriedIERef.current.element) {
             const elem = carriedIERef.current.element;
@@ -407,38 +383,57 @@ function Overlay() {
               zIndex: elem.style.zIndex,
               top: elem.style.top,
               left: elem.style.left,
+              boxShadow: elem.style.boxShadow,
+              border: elem.style.border,
+              boxSizing: elem.style.boxSizing,
             };
             elem.style.position = 'fixed';
             elem.style.zIndex = '2147483646';
+            elem.style.boxShadow = '0 0 8px 2px rgba(255, 165, 0, 0.8)';
+            elem.style.border = '2px solid rgba(255, 165, 0, 0.9)';
+            elem.style.boxSizing = 'border-box';
           }
           
           carriedIE = { rect: mutableRect, offsetX: ieOffsetX, offsetY: ieOffsetY };
           setActiveIE(null);
         }
         if (currentAction?.embedType === 'ThrowIE' && carriedIE) {
-          const initialVx = evaluateValue(currentAction.initialVx || '0', valueContext);
-          const initialVy = evaluateValue(currentAction.initialVy || '0', valueContext);
-          const gravity = evaluateValue(currentAction.gravity || '0.5', valueContext);
+          const valueContextForThrow = { mascot: { anchor: { x, y }, lookRight, environment: { cursor: mousePosition, workArea: { width: window.innerWidth, height: window.innerHeight, left: 0, right: window.innerWidth, bottom: window.innerHeight }, activeIE: null } } };
+          const initialVx = evaluateValue(currentAction.initialVx || '0', valueContextForThrow);
+          const initialVy = evaluateValue(currentAction.initialVy || '0', valueContextForThrow);
+          const gravity = evaluateValue(currentAction.gravity || '0.5', valueContextForThrow);
           
-          if (carriedIERef.current.element) {
-            const elem = carriedIERef.current.element;
-            const { position, zIndex, top, left } = carriedIERef.current.originalStyles;
-            elem.style.position = position;
-            elem.style.zIndex = zIndex;
-            elem.style.top = top;
-            elem.style.left = left;
-            carriedIERef.current.element = null;
+          const thrownElement = carriedIERef.current.element;
+          
+          if (thrownElement) {
+            const { boxShadow, border, boxSizing } = carriedIERef.current.originalStyles;
+            thrownElement.style.boxShadow = boxShadow;
+            thrownElement.style.border = border;
+            thrownElement.style.boxSizing = boxSizing;
           }
 
-          setThrownIEs(prev => [...prev, {
-            id: Date.now(), ...carriedIE,
-            rect: {
-              ...carriedIE.rect,
-              x: x + (carriedIE.offsetX ?? 0),
-              y: y + (carriedIE.offsetY ?? 0),
-            },
-            vx: initialVx * (lookRight ? 1 : -1), vy: initialVy, gravity,
-          }]);
+          const thrownObject = {
+            id: Date.now(),
+            element: thrownElement,
+            originalStyles: carriedIERef.current.originalStyles,
+            ...carriedIE,
+            vx: initialVx * (lookRight ? 1 : -1),
+            vy: initialVy,
+            gravity,
+          };
+          
+          if (thrownObject.rect) {
+            thrownObject.rect.x = x + (thrownObject.offsetX ?? 0);
+            thrownObject.rect.y = y + (thrownObject.offsetY ?? 0);
+            thrownObject.rect.left = thrownObject.rect.x;
+            thrownObject.rect.top = thrownObject.rect.y;
+            thrownObject.rect.right = thrownObject.rect.x + thrownObject.rect.width;
+            thrownObject.rect.bottom = thrownObject.rect.y + thrownObject.rect.height;
+          }
+
+          setThrownIEs(prev => [...prev, thrownObject]);
+          
+          carriedIERef.current.element = null;
           carriedIE = null;
         }
       }
@@ -476,8 +471,8 @@ function Overlay() {
               bottom: window.innerHeight,
               width: window.innerWidth,
               height: window.innerHeight,
-              leftBorder: { isOn: (anchor) => anchor.x <= 0 },
-              rightBorder: { isOn: (anchor) => anchor.x >= window.innerWidth - 128 },
+              leftBorder: { isOn: (anchor) => anchor.x <= -64 },
+              rightBorder: { isOn: (anchor) => anchor.x >= window.innerWidth - 64 },
             },
             ceiling: { isOn: (anchor) => anchor.y <= 0 },
             cursor: { x: mousePosition.x, y: mousePosition.y, dx: 0, dy: 0 },
@@ -485,10 +480,10 @@ function Overlay() {
               ? {
                   ...plainActiveIEForAnim,
                   visible: true,
-                  topBorder: { isOn: (anchor) => anchor.y === plainActiveIEForAnim.top },
-                  bottomBorder: { isOn: (anchor) => anchor.y === plainActiveIEForAnim.bottom },
-                  leftBorder: { isOn: (anchor) => anchor.x === plainActiveIEForAnim.left },
-                  rightBorder: { isOn: (anchor) => anchor.x === plainActiveIEForAnim.right },
+                  topBorder: { isOn: (anchor) => Math.abs((anchor.y + 128) - plainActiveIEForAnim.top) < 5 },
+                  bottomBorder: { isOn: (anchor) => Math.abs(anchor.y - plainActiveIEForAnim.bottom) < 5 },
+                  leftBorder: { isOn: (anchor) => Math.abs((anchor.x + 128) - plainActiveIEForAnim.left) < 5 },
+                  rightBorder: { isOn: (anchor) => Math.abs(anchor.x - plainActiveIEForAnim.right) < 5 },
                 }
               : {
                   visible: false,
@@ -576,7 +571,13 @@ function Overlay() {
           }
         }
 
-        if (prevState.y >= window.innerHeight - 128) {
+        const isStandingOnScreenFloor = y >= window.innerHeight - 128;
+        const isStandingOnPlatform = activeIE &&
+                                     (x + 64) > activeIE.left &&
+                                     (x + 64) < activeIE.right &&
+                                     Math.abs((y + 128) - activeIE.top) < 5;
+
+        if (isStandingOnScreenFloor || isStandingOnPlatform) {
           vy = 0;
           // [미끄러짐 버그 수정] '서기', '앉기' 등 정지 상태일 때는 수평 속도를 강제로 0으로 만듭니다.
           if (['Stand', 'Sit', 'Sprawl', 'SitAndLookUp', 'SitAndLookAtMouse'].includes(actionName)) {
@@ -601,13 +602,13 @@ function Overlay() {
       // 7. 화면 경계 및 플랫폼 충돌 처리
       // [수정됨] 이제 화면 바닥뿐만 아니라, 선택된 웹페이지 요소(activeIE)의 윗면도 바닥으로 인식합니다.
       const groundY = window.innerHeight - 128; // 화면 바닥의 Y좌표
-      let isOnPlatform = false; // 캐릭터가 플랫폼(activeIE) 위에 있는지 여부를 나타내는 플래그
+      let landedOnPlatform = false; // 캐릭터가 플랫폼(activeIE) 위에 있는지 여부를 나타내는 플래그
 
       // activeIE가 존재하고, 캐릭터가 떨어지는 중이며(vy >= 0), 캐릭터의 발이 activeIE의 윗면 경계 내에 있는지 확인합니다.
       if (activeIE && vy >= 0 && x + 64 > activeIE.left && x + 64 < activeIE.right && y + 128 >= activeIE.top && y + 128 <= activeIE.top + vy) {
         y = activeIE.top - 128; // 캐릭터의 위치를 플랫폼 위로 보정합니다.
         vy = 0; // 수직 속도를 0으로 만들어 멈춥니다.
-        isOnPlatform = true; // 플랫폼 위에 있음을 표시합니다.
+        landedOnPlatform = true; // 플랫폼 위에 있음을 표시합니다.
       } else if (y >= groundY) { // 화면 바닥 충돌 처리
         y = groundY;
         vy = 0;
@@ -615,11 +616,21 @@ function Overlay() {
 
       // 캐릭터가 바닥 또는 플랫폼에 닿았고, 'Falling' 또는 'Jumping' 상태였다면,
       // 즉시 다음 행동으로 전환하도록 actionFrame을 강제로 종료시킵니다.
-      if ((isOnPlatform || y === groundY) && ['Falling', 'Jumping'].includes(actionName)) {
-        actionFrame = totalDuration;
+      if ((landedOnPlatform || y === groundY) && ['Falling', 'Jumping'].includes(actionName)) {
+        if (prevState.wasJustDragged) {
+          // [수정] 드래그 후 착지 시 'StandUp' 행동을 강제하여 'Falling' 상태에 머무는 버그를 해결합니다.
+          behaviorName = 'StandUp';
+          actionName = 'Stand';
+          sequenceFrame = 0;
+          actionFrame = -1; // 다음 프레임에서 0이 되어 새 액션을 시작하도록 설정
+        } else {
+          // 일반적인 착지(예: 점프, 던지기 후)는 기존 로직을 따릅니다.
+          actionFrame = totalDuration;
+        }
       }
-      if (x <= 0) { // 왼쪽 벽 충돌
-        x = 0;
+      if (x <= -64) { // 왼쪽 벽 충돌
+        x = -64;
+        lookRight = false; // 방향 전환
         if (vx < 0) { // 왼쪽으로 이동 중이었다면
           vx = 0;
           if (Math.random() < 0.5) {
@@ -633,10 +644,10 @@ function Overlay() {
             actionFrame = totalDuration;
           }
         }
-        lookRight = true; // 방향 전환
       }
-      if (x >= window.innerWidth - 128) { // 오른쪽 벽 충돌
-        x = window.innerWidth - 128;
+      if (x >= window.innerWidth - 64) { // 오른쪽 벽 충돌
+        x = window.innerWidth - 64;
+        lookRight = true; // 방향 전환
         if (vx > 0) { // 오른쪽으로 이동 중이었다면
           vx = 0;
           if (Math.random() < 0.5) {
@@ -650,15 +661,42 @@ function Overlay() {
             actionFrame = totalDuration;
           }
         }
-        lookRight = false; // 방향 전환
       }
       if (y <= 0) { // 천장 충돌
         y = 0;
         vy = 0;
       }
 
+      // [신규] 상태 유효성 검사: 캐릭터가 있어야 할 표면에 있는지 확인하고, 그렇지 않으면 강제로 떨어뜨립니다.
+      const isPhysicallyOnFloor = (y === groundY) || landedOnPlatform;
+      const isPhysicallyOnWall = (x === -64) || (x === window.innerWidth - 64);
+      const isPhysicallyOnCeiling = (y === 0);
+      const currentActionBorderType = currentAction?.borderType;
+      const isExemptAction = ['Falling', 'Jumping', 'Thrown', 'Pinched', 'Resisting'].includes(actionName);
+
+      if (!isExemptAction) {
+        let shouldFall = false;
+        if (currentActionBorderType === 'Floor' && !isPhysicallyOnFloor) {
+          shouldFall = true;
+        } else if (currentActionBorderType === 'Wall' && !isPhysicallyOnWall) {
+          shouldFall = true;
+        } else if (currentActionBorderType === 'Ceiling' && !isPhysicallyOnCeiling) {
+          shouldFall = true;
+        }
+
+        if (shouldFall) {
+          actionName = 'Fall';
+          behaviorName = 'Fall';
+          actionFrame = 0;
+          sequenceFrame = 0;
+        }
+      }
+
       // 8. 다음 상태를 반환합니다.
-      let nextState = { ...prevState, x, y, vx, vy, lookRight, sprite: pose.sprite, actionName, actionFrame: actionFrame + 1, behaviorName, sequenceFrame, actionContext, carriedIE };
+      let nextState = { ...prevState, x, y, vx, vy, lookRight, sprite: pose.sprite, actionName, actionFrame: actionFrame + 1, behaviorName, sequenceFrame, actionContext, carriedIE, wasJustDragged: (landedOnPlatform || y === groundY) ? false : prevState.wasJustDragged };
+      if ((landedOnPlatform || y === groundY) && prevState.wasJustDragged) {
+        nextState.wasJustDragged = false;
+      }
       
       // [신규] 캐릭터가 아이템을 들고 있다면, 아이템의 위치를 캐릭터에 맞춰 업데이트합니다.
       if (nextState.carriedIE && typeof nextState.carriedIE === 'object' && carriedIERef.current.element) {
@@ -670,15 +708,20 @@ function Overlay() {
         carriedIERef.current.element.style.left = `${newLeft}px`;
         carriedIERef.current.element.style.top = `${newTop}px`;
 
+        const newRect = {
+          ...nextState.carriedIE.rect,
+          x: newLeft,
+          y: newTop,
+          left: newLeft,
+          top: newTop,
+          right: newLeft + nextState.carriedIE.rect.width,
+          bottom: newTop + nextState.carriedIE.rect.height,
+        };
         nextState = {
           ...nextState,
           carriedIE: {
             ...nextState.carriedIE,
-            rect: {
-              ...nextState.carriedIE.rect,
-              x: newLeft,
-              y: newTop,
-            }
+            rect: newRect,
           }
         };
       }
@@ -687,13 +730,51 @@ function Overlay() {
     });
 
     // [2025-09-16 Cline] 던져진 아이템들의 물리 상태를 업데이트합니다.
-    setThrownIEs(prev => 
-      prev.map(item => ({
-        ...item,
-        rect: { ...item.rect, x: item.rect.x + item.vx, y: item.rect.y + item.vy },
-        vy: item.vy + item.gravity,
-      })).filter(item => item.rect.y < window.innerHeight + item.rect.height) // 화면 밖으로 나간 아이템 제거
-    );
+    setThrownIEs(prev => {
+      const now = Date.now();
+      const updatedItems = prev.map(item => {
+        if (!item?.rect) return item;
+
+        const newRect = {
+          ...item.rect,
+          x: item.rect.x + item.vx,
+          y: item.rect.y + item.vy,
+        };
+        newRect.left = newRect.x;
+        newRect.top = newRect.y;
+        newRect.right = newRect.x + newRect.width;
+        newRect.bottom = newRect.y + newRect.height;
+
+        const isOffScreen = newRect.y > window.innerHeight;
+
+        return {
+          ...item,
+          rect: newRect,
+          vy: item.vy + item.gravity,
+          offScreenTime: isOffScreen && !item.offScreenTime ? now : item.offScreenTime,
+        };
+      });
+
+      const stillActive = [];
+      for (const item of updatedItems) {
+        if (item.offScreenTime && now - item.offScreenTime > 3000) {
+          // 화면 밖으로 나간 지 3초가 지났으므로 원래 스타일로 복원합니다.
+          if (item.element && item.originalStyles) {
+            const { position, zIndex, top, left, boxShadow, border, boxSizing } = item.originalStyles;
+            item.element.style.position = position;
+            item.element.style.zIndex = zIndex;
+            item.element.style.top = top;
+            item.element.style.left = left;
+            item.element.style.boxShadow = boxShadow;
+            item.element.style.border = border;
+            item.element.style.boxSizing = boxSizing;
+          }
+        } else {
+          stillActive.push(item);
+        }
+      }
+      return stillActive;
+    });
 
     animationFrameRef.current = requestAnimationFrame(animate);
   };
@@ -750,7 +831,16 @@ function Overlay() {
   const handleMouseUp = () => {
     if (isDragging) {
       setIsDragging(false);
-      setCharacterState(prev => ({ ...prev, vx: dragInfo.current.vx, vy: dragInfo.current.vy }));
+      setCharacterState(prev => ({
+        ...prev,
+        vx: dragInfo.current.vx,
+        vy: dragInfo.current.vy,
+        actionName: 'Falling',
+        behaviorName: 'Fall',
+        actionFrame: 0,
+        sequenceFrame: 0,
+        wasJustDragged: true, // 드래그 직후 플래그 설정
+      }));
     }
     // [신규] '요소 선택 모드'에서 클릭(mouseup) 시 최종 행동을 실행합니다.
     if (selectionMode && highlightedElement) {
@@ -766,30 +856,21 @@ function Overlay() {
         const actionName = characterState.x < centerX ? 'ThrowElementFromLeft_New' : 'ThrowElementFromRight_New';
         forceCharacterAction(actionName);
       } else if (selectionMode === 'jump') {
-        // 마우스 위치에 가장 가까운 모서리를 계산하여 해당 방향으로 점프합니다.
-        const { x, y } = mousePosition;
-        const { left, right, top, bottom } = highlightedElement;
-        const distTop = Math.abs(y - top);
-        const distBottom = Math.abs(y - bottom);
-        const distLeft = Math.abs(x - left);
-        const distRight = Math.abs(x - right);
-        const min = Math.min(distTop, distBottom, distLeft, distRight);
-
-        let actionName = 'JumpFromBottomOfIE'; // 기본값
-        if (min === distLeft) actionName = 'JumpFromLeftEdgeOfIE';
-        else if (min === distRight) actionName = 'JumpFromRightEdgeOfIE';
-        // 'JumpFromBottomOfIE'는 위에서 점프하는 로직이 없으므로, top일 때도 bottom을 사용합니다.
-        
-        forceCharacterAction(actionName);
+        forceCharacterAction('JumpToElementTop');
       }
 
-      // 모드 종료
-      setSelectionMode(null);
-      setHighlightedElement(null);
+      // [개선] 모드 종료를 setTimeout으로 지연시켜 후속 'click' 이벤트가 차단되도록 합니다.
+      setTimeout(() => {
+        setSelectionMode(null);
+        setHighlightedElement(null);
+      }, 0);
     } else if (selectionMode) {
       // 유효하지 않은 곳을 클릭하면 모드를 취소합니다.
-      setSelectionMode(null);
-      setHighlightedElement(null);
+      // [개선] 모드 종료를 setTimeout으로 지연시켜 후속 'click' 이벤트가 차단되도록 합니다.
+      setTimeout(() => {
+        setSelectionMode(null);
+        setHighlightedElement(null);
+      }, 0);
     }
   };
   useEffect(() => { window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp); return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); }; }, [isDragging, selectionMode, highlightedElement, characterState.x]);
@@ -800,11 +881,52 @@ function Overlay() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isDragging, activeIE]);
+  }, [isDragging, activeIE, isPopupOpen]);
+
+  // [신규] 팝업이 닫힐 때 캐릭터를 "깨우는" 로직
+  useEffect(() => {
+    if (prevIsPopupOpenRef.current && !isPopupOpen) {
+      // [수정] 캐릭터의 현재 행동을 강제로 종료하는 대신, '걷기' 행동을 강제로 실행하여
+      // 팝업이 닫힌 후에도 캐릭터가 멈춰있는 문제를 근본적으로 해결합니다.
+      forceCharacterAction('WalkAlongWorkAreaFloor');
+    }
+    prevIsPopupOpenRef.current = isPopupOpen;
+  }, [isPopupOpen, forceCharacterAction]);
+
+  // [신규] '요소 선택 모드'를 활성화하고, 링크 클릭 방지 및 커서 변경을 처리합니다.
+  useEffect(() => {
+    if (selectionMode) {
+      // [개선] 모든 요소에 십자선 커서를 강제로 적용하기 위해 스타일 시트를 주입합니다.
+      const styleElement = document.createElement('style');
+      styleElement.id = 'picky-selection-mode-style';
+      styleElement.innerHTML = `* { cursor: crosshair !important; }`;
+      document.head.appendChild(styleElement);
+
+      // [개선] 'mousedown' 이벤트를 사용하여 클릭 및 링크 이동을 더 안정적으로 방지합니다.
+      const preventDefaultInteraction = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      
+      // 캡처링 단계에서 이벤트를 가로채서 링크 클릭 등이 실행되기 전에 차단합니다.
+      document.addEventListener('mousedown', preventDefaultInteraction, true);
+      document.addEventListener('click', preventDefaultInteraction, true);
+
+      // 정리(cleanup) 함수: 모드가 비활성화될 때 원래대로 복구합니다.
+      return () => {
+        const style = document.getElementById('picky-selection-mode-style');
+        if (style) {
+          style.remove();
+        }
+        document.removeEventListener('mousedown', preventDefaultInteraction, true);
+        document.removeEventListener('click', preventDefaultInteraction, true);
+      };
+    }
+  }, [selectionMode]);
 
   // [신규] background.js로부터 추천 메시지를 수신하는 리스너
   useEffect(() => {
-    const messageListener = (message, _sender, _sendResponse) => {
+    const messageListener = (message) => {
       if (message.type === 'SHOW_RECOMMENDATION') {
         console.log('📢 추천 수신:', message.payload);
         setRecommendation(message.payload);
@@ -816,6 +938,18 @@ function Overlay() {
     chrome.runtime.onMessage.addListener(messageListener);
     return () => chrome.runtime.onMessage.removeListener(messageListener);
   }, []);
+
+  // [신규] 던져진 아이템의 DOM 요소 위치를 업데이트합니다.
+  useEffect(() => {
+    thrownIEs.forEach(item => {
+      if (item.element) {
+        item.element.style.position = 'fixed';
+        item.element.style.zIndex = '2147483646';
+        item.element.style.left = `${item.rect.left}px`;
+        item.element.style.top = `${item.rect.top}px`;
+      }
+    });
+  }, [thrownIEs]);
 
   // [신규] 백그라운드에 메시지를 보내는 헬퍼 함수
   const sendMessageToBackground = (message) => {
@@ -1049,11 +1183,12 @@ function Overlay() {
         </div>
       )}
       </div>
-      {thrownIEs.map(item => (
+      {/* [제거] 이제 실제 DOM 요소를 직접 움직이므로, 플레이스홀더를 렌더링하지 않습니다. */}
+      {/* {thrownIEs.map(item => (
         <div key={item.id} style={{ position: 'fixed', left: item.rect.x, top: item.rect.y, width: item.rect.width, height: item.rect.height, border: '2px dashed green', zIndex: 2147483646, pointerEvents: 'none', background: 'rgba(0,255,0,0.1)' }} />
-      ))}
+      ))} */}
       {/* [신규] 하이라이트 컴포넌트를 렌더링합니다. */}
-      <HighlightComponent elementRect={highlightedElement} selectionMode={selectionMode} mousePosition={mousePosition} />
+      <HighlightComponent elementRect={highlightedElement} selectionMode={selectionMode} />
     </>
   );
 }

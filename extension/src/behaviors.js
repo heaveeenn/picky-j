@@ -1738,6 +1738,23 @@ export const commonActions = [
     },
     {
       type: "Sequence",
+      name: "JumpToElementTop",
+      actions: [
+        {
+          type: "Reference",
+          name: "Jumping",
+          targetX: (mascot) => mascot.environment.activeIE.left + mascot.environment.activeIE.width / 2,
+          targetY: (mascot) => mascot.environment.activeIE.top - 128,
+        },
+        {
+          type: "Reference",
+          name: "Stand",
+          duration: (mascot, Math) => 100 + Math.random() * 100,
+        },
+      ],
+    },
+    {
+      type: "Sequence",
       name: "ThrowIEFromLeft",
       actions: [
         {
@@ -1872,15 +1889,15 @@ export const commonActions = [
       ],
       borderType: "Floor",
       embedType: "WalkWithIE",
-      ieOffsetX: "0",
-      ieOffsetY: "-64",
+      ieOffsetX: "(mascot.lookRight ? 48 : -mascot.environment.activeIE.width - 48)",
+      ieOffsetY: "-100",
     },
     {
       // [신규] 스크린샷 분석을 통해 새로 정의된 '왼쪽에서 던지기' 전체 시퀀스입니다.
       type: "Sequence",
       name: "ThrowElementFromLeft_New",
       actions: [
-        { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.left, targetY: (mascot) => mascot.environment.activeIE.top },
+        { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.left, targetY: (mascot) => mascot.environment.activeIE.bottom },
         { type: "Reference", name: "FallWithIe" },
         { type: "Reference", name: "WalkAndHold", targetX: (mascot) => mascot.anchor.x + 300 },
         { type: "Reference", name: "ThrowIe" },
@@ -1892,7 +1909,7 @@ export const commonActions = [
       type: "Sequence",
       name: "ThrowElementFromRight_New",
       actions: [
-        { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.right, targetY: (mascot) => mascot.environment.activeIE.top },
+        { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.right, targetY: (mascot) => mascot.environment.activeIE.bottom },
         { type: "Reference", name: "FallWithIe" },
         { type: "Reference", name: "WalkAndHold", targetX: (mascot) => mascot.anchor.x - 300 },
         { type: "Reference", name: "ThrowIe" },
@@ -2162,7 +2179,11 @@ export const commonBehaviors = [
       name: "Fall",
       frequency: 0,
       nextBehaviors: [],
-      conditions: [],
+      conditions: [
+        (mascot) =>
+          !mascot.environment.floor.isOn(mascot.anchor) &&
+          (!mascot.environment.activeIE.visible || !mascot.environment.activeIE.topBorder.isOn(mascot.anchor)),
+      ],
       groupIndex: 0,
       hidden: !1,
     },
@@ -2272,7 +2293,7 @@ export const commonBehaviors = [
       nextBehaviors: [
         {
           type: "Reference",
-          name: "ClimbHalfwayAlongWall",
+          name: "ClimbWall",
           frequency: 100,
           nextBehaviors: [],
         },
