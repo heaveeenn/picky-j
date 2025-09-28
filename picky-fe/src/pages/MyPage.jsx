@@ -12,7 +12,10 @@ const characterOptions = [
 ];
 
 const MyPage = ({ onClose, nickname, profileImage }) => {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(() => {
+  const savedMyPageTab = localStorage.getItem('myPageActiveTab');
+  return savedMyPageTab || 'profile';
+});
   
   // Settings states
   const [selectedCharacter, setSelectedCharacter] = useState('robot');
@@ -79,6 +82,10 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('myPageActiveTab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab !== 'scraps' || newsPage > 0 || quizPage > 0) return; // Only fetch initial data once

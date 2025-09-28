@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import Button from '../components/Button';
 
 const phrases = [
-  "활동 로그를 기반으로 개인화된",
-  "뉴스와 지식, 퀴즈를 제공하는",
-  "스마트한 브라우징 도우미",
-  "PICKY와 함께하세요!",
+  "과도한 뉴스 정보 속,",
+  "당신에게 꼭 필요한 뉴스만",
+  "방문 기록으로 맞춤형 추천",
+  "스마트 뉴스 큐레이션, PICKY",
 ];
 
 export function IntroPage({ onLogin }) {
@@ -153,8 +153,8 @@ export function IntroPage({ onLogin }) {
           <section className="relative flex flex-col items-center justify-start min-h-screen px-6 bg-white overflow-hidden">
             <div className="relative z-10 text-center mt-[-32] pt-20">
               <h1 className={`text-4xl md:text-6xl font-extrabold mb-20 bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} leading-relaxed`}>
-                똑똑한 브라우징, <br />
-                개인화된 학습의 시작
+                쏟아지는 정보 속<br />
+                당신만의 뉴스를 찾다<br />
               </h1>
               <p className="text-4xl md:text-5xl text-gray-600 max-w-4xl mx-auto mb-10 min-h-[80px]">
                 {typedText}
