@@ -53,7 +53,7 @@ const formatTime = (minutes) => {
   const mins = minutes % 60;
   return `${hours}시간 ${mins}분`;
 };
-const renderActivityReportPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, value, fill }) => {
+const renderActivityReportPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, fill }) => {
   const RADIAN = Math.PI / 180;
   const radius = outerRadius * 1.2; // Extend label further out
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -304,43 +304,42 @@ const ActivityReport = () => {
           </div>
         </Box>
 
+        <Box>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <Users className="w-5 h-5 mr-2 text-primary" />
+            평균 대비 내 활동
+          </h3>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between text-sm mb-3">
+                <span className="text-gray-600">일일 브라우징 시간</span>
+                <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full" style={{ width: '65%' }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-3">
+                <span className="text-gray-600">일일 방문 사이트</span>
+                <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full" style={{ width: '62%' }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-3">
+                <span className="text-gray-600">스크랩 활동</span>
+                <span className="text-gray-600">평균보다 <span className="text-primary">23% 많음</span></span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full" style={{ width: '73%' }}></div>
+              </div>
+            </div>
+          </div>
+        </Box>
       </div>
-
-      <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          <Users className="w-5 h-5 mr-2 text-primary" />
-          평균 대비 내 활동
-        </h3>
-        <div className="space-y-6">
-          <div>
-            <div className="flex justify-between text-sm mb-3">
-              <span className="text-gray-600">일일 브라우징 시간</span>
-              <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.browsingTimeDiff || '-'}</span></span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-primary h-2 rounded-full" style={{ width: '65%' }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-sm mb-3">
-              <span className="text-gray-600">일일 방문 사이트</span>
-              <span className="text-gray-600"><span className="text-primary">{userVsAverageStats?.visitCountDiff || '-'}</span></span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-primary h-2 rounded-full" style={{ width: '62%' }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-sm mb-3">
-              <span className="text-gray-600">스크랩 활동</span>
-              <span className="text-gray-600">평균보다 <span className="text-primary">23% 많음</span></span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-primary h-2 rounded-full" style={{ width: '73%' }}></div>
-            </div>
-          </div>
-        </div>
-      </Box>
     </div>
   );
 }

@@ -2,12 +2,14 @@ import { commonActions, commonBehaviors, commonSprites } from './behaviors.js';
 import { blankGuyData } from './characters/blank-guy.js';
 import { polarBearData } from './characters/polar-bear.js';
 import { ghostData } from './characters/ghost.js';
+import { pickyData } from './characters/picky.js';
 
 // 사용 가능한 모든 캐릭터의 데이터를 맵 형태로 관리하고 export합니다.
 export const availableCharacters = {
-  'blank-guy': blankGuyData,
+  'picky': pickyData,
   'polar-bear': polarBearData,
   'ghost': ghostData,
+  'blank-guy': blankGuyData,
 };
 
 /**

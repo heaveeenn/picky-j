@@ -1,5 +1,5 @@
 import React, { useState, forwardRef, useEffect, useCallback, Fragment } from 'react';
-import { BookOpen, Settings, Bell, BarChart3, X, LogIn, Check, ChevronDown } from 'lucide-react';
+import { Lightbulb, Settings, Bell, BarChart3, X, LogIn, Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { availableCharacters } from '../shimeji-data.js';
 import { commonSprites } from '../behaviors.js';
 import { DASHBOARD_URL } from '../config/env.js';
@@ -62,8 +62,8 @@ const OnOffToggleButton = ({ checked, onCheckedChange }) => {
       aria-checked={checked}
       onClick={handleClick}
       className={cn(
-        'relative inline-flex h-7 w-[70px] flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-1 transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2',
-        checked ? 'bg-purple-400' : 'bg-gray-200'
+        'relative inline-flex h-7 w-[70px] flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-1 transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+        checked ? 'bg-orange-300' : 'bg-gray-200'
       )}
     >
       <span className="sr-only">Use setting</span>
@@ -118,6 +118,12 @@ function App() {
   const bgPosX = `-${shime1SpritePosition.x * SCALE}px`;
   const bgPosY = `-${shime1SpritePosition.y * SCALE}px`;
 
+  const SMALL_DISPLAY_SIZE = 40;
+  const SMALL_SCALE = SMALL_DISPLAY_SIZE / FRAME_SIZE;
+  const smallBgSize = `${SPRITESHEET_WIDTH * SMALL_SCALE}px ${SPRITESHEET_HEIGHT * SMALL_SCALE}px`;
+  const smallBgPosX = `-${shime1SpritePosition.x * SMALL_SCALE}px`;
+  const smallBgPosY = `-${shime1SpritePosition.y * SMALL_SCALE}px`;
+
   const [isExtensionOn, setIsExtensionOn] = useState(true);
   const [isCharacterOn, setIsCharacterOn] = useState(true);
   const [isNotificationsOn, setIsNotificationsOn] = useState(true);
@@ -128,6 +134,8 @@ function App() {
     fact: true,
   });
   const [notificationInterval, setNotificationInterval] = useState(30);
+  const [currentCharacterIndex, setCurrentCharacterIndex] = useState(0);
+  const characterList = Object.values(availableCharacters);
   
   // --- [추가] 인증 관련 상태 (from extension) ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -235,6 +243,14 @@ function App() {
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    const currentIndex = characterList.findIndex(c => c.id === selectedCharacter);
+    if (currentIndex !== -1) {
+      setCurrentCharacterIndex(currentIndex);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCharacter]);
+
   /* ---------------------------------------------------------------------------
    * [통합] 이벤트 핸들러: 상태 변경 → storage 반영
    * -------------------------------------------------------------------------*/
@@ -263,6 +279,16 @@ function App() {
     setSelectedCharacter(characterId);
     handleSettingChange({ selectedCharacter: characterId });
   }, []);
+
+  const handlePrevCharacter = useCallback(() => {
+    const newIndex = (currentCharacterIndex - 1 + characterList.length) % characterList.length;
+    handleCharacterChange(characterList[newIndex].id);
+  }, [currentCharacterIndex, characterList, handleCharacterChange]);
+
+  const handleNextCharacter = useCallback(() => {
+    const newIndex = (currentCharacterIndex + 1) % characterList.length;
+    handleCharacterChange(characterList[newIndex].id);
+  }, [currentCharacterIndex, characterList, handleCharacterChange]);
 
   const handleToggleNotifications = useCallback((checked) => {
     setIsNotificationsOn(checked);
@@ -358,14 +384,20 @@ function App() {
     return <div className="w-80 h-96 flex items-center justify-center"><p>로딩 중...</p></div>;
   }
 
+  const prevIndex = (currentCharacterIndex - 1 + characterList.length) % characterList.length;
+  const nextIndex = (currentCharacterIndex + 1) % characterList.length;
+  const prevChar = characterList[prevIndex];
+  const currentChar = characterList[currentCharacterIndex];
+  const nextChar = characterList[nextIndex];
+
   return (
     <div className="w-80 max-w-sm font-sans rounded-lg shadow-lg bg-white">
       {/* 헤더 */}
-      <div className="p-4 pb-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
+      <div className="p-4 pb-2 bg-primary text-white rounded-t-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <BookOpen className="w-5 h-5" />
-            <span className="font-semibold">Picky 확장프로그램</span>
+            <Lightbulb className="w-5 h-5" />
+            <span className="font-semibold text-lg">Picky</span>
           </div>
           <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 p-1 h-auto" onClick={() => window.close()}>
             <X className="w-4 h-4" />
@@ -389,7 +421,7 @@ function App() {
             {/* 확장프로그램 토글 */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Settings className="w-4 h-4 text-purple-600" />
+                <Settings className="w-4 h-4 text-primary" />
                 <label className="text-sm font-medium">확장프로그램</label>
               </div>
               <OnOffToggleButton checked={isExtensionOn} onCheckedChange={handleToggleExtension} />
@@ -408,27 +440,59 @@ function App() {
 
                 {isCharacterOn && (
                   <div className="pl-6 space-y-2 border-l-2 border-gray-100">
-                    <div className="grid grid-cols-3 gap-2">
-                      {Object.values(availableCharacters).map(char => (
+                    <div className="flex items-center justify-between">
+                      <Button onClick={handlePrevCharacter} variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                      
+                      <div className="flex items-center justify-around flex-grow px-1">
+                        {/* Prev */}
                         <button
-                          key={char.id}
-                          onClick={() => handleCharacterChange(char.id)}
-                          className={cn(
-                            "flex flex-col items-center p-2 rounded-md border-2 transition-all",
-                            selectedCharacter === char.id ? 'border-purple-500 bg-purple-50' : 'border-transparent hover:bg-gray-100'
-                          )}
+                          onClick={() => handleCharacterChange(prevChar.id)}
+                          className="flex flex-col items-center p-1 rounded-md transition-all opacity-60 hover:opacity-100"
                         >
+                          <div
+                            className="w-10 h-10 bg-no-repeat"
+                            style={{
+                              backgroundImage: `url(${chrome.runtime.getURL(prevChar.spritesheet.replace(/^\//, ''))})`,
+                              backgroundSize: smallBgSize,
+                              backgroundPosition: `${smallBgPosX} ${smallBgPosY}`,
+                            }}
+                          />
+                        </button>
+
+                        {/* Current */}
+                        <div className="flex flex-col items-center p-2 rounded-md border-2 border-primary bg-orange-50">
                           <div
                             className="w-12 h-12 bg-no-repeat"
                             style={{
-                              backgroundImage: `url(${chrome.runtime.getURL(char.spritesheet.replace(/^\//, ''))})`,
+                              backgroundImage: `url(${chrome.runtime.getURL(currentChar.spritesheet.replace(/^\//, ''))})`,
                               backgroundSize: bgSize,
                               backgroundPosition: `${bgPosX} ${bgPosY}`,
                             }}
                           />
-                          <span className="text-xs mt-1">{char.metadata.shimejiName}</span>
+                          <span className="text-xs mt-1">{currentChar.metadata.shimejiName}</span>
+                        </div>
+
+                        {/* Next */}
+                        <button
+                          onClick={() => handleCharacterChange(nextChar.id)}
+                          className="flex flex-col items-center p-1 rounded-md transition-all opacity-60 hover:opacity-100"
+                        >
+                          <div
+                            className="w-10 h-10 bg-no-repeat"
+                            style={{
+                              backgroundImage: `url(${chrome.runtime.getURL(nextChar.spritesheet.replace(/^\//, ''))})`,
+                              backgroundSize: smallBgSize,
+                              backgroundPosition: `${smallBgPosX} ${smallBgPosY}`,
+                            }}
+                          />
                         </button>
-                      ))}
+                      </div>
+
+                      <Button onClick={handleNextCharacter} variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -488,7 +552,7 @@ function App() {
                         <Slider value={[notificationInterval]} onValueChange={handleIntervalChange} max={120} min={10} step={10} />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>10분</span>
-                          <span className="font-medium text-purple-600">{notificationInterval}분</span>
+                          <span className="font-medium text-primary">{notificationInterval}분</span>
                           <span>2시간</span>
                         </div>
                       </div>
@@ -499,7 +563,7 @@ function App() {
             )}
 
             {/* 대시보드 이동 버튼 */}
-            <Button onClick={handleGoToDashboard} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+            <Button onClick={handleGoToDashboard} className="w-full">
               <BarChart3 className="w-4 h-4 mr-2" />
               대시보드
             </Button>

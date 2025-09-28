@@ -203,10 +203,10 @@ export function IntroPage({ onLogin }) {
               <div className="max-w-4xl mx-auto bg-gray-50 p-8 rounded-xl border border-gray-200">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                   <div className="text-center md:text-left">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY_Extension_250926.zip</h3>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY</h3>
                     <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
                     <a
-                      href="https://github.com/user-attachments/files/22555192/Picky_Extension_250926.zip"
+                      href="https://github.com/user-attachments/files/22585783/PICKY.zip"
                       download
                       className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
                     >

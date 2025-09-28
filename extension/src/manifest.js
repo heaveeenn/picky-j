@@ -46,7 +46,7 @@ export default defineManifest({
         "file://*/*",
         "*://localhost:*/*",
         "*://127.0.0.1:*/*",
-        "https://j13c102.p.ssafy.io/*", // picky 대시보드 제외
+        // "https://j13c102.p.ssafy.io/*", // picky 대시보드 제외
 
         // OAuth/로그인
         "*://accounts.google.com/*",

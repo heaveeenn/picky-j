@@ -4,7 +4,7 @@ export const polarBearData = {
   spritesheet: "/images/characters/polar-bear.png",
   metadata: {
     shimeji: "polar-bear",
-    shimejiName: "Polar Bear",
+    shimejiName: "북극곰",
     artistName: "Unknown", // 필요시 수정
   },
 };
