@@ -5,6 +5,16 @@ export const commonSprites = {
     "/shime1.png": { x: 128, y: 0, width: 128, height: 128 },
 };
 
+// 'Picky' 캐릭터의 고유 데이터입니다.
+const pickyData = {
+  id: "picky",
+  spritesheet: "/images/characters/picky.png",
+  metadata: {
+    shimeji: "picky",
+    shimejiName: "피키",
+  },
+};
+
 // 'Blank Guy' 캐릭터의 고유 데이터입니다.
 const blankGuyData = {
   id: "blank-guy",
@@ -21,7 +31,7 @@ const polarBearData = {
   spritesheet: "/images/characters/polar-bear.png",
   metadata: {
     shimeji: "polar-bear",
-    shimejiName: "Polar Bear",
+    shimejiName: "북극곰",
   },
 };
 
@@ -31,13 +41,14 @@ const ghostData = {
   spritesheet: "/images/characters/ghost.png",
   metadata: {
     shimeji: "ghost",
-    shimejiName: "Ghost",
+    shimejiName: "유령",
   },
 };
 
 // UI에서 사용할 수 있도록 캐릭터 목록을 export 합니다.
 export const availableCharacters = {
-  'blank-guy': blankGuyData,
+  'picky': pickyData,
   'polar-bear': polarBearData,
   'ghost': ghostData,
+  'blank-guy': blankGuyData,
 };
