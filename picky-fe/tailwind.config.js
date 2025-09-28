@@ -4,7 +4,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#167a5f',
+        primary: '#ff914d',
+      },
+      fontFamily: {
+        sans: ['Pretendard', 'system-ui', 'sans-serif'],
       },
     },
   },

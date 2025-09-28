@@ -19,9 +19,14 @@ const tabs = {
 };
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('report');
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'mypage'
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem('activeTab');
+    return savedTab || 'report';
+  });
+  const [currentView, setCurrentView] = useState(() => {
+    const savedView = localStorage.getItem('currentView');
+    return savedView || 'dashboard';
+  });  const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
   const [nickname, setNickname] = useState("사용자"); // State for user nickname
   const [profileImage, setProfileImage] = useState(null); // State for user profile image
 
@@ -68,6 +73,14 @@ const App = () => {
     }
   };
 
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('currentView', currentView);
+  }, [currentView]);
+
   if (!isLoggedIn) {
     return <IntroPage onLogin={() => { setIsLoggedIn(true); fetchUserData(); }} />;
   }
@@ -94,7 +107,7 @@ const App = () => {
                 variant="ghost"
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tabKey
-                    ? 'border-purple-500 text-purple-600'
+                    ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
                 onClick={() => setActiveTab(tabKey)}

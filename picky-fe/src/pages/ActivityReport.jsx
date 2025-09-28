@@ -5,7 +5,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Globe, Clock, TrendingUp, Users, AlertCircle, Loader } from 'lucide-react';
 import api from '../lib/api';
 
-const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1', '#ec4899'];
+const BAR_COLORS = ['#ff914d', '#ffd5ba'];
+const RANK_COLORS = ['bg-amber-400', 'bg-slate-400', 'bg-orange-400', 'bg-sky-400', 'bg-indigo-400'];
 
 const mockData = {
   todayStats: [
@@ -19,6 +20,50 @@ const mockData = {
   ],
   hourlyActivity: Array.from({ length: 12 }, (_, i) => ({ hour: `${(i * 2).toString().padStart(2, '0')}`, count: 0 })),
   domainStats: [{ domain: '데이터 없음', count: 0 }],
+};
+
+const CATEGORY_COLOR_MAP_HEX = {
+  '정치': '#dc2626', // red-600
+  '사회': '#2563eb', // blue-600
+  '경제': '#16a34a', // green-600
+  '기술': '#9333ea', // purple-600
+  '과학': '#4f46e5', // indigo-600
+  '건강': '#db2777', // pink-600
+  '교육': '#eab308', // yellow-600
+  '문화': '#0d9488', // teal-600
+  '엔터테인먼트': '#ea580c', // orange-600
+  '스포츠': '#84cc16', // lime-600
+  '역사': '#d97706', // amber-600
+  '환경': '#059669', // emerald-600
+  '여행': '#06b6d4', // cyan-600
+  '생활': '#c026d3', // fuchsia-600
+  '가정': '#e11d48', // rose-600
+  '종교': '#7c3aed', // violet-600
+  '철학': '#4b5563', // gray-600
+};
+const DEFAULT_CATEGORY_COLOR_HEX = '#6b7280'; // gray-500
+
+const getCategoryColorHex = (categoryName) => {
+  return CATEGORY_COLOR_MAP_HEX[categoryName] || DEFAULT_CATEGORY_COLOR_HEX;
+};
+
+const formatTime = (minutes) => {
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}시간 ${mins}분`;
+};
+const renderActivityReportPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, value, fill }) => {
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius * 1.2; // Extend label further out
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill={fill} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px">
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
 };
 
 const ActivityReport = () => {
@@ -85,7 +130,8 @@ const ActivityReport = () => {
         if (categoryStatsData && categoryStatsData.length > 0) {
           const processedCategories = categoryStatsData.map(cat => ({
             ...cat,
-            timeSpentSeconds: parseTimeToSeconds(cat.timeSpent)
+            timeSpentSeconds: parseTimeToSeconds(cat.timeSpent),
+            color: getCategoryColorHex(cat.categoryName) // Add color property
           }));
           const sortedCategories = [...processedCategories].sort((a, b) => b.timeSpentSeconds - a.timeSpentSeconds);
           const top5Categories = sortedCategories.slice(0, 5);
@@ -94,7 +140,7 @@ const ActivityReport = () => {
           const longestStayedCat = sortedCategories[0] || { categoryName: '-' };
           setMostActiveCategory(longestStayedCat.categoryName);
         } else {
-          setCategoryStats(mockData.categoryData);
+          setCategoryStats(mockData.categoryData.map(cat => ({ ...cat, color: DEFAULT_CATEGORY_COLOR_HEX }))); // Ensure mock data also has color
           setMostActiveCategory(mockData.todayStats[3].value);
         }
 
@@ -151,12 +197,6 @@ const ActivityReport = () => {
     );
   }
 
-  const formatTime = (minutes) => {
-    if (minutes < 60) return `${minutes}분`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}시간 ${mins}분`;
-  };
 
   const todayStats = [
     { title: '방문한 사이트 수', value: userStats?.totalSites || mockData.todayStats[0].value, icon: Globe },
@@ -201,7 +241,11 @@ const ActivityReport = () => {
                 <XAxis dataKey="hourLabel" />
                 <YAxis />
                 <Tooltip formatter={(value) => `${value}분`} />
-                <Bar dataKey="timeSpentMinutes" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="활동 시간(분)" />
+                <Bar dataKey="timeSpentMinutes" radius={[4, 4, 0, 0]} name="활동 시간(분)">
+                  {hourlyStats.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -220,9 +264,18 @@ const ActivityReport = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">카테고리별 머문 시간</h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={categoryStats} cx="50%" cy="50%" outerRadius={80} dataKey="timeSpentSeconds" nameKey="categoryName" label={({ name, value, percent }) => `${name} (${formatTime(Math.round(value / 60))}) ${(percent * 100).toFixed(0)}%`}>
+              <Pie
+                data={categoryStats}
+                cx="50%"
+                cy="50%"
+                outerRadius={90} // Slightly larger outerRadius
+                dataKey="timeSpentSeconds"
+                nameKey="categoryName"
+                labelLine={true}
+                label={renderActivityReportPieLabel}
+              >
                 {categoryStats.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip formatter={(value) => formatTime(Math.round(value / 60))} />
@@ -238,7 +291,7 @@ const ActivityReport = () => {
             {domainStats.slice(0, 5).map((site, index) => (
               <div key={site.domain} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
+                                    <div className={`w-8 h-8 ${RANK_COLORS[index]} text-white rounded-full flex items-center justify-center text-sm flex-shrink-0`}>
                     {index + 1}
                   </div>
                   <div>

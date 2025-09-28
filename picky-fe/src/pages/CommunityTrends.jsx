@@ -6,7 +6,69 @@ import { TrendingUp, Users, Globe, Award, ExternalLink, Clock, Loader, AlertCirc
 import Button from '../components/Button';
 import api from '../lib/api';
 
-const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#6366f1', '#ec4899'];
+const CATEGORY_COLOR_MAP_HEX = {
+  '정치': '#dc2626', // red-600
+  '사회': '#2563eb', // blue-600
+  '경제': '#16a34a', // green-600
+  '기술': '#9333ea', // purple-600
+  '과학': '#4f46e5', // indigo-600
+  '건강': '#db2777', // pink-600
+  '교육': '#eab308', // yellow-600
+  '문화': '#0d9488', // teal-600
+  '엔터테인먼트': '#ea580c', // orange-600
+  '스포츠': '#84cc16', // lime-600
+  '역사': '#d97706', // amber-600
+  '환경': '#059669', // emerald-600
+  '여행': '#06b6d4', // cyan-600
+  '생활': '#c026d3', // fuchsia-600
+  '가정': '#e11d48', // rose-600
+  '종교': '#7c3aed', // violet-600
+  '철학': '#4b5563', // gray-600
+};
+const DEFAULT_CATEGORY_COLOR_HEX = '#6b7280'; // gray-500
+
+const getCategoryColorHex = (categoryName) => {
+  return CATEGORY_COLOR_MAP_HEX[categoryName] || DEFAULT_CATEGORY_COLOR_HEX;
+};
+
+const CATEGORY_COLOR_MAP = {
+  '정치': 'bg-red-600 text-white',
+  '사회': 'bg-blue-600 text-white',
+  '경제': 'bg-green-600 text-white',
+  '기술': 'bg-purple-600 text-white',
+  '과학': 'bg-indigo-600 text-white',
+  '건강': 'bg-pink-600 text-white',
+  '교육': 'bg-yellow-600 text-white',
+  '문화': 'bg-teal-600 text-white',
+  '엔터테인먼트': 'bg-orange-600 text-white',
+  '스포츠': 'bg-lime-600 text-white',
+  '역사': 'bg-amber-600 text-white',
+  '환경': 'bg-emerald-600 text-white',
+  '여행': 'bg-cyan-600 text-white',
+  '생활': 'bg-fuchsia-600 text-white',
+  '가정': 'bg-rose-600 text-white',
+  '종교': 'bg-violet-600 text-white',
+  '철학': 'bg-gray-600 text-white',
+};
+const DEFAULT_CATEGORY_COLOR = 'bg-gray-500 text-white';
+const RANK_COLORS = ['bg-amber-400', 'bg-slate-400', 'bg-orange-400', 'bg-sky-400', 'bg-indigo-400']; // Fallback for unknown categories
+
+const getCategoryColorClass = (categoryName) => {
+  return CATEGORY_COLOR_MAP[categoryName] || DEFAULT_CATEGORY_COLOR;
+};
+
+const renderCommunityTrendsPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, value, fill }) => {
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius * 1.2; // Extend label further out
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill={fill} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px">
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
 
 const CommunityTrends = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
@@ -200,12 +262,12 @@ const CommunityTrends = () => {
     }
   ];
 
-  const categoryDistribution = categoryDistributionData.length > 0 ? categoryDistributionData.map((cat, index) => ({
+  const categoryDistribution = categoryDistributionData.length > 0 ? categoryDistributionData.map((cat) => ({
     name: cat.categoryName,
     value: cat.percent,
-    color: COLORS[index % COLORS.length]
+    color: getCategoryColorHex(cat.categoryName) // Add color property
   })) : [
-    { name: '데이터 없음', value: 100, color: '#d1d5db' },
+    { name: '데이터 없음', value: 100, color: DEFAULT_CATEGORY_COLOR_HEX },
   ];
 
   return (
@@ -249,8 +311,7 @@ const CommunityTrends = () => {
             displayedTopSites.map((site, index) => (
               <div key={site.domain} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white bg-primary font-bold">{index + 1}</div>
-                  <div>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${RANK_COLORS[index]} font-bold`}>{index + 1}</div>                  <div>
                     <h4 className="font-semibold">{site.domain}</h4>
                     <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
                   </div>
@@ -268,7 +329,16 @@ const CommunityTrends = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={categoryDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie
+                data={categoryDistribution}
+                cx="50%"
+                cy="50%"
+                outerRadius={70}
+                dataKey="value"
+                nameKey="name"
+                labelLine={true}
+                label={renderCommunityTrendsPieLabel}
+              >
                 {categoryDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
               </Pie>
             </PieChart>
@@ -300,7 +370,7 @@ const CommunityTrends = () => {
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="font-bold text-gray-900 text-base">{news.title}</h4>
-                    <Badge variant="default" className="ml-2">{news.categoryName}</Badge>
+                    <Badge className={getCategoryColorClass(news.categoryName)}>{news.categoryName}</Badge>
                   </div>
                   <p className="text-sm text-gray-600 mb-2 line-clamp-2">{news.summary}</p>
                   <div className="flex items-center justify-end">

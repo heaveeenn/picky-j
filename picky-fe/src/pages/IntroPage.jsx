@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import Button from '../components/Button';
 
 const phrases = [
-  "활동 로그를 기반으로 개인화된",
-  "뉴스와 지식, 퀴즈를 제공하는",
-  "스마트한 브라우징 도우미",
-  "Picky와 함께하세요!",
+  "과도한 뉴스 정보 속,",
+  "당신에게 꼭 필요한 뉴스만",
+  "방문 기록으로 맞춤형 추천",
+  "스마트 뉴스 큐레이션, PICKY",
 ];
 
 export function IntroPage({ onLogin }) {
@@ -102,20 +102,12 @@ export function IntroPage({ onLogin }) {
     },
   ];
 
-  const useCases = [
-    {
-      tag: '기획자/마케터',
-      text: '대중의 반응을 미리 읽고, 새로운 제품이나 프로모션을 기획할 때 활용해요.',
-    },
-    {
-      tag: '학생/연구원',
-      text: '데이터 기반의 보고서를 작성하거나 사회 현상을 연구할 때 활용해요.',
-    },
-    {
-      tag: '콘텐츠 크리에이터',
-      text: '새로운 콘텐츠를 제작할 때, Picky에서 아이디어를 찾아요.',
-    },
-  ];
+  const handleScrollToFeatures = () => {
+    const featuresSection = document.getElementById('features-section');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <>
@@ -138,7 +130,7 @@ export function IntroPage({ onLogin }) {
               <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
                 P
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">Picky</h1>
+              <h1 className="text-2xl font-bold text-slate-900">PICKY</h1>
             </div>
             <Button
               onClick={handleGoogleLogin}
@@ -158,29 +150,31 @@ export function IntroPage({ onLogin }) {
         {/* Main Content */}
         <main>
           {/* Hero Section */}
-          <section className="relative flex flex-col items-center justify-center min-h-screen px-6 bg-white overflow-hidden">
-            <div className="relative z-10 text-center">
-              <h1 className={`text-4xl md:text-6xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} leading-relaxed`}>
-                똑똑한 브라우징, <br />
-                개인화된 학습의 시작
+          <section className="relative flex flex-col items-center justify-start min-h-screen px-6 bg-white overflow-hidden">
+            <div className="relative z-10 text-center mt-[-32] pt-20">
+              <h1 className={`text-4xl md:text-6xl font-extrabold mb-20 bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} leading-relaxed`}>
+                쏟아지는 정보 속<br />
+                당신만의 뉴스를 찾다<br />
               </h1>
-              <p className="text-2xl md:text-3xl text-gray-600 max-w-4xl mx-auto mb-10 min-h-[80px]">
+              <p className="text-4xl md:text-5xl text-gray-600 max-w-4xl mx-auto mb-10 min-h-[80px]">
                 {typedText}
                 <span className="typed-cursor">|</span>
               </p>
             </div>
-            <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 transition-opacity duration-1000 delay-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-24 h-24 text-gray-400 animate-bounce">
+            <div
+              onClick={handleScrollToFeatures}
+              className={`absolute bottom-20 left-1/2 -translate-x-1/2 transition-opacity duration-1000 delay-500 ${isLoaded ? 'opacity-100' : 'opacity-0'} cursor-pointer`}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-24 h-24 text-gray-400 animate-bounce opacity-20">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 5.25 7.5 7.5 7.5-7.5m-15 6 7.5 7.5 7.5-7.5" />
                 </svg>
             </div>
           </section>
 
-          {/* Features Section */}
-          <section className="py-20 bg-gray-50">
+          <section id="features-section" className="py-20 bg-gray-50">
             <div className="container mx-auto px-6">
               <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Picky의 핵심 기능</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">PICKY의 핵심 기능</h2>
                 <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                   당신의 웹 서핑을 한 단계 업그레이드할 강력한 기능들을 만나보세요.
                 </p>
@@ -201,15 +195,15 @@ export function IntroPage({ onLogin }) {
           <section className="py-20 bg-white">
             <div className="container mx-auto px-6">
               <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Picky 크롬 확장 프로그램 설치</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">PICKY 크롬 확장 프로그램 설치</h2>
                 <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                  아래 버튼을 통해 확장 프로그램을 다운로드하고, 안내에 따라 수동으로 설치하여 Picky의 모든 기능을 활성화하세요.
+                  아래 버튼을 통해 확장 프로그램을 다운로드하고, 안내에 따라 수동으로 설치하여 PICKY의 모든 기능을 활성화하세요.
                 </p>
               </div>
               <div className="max-w-4xl mx-auto bg-gray-50 p-8 rounded-xl border border-gray-200">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                   <div className="text-center md:text-left">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Picky_Extension_250926.zip</h3>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY_Extension_250926.zip</h3>
                     <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
                     <a
                       href="https://github.com/user-attachments/files/22555192/Picky_Extension_250926.zip"
@@ -234,29 +228,6 @@ export function IntroPage({ onLogin }) {
               </div>
             </div>
           </section>
-
-          {/* Use Cases Section */}
-          <section className="py-20 bg-gray-50">
-            <div className="container mx-auto px-6">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">이렇게 활용해보세요!</h2>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                  다양한 분야의 전문가들이 Picky를 통해 생산성을 높이고 있습니다.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {useCases.map((useCase, index) => (
-                  <div key={index} className="bg-gray-50 p-8 rounded-xl border border-gray-200">
-                    <span className="inline-block bg-primary text-primary px-3 py-1 rounded-full text-sm font-semibold mb-4">
-                      {useCase.tag}
-                    </span>
-                    <p className="text-gray-700 text-lg">{useCase.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-          
           {/* Final CTA Section */}
           <section className="py-20 bg-gray-50">
               <div className="container mx-auto px-6 text-center">
@@ -264,7 +235,7 @@ export function IntroPage({ onLogin }) {
                       새로운 정보의 세계가 당신을 기다립니다
                   </h2>
                   <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
-                      지금 바로 Picky와 함께 더 스마트한 웹 브라우징을 경험해보세요.
+                      지금 바로 PICKY와 함께 더 스마트한 웹 브라우징을 경험해보세요.
                   </p>
                   <Button
                       onClick={handleGoogleLogin}
@@ -284,10 +255,10 @@ export function IntroPage({ onLogin }) {
                 <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
                   P
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900">Picky</h1>
+                <h1 className="text-2xl font-bold text-slate-900">PICKY</h1>
               </div>
               <div className="text-center md:text-right text-gray-500">
-                <p className="mb-2">© 2025 Picky. All Rights Reserved.</p>
+                <p className="mb-2">© 2025 PICKY. All Rights Reserved.</p>
                 <p>똑똑한 브라우징의 시작</p>
               </div>
             </div>
