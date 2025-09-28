@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Box from '../components/Box';
 import Badge from '../components/Badge';
-import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { ExternalLink, Calendar, TrendingUp, Bookmark } from 'lucide-react';
 import Button from '../components/Button';
 import api from '../lib/api';
@@ -95,16 +95,30 @@ const NewsFeed = () => {
     }
   };
 
-  const getCategoryVariant = (category) => {
-    switch (category) {
-      case 'IT/과학': return 'primary';
-      case '개발': return 'success';
-      case '디자인': return 'info';
-      case '정치/사회': return 'warning';
-      case '여행/레저': return 'danger';
-      default: return 'default';
-    }
-  };
+const CATEGORY_COLOR_MAP = {
+  '정치': 'bg-red-600 text-white',
+  '사회': 'bg-blue-600 text-white',
+  '경제': 'bg-green-600 text-white',
+  '기술': 'bg-purple-600 text-white',
+  '과학': 'bg-indigo-600 text-white',
+  '건강': 'bg-pink-600 text-white',
+  '교육': 'bg-yellow-600 text-white',
+  '문화': 'bg-teal-600 text-white',
+  '엔터테인먼트': 'bg-orange-600 text-white',
+  '스포츠': 'bg-lime-600 text-white',
+  '역사': 'bg-amber-600 text-white',
+  '환경': 'bg-emerald-600 text-white',
+  '여행': 'bg-cyan-600 text-white',
+  '생활': 'bg-fuchsia-600 text-white',
+  '가정': 'bg-rose-600 text-white',
+  '종교': 'bg-violet-600 text-white',
+  '철학': 'bg-gray-600 text-white',
+};
+const DEFAULT_CATEGORY_COLOR = 'bg-gray-500 text-white'; // Fallback for unknown categories
+
+const getCategoryColorClass = (categoryName) => {
+  return CATEGORY_COLOR_MAP[categoryName] || DEFAULT_CATEGORY_COLOR;
+};
   
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -148,7 +162,11 @@ const NewsFeed = () => {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={formattedDailyConsumption}><XAxis dataKey="day" stroke="#64748b" /><Tooltip cursor={{fill: 'rgba(238, 242, 255, 0.5)'}} formatter={(value) => `${value}개`} /><Bar dataKey="count" name="" fill="#8b5cf6" radius={[4, 4, 0, 0]} /></BarChart>
+              <BarChart data={formattedDailyConsumption}><XAxis dataKey="day" stroke="#64748b" /><Tooltip cursor={{fill: 'rgba(238, 242, 255, 0.5)'}} formatter={(value) => `${value}개`} /><Bar dataKey="count" name="" radius={[4, 4, 0, 0]}>
+                  {formattedDailyConsumption.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={['#ff914d', '#ffd5ba'][index % 2]} />
+                  ))}
+                </Bar></BarChart>
             </ResponsiveContainer>
           </>
         ) : (
@@ -183,7 +201,7 @@ const NewsFeed = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <Badge variant={getCategoryVariant(news.categoryName)}>{news.categoryName}</Badge>
+                      <Badge className={getCategoryColorClass(news.categoryName)}>{news.categoryName}</Badge>
                       <span className="text-xs text-gray-500 flex items-center"><Calendar className="w-3 h-3 mr-1" />{formatDate(news.publishedAt)}</span>
                     </div>
                     <button onClick={() => handleScrapToggle(news.newsId)} className="text-gray-400 hover:text-yellow-500 transition-colors">
