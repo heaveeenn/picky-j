@@ -1,0 +1,10 @@
+// 'Polar Bear' 캐릭터의 고유 데이터입니다.
+export const polarBearData = {
+  id: "polar-bear",
+  spritesheet: "/images/characters/polar-bear.png",
+  metadata: {
+    shimeji: "polar-bear",
+    shimejiName: "Polar Bear",
+    artistName: "Unknown", // 필요시 수정
+  },
+};

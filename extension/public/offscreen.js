@@ -117,7 +117,7 @@ async function extractContentFromUrl(url) {
     return content;
     
   } catch (error) {
-    console.error(`❌ fetch 추출 실패: ${url}`, error);
+    // fetch 실패는 조용히 처리
     throw error;
   }
 }
