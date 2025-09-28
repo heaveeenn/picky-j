@@ -33,16 +33,12 @@ class RecommendationController {
     @GetMapping("/next")
     public ResponseEntity<ApiResponse<RecommendationPayloadResponseDto>> getNextRecommendation(
             HttpServletRequest request,
-            @RequestParam ContentType type,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime windowStart,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime windowEnd
+            @RequestParam ContentType type
     ) {
         Long userId = (Long) request.getAttribute("userId");
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = windowStart != null ? windowStart : now.withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime end = windowEnd != null ? windowEnd : now.plusMinutes(5);
+        LocalDateTime start = now.minusDays(2);
+        LocalDateTime end = now.plusDays(1);
 
         var payload = recommendationService.getNextRecommendation(userId, type, start, end);
 
@@ -107,5 +103,3 @@ class RecommendationController {
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "개인화 뉴스 피드 조회 성공", data, request.getRequestURI()));
     }
 }
-
-
