@@ -311,7 +311,8 @@ const CommunityTrends = () => {
             displayedTopSites.map((site, index) => (
               <div key={site.domain} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-4">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${RANK_COLORS[index]} font-bold`}>{index + 1}</div>                  <div>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${RANK_COLORS[index]} font-bold`}>{index + 1}</div>
+                  <div>
                     <h4 className="font-semibold">{site.domain}</h4>
                     <div className="text-sm text-gray-500">{site.visitCount}회 방문</div>
                   </div>
@@ -384,19 +385,6 @@ const CommunityTrends = () => {
           ) : (
             <div className="text-center p-4 text-gray-500">트렌딩 뉴스를 불러오는 중이거나, 데이터가 없습니다.</div>
           )}
-        </div>
-      </Box>
-
-      <Box>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">추천 커뮤니티</h3>
-        <p className="text-gray-600 mb-6">
-          비슷한 관심사를 가진 사용자들이 자주 방문하는 커뮤니티를 확인해보세요
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Badge variant="default" className="px-3 py-1">Reddit - WebDev</Badge>
-          <Badge variant="default" className="px-3 py-1">Discord - Design Community</Badge>
-          <Badge variant="default" className="px-3 py-1">Slack - Frontend Developers</Badge>
-          <Badge variant="default" className="px-3 py-1">Notion - UX Researchers</Badge>
         </div>
       </Box>
     </div>
