@@ -6,7 +6,7 @@
  */
 
 import { HistoryContentExtractor } from './HistoryContentExtractor.js';
-import { DATA_ENGINE_URL } from '../config/env.js';
+import { DATA_ENGINE_URL, BACKEND_URL } from '../config/env.js';
 
 export class HistoryCollector {
   constructor(userSession = null) {
@@ -321,7 +321,7 @@ export class HistoryCollector {
         return [];
       }
 
-      const response = await fetch('http://localhost:8080/api/users/me/settings', {
+      const response = await fetch(`${BACKEND_URL}/api/users/me/settings`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

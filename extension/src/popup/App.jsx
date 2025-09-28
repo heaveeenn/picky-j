@@ -1,6 +1,8 @@
 import React, { useState, forwardRef, useEffect, useCallback, Fragment } from 'react';
-import { BookOpen, Settings, Bell, BarChart3, X, LogIn, Check } from 'lucide-react';
-import { BACKEND_URL } from '../config/env.js';
+import { BookOpen, Settings, Bell, BarChart3, X, LogIn, Check, ChevronDown } from 'lucide-react';
+import { availableCharacters } from '../shimeji-data.js';
+import { commonSprites } from '../behaviors.js';
+import { DASHBOARD_URL } from '../config/env.js';
 import * as SwitchPrimitives from '@radix-ui/react-switch';
 import * as SliderPrimitives from '@radix-ui/react-slider';
 import * as CheckboxPrimitives from '@radix-ui/react-checkbox';
@@ -105,9 +107,21 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
  * ---------------------------------------------------------------------------*/
 function App() {
   // --- [통합] 상태 관리: 기존 UI 상태 + 실제 인증 상태 ---
+  // 썸네일 이미지 스타일 계산
+  const shime1SpritePosition = commonSprites['/shime1.png'];
+  const SPRITESHEET_WIDTH = 896; // 스프라이트 시트 전체 너비
+  const SPRITESHEET_HEIGHT = 896; // 스프라이트 시트 전체 높이
+  const FRAME_SIZE = 128; // 각 프레임(이미지)의 크기
+  const DISPLAY_SIZE = 48; // 팝업에 표시될 썸네일 크기
+  const SCALE = DISPLAY_SIZE / FRAME_SIZE; // 축소 비율
+  const bgSize = `${SPRITESHEET_WIDTH * SCALE}px ${SPRITESHEET_HEIGHT * SCALE}px`;
+  const bgPosX = `-${shime1SpritePosition.x * SCALE}px`;
+  const bgPosY = `-${shime1SpritePosition.y * SCALE}px`;
+
   const [isExtensionOn, setIsExtensionOn] = useState(true);
   const [isCharacterOn, setIsCharacterOn] = useState(true);
   const [isNotificationsOn, setIsNotificationsOn] = useState(true);
+  const [selectedCharacter, setSelectedCharacter] = useState('blank-guy');
   const [notificationItems, setNotificationItems] = useState({
     news: true,
     quiz: true,
@@ -162,7 +176,8 @@ function App() {
         'isCharacterOn',
         'isNotificationsOn',
         'notificationItems',
-        'notificationInterval'
+        'notificationInterval',
+        'selectedCharacter'
       ]);
 
       if (localSettings) {
@@ -171,6 +186,7 @@ function App() {
         if (typeof localSettings.isNotificationsOn === 'boolean') setIsNotificationsOn(localSettings.isNotificationsOn);
         if (localSettings.notificationItems) setNotificationItems(localSettings.notificationItems);
         if (typeof localSettings.notificationInterval === 'number') setNotificationInterval(localSettings.notificationInterval);
+        if (localSettings.selectedCharacter) setSelectedCharacter(localSettings.selectedCharacter);
       }
 
       // 3. 백그라운드에서 백엔드와 동기화를 시도합니다. (UI는 이미 로드됨)
@@ -212,6 +228,7 @@ function App() {
         if (changes.isNotificationsOn) setIsNotificationsOn(changes.isNotificationsOn.newValue);
         if (changes.notificationItems) setNotificationItems(changes.notificationItems.newValue);
         if (changes.notificationInterval) setNotificationInterval(changes.notificationInterval.newValue);
+        if (changes.selectedCharacter) setSelectedCharacter(changes.selectedCharacter.newValue);
       }
     };
     chrome.storage.onChanged.addListener(handleStorageChange);
@@ -240,6 +257,11 @@ function App() {
     setIsCharacterOn(checked);
     // background.js에 변경된 'isCharacterOn' 값만 전달합니다.
     handleSettingChange({ isCharacterOn: checked });
+  }, []);
+
+  const handleCharacterChange = useCallback((characterId) => {
+    setSelectedCharacter(characterId);
+    handleSettingChange({ selectedCharacter: characterId });
   }, []);
 
   const handleToggleNotifications = useCallback((checked) => {
@@ -326,7 +348,7 @@ function App() {
   }, [isLoggingIn, sendMessage, checkAuthStatus]);
 
   const handleGoToDashboard = useCallback(() => {
-    if (chrome?.tabs) chrome.tabs.create({ url: 'http://localhost:5173/' });
+    if (chrome?.tabs) chrome.tabs.create({ url: DASHBOARD_URL });
   }, []);
 
   /* ---------------------------------------------------------------------------
@@ -384,6 +406,33 @@ function App() {
                   <OnOffToggleButton checked={isCharacterOn} onCheckedChange={handleToggleCharacter} />
                 </div>
 
+                {isCharacterOn && (
+                  <div className="pl-6 space-y-2 border-l-2 border-gray-100">
+                    <div className="grid grid-cols-3 gap-2">
+                      {Object.values(availableCharacters).map(char => (
+                        <button
+                          key={char.id}
+                          onClick={() => handleCharacterChange(char.id)}
+                          className={cn(
+                            "flex flex-col items-center p-2 rounded-md border-2 transition-all",
+                            selectedCharacter === char.id ? 'border-purple-500 bg-purple-50' : 'border-transparent hover:bg-gray-100'
+                          )}
+                        >
+                          <div
+                            className="w-12 h-12 bg-no-repeat"
+                            style={{
+                              backgroundImage: `url(${chrome.runtime.getURL(char.spritesheet.replace(/^\//, ''))})`,
+                              backgroundSize: bgSize,
+                              backgroundPosition: `${bgPosX} ${bgPosY}`,
+                            }}
+                          />
+                          <span className="text-xs mt-1">{char.metadata.shimejiName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 알림 토글 */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -435,7 +484,6 @@ function App() {
                     </div>
                     
                     <div>
-                      <label className="text-sm font-medium text-gray-500">알림 간격</label>
                       <div className="px-1 pt-2">
                         <Slider value={[notificationInterval]} onValueChange={handleIntervalChange} max={120} min={10} step={10} />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">

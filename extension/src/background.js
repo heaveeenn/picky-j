@@ -66,15 +66,48 @@ const userSession = new UserSession();
 initApi(userSession); // 인증 API 모듈 초기화
 const historyCollector = new HistoryCollector(userSession);
 
+// --- [추가] 스크랩 상태 캐시 ---
+let userScrapsCache = {
+  NEWS: new Set(),
+  QUIZ: new Set(),
+};
+
+async function fetchAndCacheUserScraps() {
+  if (!userSession.isUserAuthenticated()) {
+    userScrapsCache = { NEWS: new Set(), QUIZ: new Set() }; // 로그아웃 시 캐시 초기화
+    return;
+  }
+  try {
+    console.log("🔄 사용자 스크랩 목록 캐싱 시작");
+    const response = await authFetch(`${BACKEND_URL}/api/scraps?size=1000`); // 충분히 큰 사이즈로 모든 스크랩 가져오기
+    if (!response.ok) throw new Error('스크랩 목록 조회 실패');
+    
+    const result = await response.json();
+    const scraps = result.data.content;
+
+    const newCache = { NEWS: new Set(), QUIZ: new Set() };
+    for (const scrap of scraps) {
+      if (scrap.contentType === 'NEWS') newCache.NEWS.add(scrap.contentId);
+      else if (scrap.contentType === 'QUIZ') newCache.QUIZ.add(scrap.contentId);
+    }
+    userScrapsCache = newCache;
+    console.log(`✅ 사용자 스크랩 캐싱 완료: NEWS ${userScrapsCache.NEWS.size}개, QUIZ ${userScrapsCache.QUIZ.size}개`);
+  } catch (error) {
+    console.error("❌ 사용자 스크랩 캐싱 실패:", error);
+  }
+}
+
+
 // Service Worker 재시작시 세션 자동 복원
 (async () => {
   try {
     const sessionInfo = await userSession.tryAutoLogin();
     console.log("👤 사용자 세션 초기화 완료:", sessionInfo);
 
-    // 자동 로그인 성공시 히스토리 수집 체크
+    // 자동 로그인 성공시 히스토리 수집 및 스크랩 캐싱
     if (sessionInfo.success) {
       await checkAndCollectHistory();
+      await fetchAndCacheUserScraps(); // 스크랩 캐시
     }
   } catch (error) {
     console.error("❌ 사용자 세션 초기화 실패:", error);
@@ -107,51 +140,53 @@ async function checkAndCollectHistory() {
 }
 
 // content.js와 popup에서 온 메시지 처리
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📨 메시지 받음:", message);
 
   // 브라우징 데이터 처리 (content.js에서)
   if (message.type === "BROWSING_DATA") {
-    // 1. 로그인 상태 확인
-    const userId = userSession.getUserId();
-    if (!userId || !userSession.isUserAuthenticated()) {
-      console.log("⚠️ 로그인되지 않음 - 데이터 수집 건너뛰기");
-      sendResponse({ success: false, reason: "User not authenticated" });
-      return;
-    }
-
-    // 2. 토글 상태 확인 (Chrome Storage에서)
-    // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
-    const settings = await chrome.storage.sync.get(["isExtensionOn"]);
-    const isTrackingEnabled = settings.isExtensionOn !== false;
-
-    if (!isTrackingEnabled) {
-      console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
-      sendResponse({ success: false, reason: "Tracking disabled" });
-      return;
-    }
-
-    // 3. 도메인 차단 상태 확인
-    const userSettings = await fetchUserSettings();
-    if (userSettings && userSettings.settings && userSettings.settings.blockedDomains) {
-      const currentDomain = new URL(message.data.url).hostname;
-      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
-        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
-      });
-
-      if (isBlocked) {
-        console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
-        sendResponse({ success: false, reason: "Domain blocked" });
+    (async () => {
+      // 1. 로그인 상태 확인
+      const userId = userSession.getUserId();
+      if (!userId || !userSession.isUserAuthenticated()) {
+        console.log("⚠️ 로그인되지 않음 - 데이터 수집 건너뛰기");
+        sendResponse({ success: false, reason: "User not authenticated" });
         return;
       }
-    }
 
-    // 4. 사용자 ID와 함께 데이터를 큐에 추가
-    dataSender.addToQueue(message.data, userId);
-    console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
+      // 2. 토글 상태 확인 (Chrome Storage에서)
+      // [변경] trackingEnabled 대신 isExtensionOn을 사용하도록 통합
+      const settings = await chrome.storage.sync.get(["isExtensionOn"]);
+      const isTrackingEnabled = settings.isExtensionOn !== false;
 
-    sendResponse({ success: true });
-    return;
+      if (!isTrackingEnabled) {
+        console.log("⚠️ 데이터 수집 비활성화 - 큐에 추가하지 않음");
+        sendResponse({ success: false, reason: "Tracking disabled" });
+        return;
+      }
+
+      // 3. 도메인 차단 상태 확인
+      const userSettings = await fetchUserSettings();
+      if (userSettings && userSettings.settings && userSettings.settings.blockedDomains) {
+        const currentDomain = new URL(message.data.url).hostname;
+        const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+          return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+        });
+
+        if (isBlocked) {
+          console.log("🚫 차단된 도메인 - 큐에 추가하지 않음:", currentDomain);
+          sendResponse({ success: false, reason: "Domain blocked" });
+          return;
+        }
+      }
+
+      // 4. 사용자 ID와 함께 데이터를 큐에 추가
+      dataSender.addToQueue(message.data, userId);
+      console.log("✅ 데이터 큐에 추가 완료 - userId:", userId);
+
+      sendResponse({ success: true });
+    })();
+    return true; // 비동기 응답을 위해 true 반환
   }
 
   // 사용자 세션 정보 조회 (popup에서)
@@ -232,12 +267,13 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       .then(async (result) => {
         console.log("🔐 Google 로그인 결과:", result);
 
-        // 로그인 성공시 히스토리 수집 체크
+        // 로그인 성공시 히스토리 수집 및 스크랩 캐싱
         if (result.success) {
           try {
             await checkAndCollectHistory();
-          } catch (historyError) {
-            console.error("히스토리 수집 실패:", historyError);
+            await fetchAndCacheUserScraps(); // 스크랩 캐시
+          } catch (initError) {
+            console.error("로그인 후 초기화 작업 실패:", initError);
           }
         }
 
@@ -276,6 +312,66 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     return false;
   }
 
+  // [추가] 퀴즈 답변 제출 (Overlay.jsx에서)
+  if (message.type === 'SUBMIT_QUIZ_ANSWER') {
+    (async () => {
+      try {
+        const { quizId, userAnswer, slotId } = message.payload;
+        const response = await authFetch(`${BACKEND_URL}/api/quizzes/${quizId}/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userAnswer, slotId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        sendResponse({ success: true, data: result.data });
+      } catch (error) {
+        console.error("퀴즈 답변 제출 API 호출 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 비동기 응답
+  }
+
+  // [추가] 스크랩 토글 (Overlay.jsx에서)
+  if (message.type === 'TOGGLE_SCRAP') {
+    (async () => {
+      try {
+        const { contentType, contentId } = message.payload;
+        const response = await authFetch(`${BACKEND_URL}/api/scraps/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentType, contentId }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const isScrapped = result.data !== null;
+
+        // 캐시 업데이트
+        if (isScrapped) {
+          userScrapsCache[contentType].add(contentId);
+        } else {
+          userScrapsCache[contentType].delete(contentId);
+        }
+        console.log(`🔄 스크랩 캐시 업데이트: ${contentType} ${contentId} -> ${isScrapped}`);
+
+        sendResponse({ success: true, isScrapped });
+      } catch (error) {
+        console.error("스크랩 토글 API 호출 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 비동기 응답
+  }
+
 // --- [추가] 추천 콘텐츠 관련 메시지 핸들러 ---
   if (message.type === 'ACKNOWLEDGE_RECOMMENDATION') {
     (async () => {
@@ -289,21 +385,9 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 // --- [추가] UI 관련 메시지 핸들러 ---
   if (message.type === 'GET_USER_SETTINGS') {
     (async () => {
-      const result = await fetchUserSettings();
+      const result = await syncSettingsFromBackend();
       if (result.success) {
-        // 백엔드 DTO를 chrome.storage 구조에 맞게 변환
-        const settingsToStore = {
-          isCharacterOn: result.settings.avatarCode !== 'disabled', // 'disabled' 코드가 캐릭터 off를 의미한다고 가정
-          isNotificationsOn: result.settings.notifyEnabled,
-          notificationItems: {
-            news: result.settings.newsEnabled,
-            quiz: result.settings.quizEnabled,
-            fact: result.settings.factEnabled,
-          },
-          notificationInterval: result.settings.notifyInterval,
-        };
-        await chrome.storage.sync.set(settingsToStore);
-        sendResponse({ success: true, settings: settingsToStore });
+        sendResponse(result);
       } else {
         // 실패 시 기존 storage 값이라도 보내주기
         const localSettings = await chrome.storage.sync.get(null);
@@ -348,6 +432,11 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         payload.avatarCode = changes.isCharacterOn ? (fullSettings.avatarCode !== 'disabled' ? fullSettings.avatarCode : 'default') : 'disabled';
       }
 
+      // [추가] 사용자가 선택한 캐릭터 ID(selectedCharacter)를 avatarCode에 반영합니다.
+      if (changes.selectedCharacter) {
+        payload.avatarCode = changes.selectedCharacter;
+      }
+
       // 3. 완성된 페이로드로 백엔드에 업데이트를 요청합니다.
       const updateResult = await updateUserSettings(payload);
 
@@ -370,32 +459,58 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
   // 차단된 도메인 확인 (DataCollector에서)
   if (message.type === "CHECK_BLOCKED_DOMAIN") {
-    try {
-      // 사용자 설정 조회
-      const userSettings = await fetchUserSettings();
-      if (!userSettings || !userSettings.settings || !userSettings.settings.blockedDomains) {
-        sendResponse({ success: true, blocked: false });
-        return;
+    (async () => {
+      try {
+        // 사용자 설정 조회
+        const userSettings = await fetchUserSettings();
+        if (!userSettings || !userSettings.settings || !userSettings.settings.blockedDomains) {
+          sendResponse({ success: true, blocked: false });
+          return;
+        }
+
+        // 도메인 체크
+        const currentDomain = new URL(message.url).hostname;
+        const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
+          return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
+        });
+
+        console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
+        sendResponse({ success: true, blocked: isBlocked });
+
+      } catch (error) {
+        console.error("❌ 도메인 체크 실패:", error);
+        sendResponse({ success: false, blocked: false, error: error.message });
       }
-
-      // 도메인 체크
-      const currentDomain = new URL(message.url).hostname;
-      const isBlocked = userSettings.settings.blockedDomains.some(blockedDomain => {
-        return currentDomain.includes(blockedDomain) || blockedDomain.includes(currentDomain);
-      });
-
-      console.log(`🔍 도메인 체크: ${currentDomain} -> ${isBlocked ? '차단됨' : '허용됨'}`);
-      sendResponse({ success: true, blocked: isBlocked });
-
-    } catch (error) {
-      console.error("❌ 도메인 체크 실패:", error);
-      sendResponse({ success: false, blocked: false, error: error.message });
-    }
+    })();
     return true; // async 처리를 위해 true 반환
   }
 });
 
 // --- API 연동 함수 ---
+async function syncSettingsFromBackend() {
+  if (!userSession.isUserAuthenticated()) {
+    return { success: false, reason: "unauthenticated" };
+  }
+  const result = await fetchUserSettings();
+  if (result.success) {
+    const settingsToStore = {
+      selectedCharacter: result.settings.avatarCode,
+      isCharacterOn: result.settings.avatarCode !== 'disabled',
+      isNotificationsOn: result.settings.notifyEnabled,
+      notificationItems: {
+        news: result.settings.newsEnabled,
+        quiz: result.settings.quizEnabled,
+        fact: result.settings.factEnabled,
+      },
+      notificationInterval: result.settings.notifyInterval,
+    };
+    await chrome.storage.sync.set(settingsToStore);
+    console.log('⚙️ 설정이 백엔드와 동기화되었습니다.', settingsToStore);
+    return { success: true, settings: settingsToStore };
+  }
+  return { success: false, error: result.error };
+}
+
 async function fetchUserSettings() {
   if (!userSession.isUserAuthenticated()) {
     return { success: false, reason: "unauthenticated" };
@@ -507,13 +622,19 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
     // 4. 성공 시 모든 탭의 content script로 추천 내용 브로드캐스트
     if (result.success && result.data) {
-      console.log(`📢 [${randomType}] 추천 콘텐츠를 모든 탭에 전송합니다:`, result.data);
+      const recommendation = result.data;
+      // 스크랩 여부 확인 및 추가
+      const contentType = recommendation.contentType;
+      const contentId = recommendation.contentId;
+      recommendation.isScrapped = userScrapsCache[contentType]?.has(contentId) || false;
+
+      console.log(`📢 [${contentType}] 추천 콘텐츠(스크랩: ${recommendation.isScrapped})를 모든 탭에 전송합니다:`, recommendation);
       const tabs = await chrome.tabs.query({});
       for (const tab of tabs) {
         try {
           await chrome.tabs.sendMessage(tab.id, {
             type: 'SHOW_RECOMMENDATION',
-            payload: result.data,
+            payload: recommendation,
           });
         } catch {
           // content script가 주입되지 않은 탭(예: chrome://)에서는 에러 발생. 정상임.
@@ -536,7 +657,7 @@ async function resetAlarm() {
 
   if (isOn) {
     chrome.alarms.create(ALARM_NAME, {
-      delayInMinutes: 1, // 처음엔 1분 뒤에 시작
+      delayInMinutes: 0.5, // 처음엔 0.5분 뒤에 시작
       periodInMinutes: interval
     });
     console.log(`✨ ${interval}분 간격으로 새 알람 설정 완료.`);
@@ -583,4 +704,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
   // [추가] 설치 또는 업데이트 시 항상 알람 재설정
   resetAlarm();
+});
+
+// [추가] 탭 활성화 시 설정 동기화 (마이페이지 변경사항 반영)
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  console.log(`🔄 탭 활성화 감지 (tabId: ${activeInfo.tabId}). 설정 동기화를 시도합니다.`);
+  await syncSettingsFromBackend();
 });
