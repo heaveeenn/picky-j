@@ -620,11 +620,37 @@ function Overlay() {
       }
       if (x <= 0) { // 왼쪽 벽 충돌
         x = 0;
-        lookRight = false; // 방향 전환
+        if (vx < 0) { // 왼쪽으로 이동 중이었다면
+          vx = 0;
+          if (Math.random() < 0.5) {
+            // 50% 확률로 벽 잡기
+            behaviorName = 'HoldOntoWall';
+            actionName = 'GrabWall';
+            sequenceFrame = 0;
+            actionFrame = -1; // 다음 프레임에서 0이 되어 새 액션을 시작하도록 설정
+          } else {
+            // 50% 확률로 행동만 종료하고 AI에게 맡기기
+            actionFrame = totalDuration;
+          }
+        }
+        lookRight = true; // 방향 전환
       }
       if (x >= window.innerWidth - 128) { // 오른쪽 벽 충돌
         x = window.innerWidth - 128;
-        lookRight = true; // 방향 전환
+        if (vx > 0) { // 오른쪽으로 이동 중이었다면
+          vx = 0;
+          if (Math.random() < 0.5) {
+            // 50% 확률로 벽 잡기
+            behaviorName = 'HoldOntoWall';
+            actionName = 'GrabWall';
+            sequenceFrame = 0;
+            actionFrame = -1; // 다음 프레임에서 0이 되어 새 액션을 시작하도록 설정
+          } else {
+            // 50% 확률로 행동만 종료하고 AI에게 맡기기
+            actionFrame = totalDuration;
+          }
+        }
+        lookRight = false; // 방향 전환
       }
       if (y <= 0) { // 천장 충돌
         y = 0;

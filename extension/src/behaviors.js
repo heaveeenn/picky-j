@@ -2269,7 +2269,20 @@ export const commonBehaviors = [
       type: "Behavior",
       name: "HoldOntoWall",
       frequency: 100,
-      nextBehaviors: [],
+      nextBehaviors: [
+        {
+          type: "Reference",
+          name: "ClimbHalfwayAlongWall",
+          frequency: 100,
+          nextBehaviors: [],
+        },
+        {
+          type: "Reference",
+          name: "FallFromWall",
+          frequency: 100,
+          nextBehaviors: [],
+        },
+      ],
       conditions: [
         (mascot) => mascot.lookRight ? (mascot.environment.workArea.rightBorder.isOn(mascot.anchor) || mascot.environment.activeIE.leftBorder.isOn(mascot.anchor)) : (mascot.environment.workArea.leftBorder.isOn(mascot.anchor) || mascot.environment.activeIE.rightBorder.isOn(mascot.anchor)),
       ],

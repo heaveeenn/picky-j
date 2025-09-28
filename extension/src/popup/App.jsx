@@ -2,7 +2,7 @@ import React, { useState, forwardRef, useEffect, useCallback, Fragment } from 'r
 import { BookOpen, Settings, Bell, BarChart3, X, LogIn, Check, ChevronDown } from 'lucide-react';
 import { availableCharacters } from '../shimeji-data.js';
 import { commonSprites } from '../behaviors.js';
-import { BACKEND_URL } from '../config/env.js';
+import { DASHBOARD_URL } from '../config/env.js';
 import * as SwitchPrimitives from '@radix-ui/react-switch';
 import * as SliderPrimitives from '@radix-ui/react-slider';
 import * as CheckboxPrimitives from '@radix-ui/react-checkbox';
@@ -348,7 +348,7 @@ function App() {
   }, [isLoggingIn, sendMessage, checkAuthStatus]);
 
   const handleGoToDashboard = useCallback(() => {
-    if (chrome?.tabs) chrome.tabs.create({ url: 'http://localhost:5173/' });
+    if (chrome?.tabs) chrome.tabs.create({ url: DASHBOARD_URL });
   }, []);
 
   /* ---------------------------------------------------------------------------
