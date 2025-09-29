@@ -206,7 +206,7 @@ export function IntroPage({ onLogin }) {
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY</h3>
                     <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
                     <a
-                      href="https://github.com/user-attachments/files/22585783/PICKY.zip"
+                      href="https://github.com/user-attachments/files/22586317/PICKY.zip"
                       download
                       className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
                     >
