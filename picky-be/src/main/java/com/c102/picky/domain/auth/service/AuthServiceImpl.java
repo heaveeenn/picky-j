@@ -6,6 +6,8 @@ import com.c102.picky.domain.auth.dto.TokenResponseDto;
 import com.c102.picky.domain.users.dto.Role;
 import com.c102.picky.domain.users.entity.User;
 import com.c102.picky.domain.users.repository.UserRepository;
+import com.c102.picky.domain.userstats.entity.UserDailySummary;
+import com.c102.picky.domain.userstats.repository.UserDailySummaryRepository;
 import com.c102.picky.global.exception.ApiException;
 import com.c102.picky.global.exception.ErrorCode;
 import com.c102.picky.global.security.jwt.JwtTokenProvider;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.Map;
@@ -37,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final CookieUtil cookieUtil;
+    private final UserDailySummaryRepository userDailySummaryRepository;
 
     @Value("${app.oauth.google.web-client-id}")
     private String webClientId;
@@ -90,6 +95,13 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepository.findByGoogleSub(googleSub)
                     .orElseGet(() -> {
                         User newUser = User.of(googleSub, email, name, picture, Role.USER);
+                        UserDailySummary userDailySummary = UserDailySummary.builder()
+                                .user(newUser)
+                                .summaryDate(LocalDate.now().minusDays(1))
+                                .totalSites(0L)
+                                .totalTimeSpent(0L)
+                                .build();
+                        userDailySummaryRepository.save(userDailySummary);
                         return userRepository.save(newUser);
                     });
 
