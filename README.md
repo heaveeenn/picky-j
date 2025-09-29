@@ -58,7 +58,7 @@
 
 <div align="center">
 
-[picky-architecture.png]
+![Architecture](./picky_architecture.png)
 
 </div>
 
