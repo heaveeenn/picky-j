@@ -212,7 +212,7 @@ export function IntroPage({ onLogin }) {
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY</h3>
                     <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
                     <a
-                      href="https://github.com/user-attachments/files/22587736/Picky_ver.0.1.0.zip"
+                      href="https://github.com/user-attachments/files/22613871/Picky_ver.0.1.0.zip"
                       download
                       className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
                     >
@@ -226,7 +226,7 @@ export function IntroPage({ onLogin }) {
                       <li>다운로드한 ZIP 파일의 압축을 풉니다.</li>
                       <li>Chrome 브라우저에서 <code className="bg-gray-200 text-sm px-1.5 py-1 rounded">chrome://extensions</code> 주소로 이동합니다.</li>
                       <li>우측 상단의 '개발자 모드'를 활성화합니다.</li>
-                      <li>'압축 해제된 확장 프로그램을 로드합니다' 버튼을 클릭합니다.</li>
+                      <li>'압축 해제된 확장 프로그램을 로드' 버튼을 클릭합니다.</li>
                       <li>압축 해제한 폴더를 선택하여 설치를 완료합니다.</li>
                     </ol>
                   </div>
