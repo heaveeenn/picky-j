@@ -69,7 +69,7 @@ class QuizRecommendationSender:
             seen_quiz_ids = self.get_user_seen_quiz_ids(user_id, days=30)
 
             # 2. 더 많은 퀴즈를 검색 (중복 제거 위해 여유분 확보)
-            search_limit = max(30, limit * 10)
+            search_limit = 500  # 500개 검색
 
             # 3. 퀴즈 추천 (이메일로 벡터 조회)
             all_recommended_quizzes = await self.recommendation_service.recommend_quizzes_by_user_id(
