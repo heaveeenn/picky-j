@@ -12,6 +12,10 @@ export default defineConfig({
     sourcemap: true,
     minify: 'terser',
     terserOptions: {
+      // console.log 제거
+      compress: {
+        drop_console: true,
+      },
       keep_classnames: true,
       keep_fnames: true,
     },
