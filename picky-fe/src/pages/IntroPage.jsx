@@ -286,7 +286,7 @@ export function IntroPage({ onLogin }) {
                 아래 방법을 통해 수동으로 설치하실 수 있습니다.
               </p>
               <a
-                href="https://github.com/user-attachments/files/22613871/Picky_ver.0.1.0.zip"
+                href="https://github.com/user-attachments/files/22628037/Picky_ver.0.1.0.zip"
                 download
                 className="inline-block w-full text-center bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors mb-6"
               >
