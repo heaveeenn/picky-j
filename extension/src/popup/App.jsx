@@ -214,6 +214,8 @@ function App() {
         if (changes.loginSuccess && changes.loginSuccess.newValue) {
           console.log("🔔 Storage에서 로그인 성공 감지!");
           checkAuthStatus();
+          // [FIX] 로그인 직후 최신 설정을 불러와 UI에 반영
+          sendMessage({ type: "GET_USER_SETTINGS" });
           // loginSuccess 플래그 제거
           chrome.storage.local.remove(["loginSuccess"]);
 
@@ -321,9 +323,10 @@ function App() {
       if (response && response.success) {
         console.log("✅ 즉시 로그인 응답 성공");
         setIsAuthenticated(true);
-        setUserInfo(response.userInfo);
+        setUserInfo(response.user);
         setLoginError("");
-        // loadToggleState()는 src2에서 isExtensionOn으로 대체되므로 호출하지 않음
+        // [FIX] 로그인 직후 최신 설정을 불러와 UI에 반영
+        await sendMessage({ type: "GET_USER_SETTINGS" });
         setIsLoggingIn(false);
         return;
       }
