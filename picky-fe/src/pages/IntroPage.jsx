@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Button from '../components/Button';
+import { BarChart3, Newspaper, Brain, Bot, Users, Puzzle } from 'lucide-react';
 
 const phrases = [
   "과도한 뉴스 정보 속,",
@@ -71,32 +72,32 @@ export function IntroPage({ onLogin }) {
 
   const features = [
     {
-      icon: '📊',
+      icon: BarChart3,
       title: '활동 리포트',
       description: '상세한 브라우징 패턴과 통계를 제공합니다.',
     },
     {
-      icon: '📰',
+      icon: Newspaper,
       title: '개인화 뉴스',
       description: '관심사 기반 맞춤형 뉴스를 추천합니다.',
     },
     {
-      icon: '🧠',
+      icon: Brain,
       title: '지식 퀴즈',
       description: '재미있는 O/X 퀴즈로 지식을 늘려보세요.',
     },
     {
-      icon: '🤖',
+      icon: Bot,
       title: '캐릭터 상호작용',
       description: '친근한 캐릭터가 유용한 정보를 알려드려요.',
     },
     {
-      icon: '🌐',
+      icon: Users,
       title: '커뮤니티',
       description: '다른 사용자들과 트렌드를 공유합니다.',
     },
     {
-      icon: '🔌',
+      icon: Puzzle,
       title: 'Chrome Extension',
       description: '브라우징 활동을 자동으로 추적하고 분석합니다.',
     },
@@ -180,13 +181,18 @@ export function IntroPage({ onLogin }) {
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {features.map((feature, index) => (
-                  <div key={index} className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                    <div className="text-4xl mb-4">{feature.icon}</div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">{feature.title}</h3>
-                    <p className="text-gray-600">{feature.description}</p>
-                  </div>
-                ))}
+                {features.map((feature, index) => {
+                  const IconComponent = feature.icon;
+                  return (
+                    <div key={index} className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                      <div className="mb-4">
+                        <IconComponent className="w-12 h-12 text-primary" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{feature.title}</h3>
+                      <p className="text-gray-600">{feature.description}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
