@@ -70,7 +70,7 @@ class NewsRecommendationSender:
             seen_news_ids = self.get_user_seen_news_ids(user_id, days=30)
 
             # 2. 더 많은 뉴스를 검색 (중복 제거 위해 여유분 확보)
-            search_limit = max(500, limit * 50)  # 최소 500개 또는 요청 개수의 50배
+            search_limit = 500  # 500개 검색
 
             # 3. 뉴스 추천 (이메일로 벡터 조회)
             all_recommended_news = await self.recommendation_service.recommend_news_by_user_id(
