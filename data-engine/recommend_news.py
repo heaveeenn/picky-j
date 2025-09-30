@@ -59,8 +59,8 @@ class NewsRecommendationService:
     async def recommend_news_by_user_id(
         self,
         user_id: str,
-        limit: int = 20,
-        score_threshold: float = 0.4
+        limit: int = 500,
+        score_threshold: float = 0.2
     ) -> List[Dict]:
         """사용자 ID로 뉴스 추천
 
@@ -89,8 +89,8 @@ class NewsRecommendationService:
     async def get_similar_news(
         self,
         user_vector: List[float],
-        limit: int = 20,
-        score_threshold: float = 0.4
+        limit: int = 500,
+        score_threshold: float = 0.2
     ) -> List[Dict]:
         """사용자 벡터와 유사한 뉴스 검색
 

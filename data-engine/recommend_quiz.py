@@ -83,7 +83,7 @@ class QuizRecommendationService:
         finally:
             session.close()
 
-    async def recommend_quizzes_by_user_id(self, user_id: str, limit: int = 20) -> List[Dict]:
+    async def recommend_quizzes_by_user_id(self, user_id: str, limit: int = 500) -> List[Dict]:
         """사용자 ID 기반 퀴즈 추천"""
         try:
             # 1. 사용자 벡터 조회
