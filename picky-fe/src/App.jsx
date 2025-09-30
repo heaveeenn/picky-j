@@ -98,8 +98,9 @@ const App = () => {
         onLogoutClick={handleLogout}
       />
 
-      <main className="container mx-auto p-4">
-        <div className="mb-4 border-b border-gray-200">
+      <main className="px-6 py-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-4 border-b border-gray-200">
           <nav className="-mb-px flex space-x-6">
             {Object.keys(tabs).map((tabKey) => (
               <Button
@@ -121,6 +122,7 @@ const App = () => {
         <Box className="p-6">
           {tabs[activeTab].component}
         </Box>
+        </div>
       </main>
     </div>
   );

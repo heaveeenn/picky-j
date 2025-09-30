@@ -14,6 +14,7 @@ export function IntroPage({ onLogin }) {
   const [typedText, setTypedText] = useState('');
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setIsLoaded(true);
@@ -180,19 +181,21 @@ export function IntroPage({ onLogin }) {
                   당신의 웹 서핑을 한 단계 업그레이드할 강력한 기능들을 만나보세요.
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {features.map((feature, index) => {
-                  const IconComponent = feature.icon;
-                  return (
-                    <div key={index} className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                      <div className="mb-4">
-                        <IconComponent className="w-12 h-12 text-primary" />
+              <div className="max-w-6xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {features.map((feature, index) => {
+                    const IconComponent = feature.icon;
+                    return (
+                      <div key={index} className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                        <div className="mb-4">
+                          <IconComponent className="w-12 h-12 text-primary" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">{feature.title}</h3>
+                        <p className="text-gray-600">{feature.description}</p>
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">{feature.title}</h3>
-                      <p className="text-gray-600">{feature.description}</p>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </section>
@@ -202,33 +205,30 @@ export function IntroPage({ onLogin }) {
             <div className="container mx-auto px-6">
               <div className="text-center mb-16">
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">PICKY 크롬 확장 프로그램 설치</h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                  아래 버튼을 통해 확장 프로그램을 다운로드하고, 안내에 따라 수동으로 설치하여 PICKY의 모든 기능을 활성화하세요.
-                </p>
               </div>
-              <div className="max-w-4xl mx-auto bg-gray-50 p-8 rounded-xl border border-gray-200">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                  <div className="text-center md:text-left">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">PICKY</h3>
-                    <p className="text-gray-600 mb-4">클릭하여 확장 프로그램 파일을 다운로드하세요.</p>
-                    <a
-                      href="https://github.com/user-attachments/files/22613871/Picky_ver.0.1.0.zip"
-                      download
-                      className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
-                    >
-                      다운로드
-                    </a>
+              <div className="max-w-5xl mx-auto bg-gray-50 p-12 rounded-xl border border-gray-200">
+                <div className="flex flex-col md:flex-row items-stretch justify-center gap-12">
+                  <div className="text-center md:text-left flex-1 flex flex-col justify-center">
+                    <div>
+                      <h3 className="text-3xl font-bold text-slate-900 mb-4">PICKY</h3>
+                      <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+                        확장 프로그램 설치 후,
+                        <br />
+                        맞춤형 뉴스·퀴즈·지식을 한눈에 확인하세요.
+                        <br />
+                        PICKY가 당신의 브라우저를 학습 도우미로 바꿔드립니다!
+                      </p>
+                      <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="inline-block bg-primary text-white font-bold px-8 py-4 rounded-lg hover:bg-primary-dark transition-colors text-lg"
+                      >
+                        설치하기
+                      </button>
+                    </div>
                   </div>
-                  <div className="w-full md:w-px bg-gray-300 h-px md:h-32"></div>
-                  <div>
-                    <h4 className="text-lg font-semibold text-slate-800 mb-3 text-center md:text-left">수동 설치 방법</h4>
-                    <ol className="list-decimal list-inside text-gray-700 space-y-2">
-                      <li>다운로드한 ZIP 파일의 압축을 풉니다.</li>
-                      <li>Chrome 브라우저에서 <code className="bg-gray-200 text-sm px-1.5 py-1 rounded">chrome://extensions</code> 주소로 이동합니다.</li>
-                      <li>우측 상단의 '개발자 모드'를 활성화합니다.</li>
-                      <li>'압축 해제된 확장 프로그램을 로드' 버튼을 클릭합니다.</li>
-                      <li>압축 해제한 폴더를 선택하여 설치를 완료합니다.</li>
-                    </ol>
+                  <div className="w-px bg-gray-200 hidden md:block"></div>
+                  <div className="flex-1 flex justify-center items-center">
+                    <img src="/images/intro.png" alt="PICKY Extension Intro" className="rounded-lg shadow-lg max-w-sm w-full" />
                   </div>
                 </div>
               </div>
@@ -247,7 +247,7 @@ export function IntroPage({ onLogin }) {
                       onClick={handleGoogleLogin}
                       className="bg-gradient-to-r from-primary to-pink-600 text-white font-bold text-xl px-10 py-5 rounded-full hover:opacity-90 transition-opacity"
                   >
-                      무료로 시작하기
+                      지금 시작하기
                   </Button>
               </div>
           </section>
@@ -270,6 +270,41 @@ export function IntroPage({ onLogin }) {
             </div>
           </div>
         </footer>
+
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsModalOpen(false)}>
+            <div className="bg-white p-8 rounded-lg shadow-xl max-w-lg w-full relative text-slate-800" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h3 className="text-xl font-bold mb-4 text-slate-900">수동 설치 안내</h3>
+              <p className="text-gray-600 mb-6">
+                PICKY 크롬 확장 프로그램은 현재 웹스토어 등록을 준비 중입니다.
+                <br />
+                아래 방법을 통해 수동으로 설치하실 수 있습니다.
+              </p>
+              <a
+                href="https://github.com/user-attachments/files/22628037/Picky_ver.0.1.0.zip"
+                download
+                className="inline-block w-full text-center bg-primary text-white font-bold px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors mb-6"
+              >
+                확장 프로그램 다운로드
+              </a>
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-3">설치 안내</h4>
+                <ol className="list-decimal list-inside text-gray-700 space-y-2 text-left">
+                  <li>다운로드한 ZIP 파일의 압축을 풉니다.</li>
+                  <li>Chrome 브라우저에서 <code className="bg-gray-200 text-sm px-1.5 py-1 rounded">chrome://extensions</code> 주소로 이동합니다.</li>
+                  <li>우측 상단의 '개발자 모드'를 활성화합니다.</li>
+                  <li>'압축 해제된 확장 프로그램을 로드' 버튼을 클릭합니다.</li>
+                  <li>압축 해제한 폴더를 선택하여 설치를 완료합니다.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
