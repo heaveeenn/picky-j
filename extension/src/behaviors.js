@@ -70,6 +70,23 @@ export const commonActions = [
       borderType: "Floor",
     },
     {
+      type: "Stay",
+      name: "Land",
+      animations: [
+        {
+          poses: [
+            {
+              sprite: "/shime1.png",
+              anchor: { x: 64, y: 128 },
+              velocity: { x: 0, y: 0 },
+              duration: 1,
+            },
+          ],
+        },
+      ],
+      borderType: "Floor",
+    },
+    {
       type: "Move",
       name: "Walk",
       animations: [
@@ -1899,9 +1916,10 @@ export const commonActions = [
       actions: [
         { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.left, targetY: (mascot) => mascot.environment.activeIE.bottom },
         { type: "Reference", name: "FallWithIe" },
+        { type: "Reference", name: "Land" },
         { type: "Reference", name: "WalkAndHold", targetX: (mascot) => mascot.anchor.x + 300 },
         { type: "Reference", name: "ThrowIe" },
-        { type: "Reference", name: "Stand", duration: "100" },
+        { type: "Reference", name: "Stand" },
       ],
     },
     {
@@ -1911,9 +1929,10 @@ export const commonActions = [
       actions: [
         { type: "Reference", name: "Jumping", targetX: (mascot) => mascot.environment.activeIE.right, targetY: (mascot) => mascot.environment.activeIE.bottom },
         { type: "Reference", name: "FallWithIe" },
+        { type: "Reference", name: "Land" },
         { type: "Reference", name: "WalkAndHold", targetX: (mascot) => mascot.anchor.x - 300 },
         { type: "Reference", name: "ThrowIe" },
-        { type: "Reference", name: "Stand", duration: "100" },
+        { type: "Reference", name: "Stand" },
       ],
     },
     {

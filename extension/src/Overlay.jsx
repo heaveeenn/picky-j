@@ -616,7 +616,7 @@ function Overlay() {
 
       // 캐릭터가 바닥 또는 플랫폼에 닿았고, 'Falling' 또는 'Jumping' 상태였다면,
       // 즉시 다음 행동으로 전환하도록 actionFrame을 강제로 종료시킵니다.
-      if ((landedOnPlatform || y === groundY) && ['Falling', 'Jumping'].includes(actionName)) {
+      if ((landedOnPlatform || y === groundY) && ['Falling', 'Jumping', 'FallWithIe'].includes(actionName)) {
         if (prevState.wasJustDragged) {
           // [수정] 드래그 후 착지 시 'StandUp' 행동을 강제하여 'Falling' 상태에 머무는 버그를 해결합니다.
           behaviorName = 'StandUp';
