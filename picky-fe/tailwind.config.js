@@ -4,7 +4,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#ff914d',
+        primary: '#a9c8d0',
+        secondary: '#f0e6d2',
+        accent: '#ff914d',
       },
       fontFamily: {
         sans: ['Pretendard', 'system-ui', 'sans-serif'],
@@ -13,4 +15,3 @@ export default {
   },
   plugins: [],
 };
-

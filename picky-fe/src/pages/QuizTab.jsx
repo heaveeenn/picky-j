@@ -243,9 +243,9 @@ const QuizTab = () => {
       {/* 퀴즈 통계 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Box className="text-center p-4">
-          <Trophy className="w-8 h-8 text-primary mx-auto mb-2" />
-          <p className="text-2xl font-bold text-primary">{quizStats.totalQuizzes}</p>
-          <p className="text-sm text-primary">총 참여 퀴즈</p>
+          <Trophy className="w-8 h-8 text-[#38a9bb] mx-auto mb-2" />
+          <p className="text-2xl font-bold text-[#38a9bb]">{quizStats.totalQuizzes}</p>
+          <p className="text-sm text-[#38a9bb]">총 참여 퀴즈</p>
         </Box>
         
         <Box className="text-center p-4">
