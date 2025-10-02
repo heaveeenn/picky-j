@@ -164,7 +164,7 @@ const getCategoryColorClass = (categoryName) => {
             <ResponsiveContainer width="100%" height={120}>
               <BarChart data={formattedDailyConsumption}><XAxis dataKey="day" stroke="#64748b" /><Tooltip cursor={{fill: 'rgba(238, 242, 255, 0.5)'}} formatter={(value) => `${value}개`} /><Bar dataKey="count" name="" radius={[4, 4, 0, 0]}>
                   {formattedDailyConsumption.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={['#ff914d', '#ffd5ba'][index % 2]} />
+                    <Cell key={`cell-${index}`} fill={['#38a9bb', '#a9c8d0'][index % 2]} />
                   ))}
                 </Bar></BarChart>
             </ResponsiveContainer>

@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Globe, Clock, TrendingUp, Users, AlertCircle, Loader, BarChart3 } from 'lucide-react';
 import api from '../lib/api';
 
-const BAR_COLORS = ['#ff914d', '#ffd5ba'];
+const BAR_COLORS = ['#38a9bb', '#a9c8d0'];
 const RANK_COLORS = ['bg-amber-400', 'bg-slate-400', 'bg-orange-400', 'bg-sky-400', 'bg-indigo-400'];
 
 const mockData = {
