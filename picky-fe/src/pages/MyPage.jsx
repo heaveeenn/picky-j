@@ -238,7 +238,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
               onClick={() => setActiveTab('profile')}
               variant="ghost"
                             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                              activeTab === 'profile' ? 'border-primary text-primary'
+                              activeTab === 'profile' ? 'border-[#38a9bb] text-[#38a9bb]'
                                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                               }`}            >
               <User className="w-4 h-4 mr-2" />프로필
@@ -248,7 +248,7 @@ const MyPage = ({ onClose, nickname, profileImage }) => {
               variant="ghost"
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'scraps'
-                  ? 'border-primary text-primary'
+                  ? 'border-[#38a9bb] text-[#38a9bb]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >

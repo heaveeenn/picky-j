@@ -129,9 +129,7 @@ export function IntroPage({ onLogin }) {
         <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-200">
           <div className="container mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                P
-              </div>
+              <img src="/images/picky.png" alt="Picky Logo" className="w-9 h-9" />
               <h1 className="text-2xl font-bold text-slate-900">PICKY</h1>
             </div>
             <Button
@@ -154,7 +152,7 @@ export function IntroPage({ onLogin }) {
           {/* Hero Section */}
           <section className="relative flex flex-col items-center justify-start min-h-screen px-6 bg-white overflow-hidden">
             <div className="relative z-10 text-center mt-[-32] pt-20">
-              <h1 className={`text-4xl md:text-6xl font-extrabold mb-20 bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} leading-relaxed`}>
+              <h1 className={`text-4xl md:text-6xl font-extrabold mb-20 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary transition-all duration-700 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} leading-relaxed`}>
                 쏟아지는 정보 속<br />
                 당신만의 뉴스를 찾다<br />
               </h1>
@@ -245,7 +243,7 @@ export function IntroPage({ onLogin }) {
                   </p>
                   <Button
                       onClick={handleGoogleLogin}
-                      className="bg-gradient-to-r from-primary to-pink-600 text-white font-bold text-xl px-10 py-5 rounded-full hover:opacity-90 transition-opacity"
+                      className="bg-gradient-to-r from-primary to-secondary text-white font-bold text-xl px-10 py-5 rounded-full hover:opacity-90 transition-opacity"
                   >
                       지금 시작하기
                   </Button>
@@ -254,18 +252,26 @@ export function IntroPage({ onLogin }) {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-gray-200 bg-white">
-          <div className="container mx-auto px-6 py-12">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="flex items-center space-x-3 mb-6 md:mb-0">
-                <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                  P
-                </div>
-                <h1 className="text-2xl font-bold text-slate-900">PICKY</h1>
+        <footer className="border-t border-gray-200 bg-primary">
+          <div className="container mx-auto px-6 py-8">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center space-x-3 mb-4">
+                <h1 className="text-2xl font-bold text-white">PICKY</h1>
               </div>
-              <div className="text-center md:text-right text-gray-500">
-                <p className="mb-2">© 2025 PICKY. All Rights Reserved.</p>
-                <p>똑똑한 브라우징의 시작</p>
+              <div className="text-center text-white">
+                <p className="mb-2">
+                  © 2025 PICKY. All Rights Reserved.
+                </p>
+                <p>
+                  <a
+                    href="https://dnddld.github.io/picky-privacy/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    개인정보처리방침
+                  </a>
+                </p>
               </div>
             </div>
           </div>
