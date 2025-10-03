@@ -6,7 +6,7 @@ export const blankGuyData = {
     group: "group-finity",
     groupName: "Group Finity",
     shimeji: "group-finity-blank-guy",
-    shimejiName: "Blank Guy",
+    shimejiName: "피키맨",
     sourceUrl: "http://kilkakon.com/shimeji/index.php",
     artistName: "Group Finity",
     iconUrl:

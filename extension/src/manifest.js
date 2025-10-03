@@ -3,7 +3,7 @@ import pkg from "../package.json";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "Picky",
+  name: "PICKY",
   version: pkg.version,
   description: "사용자의 웹 활동 로그를 기반으로 학습하여 맞춤형 콘텐츠를 추천하는 지능형 지식 동반자",
   oauth2: {
@@ -22,7 +22,6 @@ export default defineManifest({
     "storage",
     "history",
     "offscreen",
-    "scripting",
     "identity",
     "alarms",
   ],
@@ -47,7 +46,6 @@ export default defineManifest({
         "*://localhost:*/*",
         "*://127.0.0.1:*/*",
         "https://j13c102.p.ssafy.io/*", // picky 대시보드 제외
-        // "https://www.canva.com/*",
 
         // OAuth/로그인
         "*://accounts.google.com/*",

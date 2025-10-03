@@ -63,7 +63,7 @@ const OnOffToggleButton = ({ checked, onCheckedChange }) => {
       onClick={handleClick}
       className={cn(
         'relative inline-flex h-7 w-[70px] flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent p-1 transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
-        checked ? 'bg-orange-300' : 'bg-gray-200'
+        checked ? 'bg-primary/70' : 'bg-gray-200'
       )}
     >
       <span className="sr-only">Use setting</span>
@@ -394,13 +394,12 @@ function App() {
   const nextChar = characterList[nextIndex];
 
   return (
-    <div className="w-80 max-w-sm font-sans rounded-lg shadow-lg bg-white">
+    <div className="w-80 max-w-sm font-sans rounded-lg shadow-lg overflow-hidden">
       {/* 헤더 */}
-      <div className="p-4 pb-2 bg-primary text-white rounded-t-lg">
+      <div className="px-4 py-3 bg-primary text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Lightbulb className="w-5 h-5" />
-            <span className="font-semibold text-lg">Picky</span>
+            <span className="font-semibold text-lg">PICKY</span>
           </div>
           <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 p-1 h-auto" onClick={() => window.close()}>
             <X className="w-4 h-4" />
@@ -409,7 +408,7 @@ function App() {
       </div>
 
       {/* 본문 */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 bg-white">
         {/* [변경] 실제 인증 상태에 따라 UI 분기 */}
         {isAuthenticated ? (
           <Fragment>
@@ -435,7 +434,7 @@ function App() {
                 {/* 캐릭터 표시 토글 */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full" />
+                    <div className="w-4 h-4 bg-primary rounded-full" />
                     <label className="text-sm font-medium">캐릭터</label>
                   </div>
                   <OnOffToggleButton checked={isCharacterOn} onCheckedChange={handleToggleCharacter} />
@@ -465,7 +464,7 @@ function App() {
                         </button>
 
                         {/* Current */}
-                        <div className="flex flex-col items-center p-2 rounded-md border-2 border-primary bg-orange-50">
+                        <div className="flex flex-col items-center p-2 rounded-md border-2 border-primary bg-primary/10">
                           <div
                             className="w-12 h-12 bg-no-repeat"
                             style={{
@@ -503,7 +502,7 @@ function App() {
                 {/* 알림 토글 */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Bell className="w-4 h-4 text-blue-600" />
+                    <Bell className="w-4 h-4 text-primary" />
                     <label className="text-sm font-medium">알림</label>
                   </div>
                   <OnOffToggleButton checked={isNotificationsOn} onCheckedChange={handleToggleNotifications} />
@@ -520,7 +519,7 @@ function App() {
                         className={cn(
                           "flex-1 h-8 rounded-none rounded-l-md focus:ring-0",
                           "border-r border-gray-300",
-                          notificationItems.news ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                          notificationItems.news ? "bg-primary/20 text-[#0083b0]" : "bg-white text-gray-700 hover:bg-gray-50"
                         )}
                       >
                         뉴스
@@ -532,7 +531,7 @@ function App() {
                         className={cn(
                           "flex-1 h-8 rounded-none focus:ring-0",
                           "border-r border-gray-300",
-                          notificationItems.quiz ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                          notificationItems.quiz ? "bg-primary/20 text-[#0083b0]" : "bg-white text-gray-700 hover:bg-gray-50"
                         )}
                       >
                         퀴즈
@@ -543,7 +542,7 @@ function App() {
                         size="sm"
                         className={cn(
                           "flex-1 h-8 rounded-none rounded-r-md focus:ring-0",
-                          notificationItems.fact ? "bg-blue-100 text-blue-800" : "bg-white text-gray-700 hover:bg-gray-50"
+                          notificationItems.fact ? "bg-primary/20 text-[#0083b0]" : "bg-white text-gray-700 hover:bg-gray-50"
                         )}
                       >
                         상식
@@ -581,10 +580,10 @@ function App() {
                 <p className="text-xs text-gray-500">Picky의 모든 기능을 사용하려면<br/>Google 계정으로 로그인해주세요.</p>
               </div>
               {loginError && <p className="text-red-500 text-xs mb-2">{loginError}</p>}
-              <Button size="sm" onClick={handleGoogleLogin} disabled={isLoggingIn} className="w-full bg-red-500 hover:bg-red-600 text-white">
+              <Button size="sm" onClick={handleGoogleLogin} disabled={isLoggingIn} className="w-full">
                 {isLoggingIn ? '로그인 중...' : (
                   <Fragment>
-                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    <svg className="w-4 h-4 mr-2" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><g fill="none" fillRule="evenodd"><path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4818h4.8436c-.2086 1.125-.8427 2.0782-1.7777 2.7218v2.2591h2.9087c1.7018-1.5668 2.6836-3.8736 2.6836-6.6218z" fill="#4285F4"></path><path d="M9 18c2.43 0 4.4718-.7964 5.9636-2.1818l-2.9087-2.2591c-.8059.54-1.8368.8618-3.0549.8618-2.345 0-4.3286-1.5818-5.0359-3.7118H.9573v2.3318C2.7459 16.2882 5.62 18 9 18z" fill="#34A853"></path><path d="M3.9641 10.71c-.18-.54-.2823-1.1168-.2823-1.71s.1023-1.17.2823-1.71V4.9582H.9573C.3477 6.1736 0 7.5477 0 9c0 1.4523.3477 2.8264.9573 4.0418L3.9641 10.71z" fill="#FBBC05"></path><path d="M9 3.5727c1.3214 0 2.5077.4545 3.4405 1.3455l2.5818-2.5818C13.4636.8918 11.43 0 9 0 5.62 0 2.7459 1.7118.9573 4.29L3.9641 6.6218c.7073-2.13 2.6909-3.7118 5.0359-3.7118z" fill="#EA4335"></path></g></svg>
                     Google로 로그인
                   </Fragment>
                 )}
