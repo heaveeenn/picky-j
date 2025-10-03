@@ -21,7 +21,7 @@ const blankGuyData = {
   spritesheet: "/images/characters/blank-guy.png",
   metadata: {
     shimeji: "blank-guy",
-    shimejiName: "Blank Guy",
+    shimejiName: "피키맨",
   },
 };
 
@@ -31,7 +31,7 @@ const polarBearData = {
   spritesheet: "/images/characters/polar-bear.png",
   metadata: {
     shimeji: "polar-bear",
-    shimejiName: "북극곰",
+    shimejiName: "피키베어",
   },
 };
 
@@ -41,7 +41,7 @@ const ghostData = {
   spritesheet: "/images/characters/ghost.png",
   metadata: {
     shimeji: "ghost",
-    shimejiName: "유령",
+    shimejiName: "피키부우",
   },
 };
 
