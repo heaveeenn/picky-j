@@ -16,6 +16,10 @@ export default defineConfig({
       compress: {
         drop_console: true,
       },
+      // 주석 제거
+      format: {
+        comments: false,
+      },
       keep_classnames: true,
       keep_fnames: true,
     },
