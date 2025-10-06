@@ -13,9 +13,9 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       // console.log 제거
-      // compress: {
-      //   drop_console: true,
-      // },
+      compress: {
+        drop_console: true,
+      },
       // 주석 제거
       format: {
         comments: false,
