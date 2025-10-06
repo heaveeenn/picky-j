@@ -53,15 +53,13 @@ class RecommendationController {
     /**
      * 클릭 / 닫기 등 사용자 상호작용 시 상태 업데이트
      */
-    @PatchMapping("/{slotId}/ack")
+    @PostMapping("/ack")
     public ResponseEntity<ApiResponse<Void>> acknowledgeRecommendation(
             HttpServletRequest request,
-            @PathVariable Long slotId,
             @Valid @RequestBody RecommendationAckRequestDto dto
     ) {
-
         Long userId = (Long) request.getAttribute("userId");
-        recommendationService.acknowledgeRecommendation(userId, slotId, dto);
+        recommendationService.acknowledgeRecommendation(userId, dto.getSlotId(), dto);
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "상호작용 기록 성공", null, request.getRequestURI()));
     }
 
