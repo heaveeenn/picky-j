@@ -993,6 +993,18 @@ function Overlay() {
     }
   };
 
+  // [신규] 뉴스 조회 기록 핸들러
+  const handleViewNews = () => {
+    if (!recommendation || recommendation.contentType !== 'NEWS') return;
+
+    sendMessageToBackground({
+      type: 'RECORD_NEWS_VIEW',
+      payload: { newsId: recommendation.contentId },
+    });
+
+    window.open(recommendation.url, '_blank');
+  };
+
   // [신규] 퀴즈 답변 핸들러 (background script 경유)
   const handleQuizAnswer = async (answer) => {
     if (!recommendation || recommendation.contentType !== 'QUIZ') return;
@@ -1128,7 +1140,7 @@ function Overlay() {
                 <div className="flex justify-between items-center text-xs text-gray-500">
                   <span>{recommendation.extras.categoryName}</span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => window.open(recommendation.url, '_blank')} className="flex items-center gap-1 hover:text-purple-600"><ExternalLink size={12} /> 전문 보기</button>
+                    <button onClick={handleViewNews} className="flex items-center gap-1 hover:text-purple-600"><ExternalLink size={12} /> 전문 보기</button>
                     <button onClick={handleScrapToggle} className="flex items-center gap-1 hover:text-purple-600">
                       <Bookmark size={12} className={isScrapped ? 'fill-current text-yellow-500' : ''} /> 스크랩
                     </button>

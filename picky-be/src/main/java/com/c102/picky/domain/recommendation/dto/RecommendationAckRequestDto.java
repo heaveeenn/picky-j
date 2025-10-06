@@ -1,14 +1,19 @@
 package com.c102.picky.domain.recommendation.dto;
 
 import com.c102.picky.domain.recommendation.model.RecommendationEventType;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class RecommendationAckRequestDto {
+
+    @NotNull
+    private Long slotId;
+
     @NotNull
     private RecommendationEventType eventType;
-    @Min(0) @Builder.Default
-    private Integer dwellMs = 0;
 }

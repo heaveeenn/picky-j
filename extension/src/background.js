@@ -382,6 +382,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // 비동기 응답
   }
 
+  // [신규] 뉴스 조회 기록
+  if (message.type === 'RECORD_NEWS_VIEW') {
+    (async () => {
+      try {
+        const { newsId } = message.payload;
+        const response = await authFetch(`${BACKEND_URL}/api/dashboard/news/${newsId}/view`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error("뉴스 조회 기록 API 호출 실패:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+
 // --- [추가] UI 관련 메시지 핸들러 ---
   if (message.type === 'GET_USER_SETTINGS') {
     (async () => {
@@ -576,10 +597,10 @@ async function acknowledgeRecommendation(slotId, eventType) {
     return { success: false, reason: "unauthenticated" };
   }
   try {
-    const response = await authFetch(`${BACKEND_URL}/api/recommendations/slots/${slotId}/ack`, {
+    const response = await authFetch(`${BACKEND_URL}/api/recommendations/ack`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventType }),
+      body: JSON.stringify({ slotId, eventType }),
     });
     if (!response.ok) {
       throw new Error(`API Error: ${response.status}`);
@@ -657,7 +678,7 @@ async function resetAlarm() {
 
   if (isOn) {
     chrome.alarms.create(ALARM_NAME, {
-      delayInMinutes: 0.2, // 처음엔 0.2분 뒤에 시작
+      delayInMinutes: 5, // 처음엔 5분 뒤에 시작
       periodInMinutes: interval,
     });
     console.log(`✨ ${interval}분 간격으로 새 알람 설정 완료.`);
