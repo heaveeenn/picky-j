@@ -17,3 +17,4 @@ Thumbs.db
 *.md
 
 # Project-specific gitignore files handle their own patterns
+picky-be/src/main/resources/application.yaml
